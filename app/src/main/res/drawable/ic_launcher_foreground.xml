@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- задняя карточка -->
+    <path android:fillColor="#66FFFFFF"
+        android:pathData="M38,32h36a4,4 0,0 1,4 4v38a4,4 0,0 1,-4 4h-36a4,4 0,0 1,-4 -4v-38a4,4 0,0 1,4 -4z"/>
+    <!-- передняя карточка -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M32,38h40a4,4 0,0 1,4 4v30a4,4 0,0 1,-4 4h-40a4,4 0,0 1,-4 -4v-30a4,4 0,0 1,4 -4z"/>
+    <!-- человек -->
+    <path android:fillColor="#FF4A3BC4"
+        android:pathData="M45,52m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0"/>
+    <path android:fillColor="#FF4A3BC4"
+        android:pathData="M35,68c0,-5 4.5,-8 10,-8s10,3 10,8v1h-20z"/>
+    <!-- строки -->
+    <path android:fillColor="#FFB9B2F0" android:pathData="M58,50h12v3h-12z"/>
+    <path android:fillColor="#FFB9B2F0" android:pathData="M58,57h10v3h-10z"/>
+    <path android:fillColor="#FFB9B2F0" android:pathData="M58,64h12v3h-12z"/>
+</vector>
