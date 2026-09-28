@@ -70,7 +70,7 @@ fun AppearanceSettings(settings: Settings) {
                 ) {
                     IconPreview(icon, selected)
                     Text(
-                        stringResource(icon.label) + if (icon == AppIcon.DARK) " ◐" else "",
+                        stringResource(icon.label) + if (icon == AppIcon.DARK) " ○" else "",
                         style = MaterialTheme.typography.labelSmall,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
@@ -123,11 +123,6 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         // Передний слой адаптивного значка рассчитан на 108dp, видимая часть — центральные 72dp.
-        val full = icon.fullImage
-        if (full != null) {
-            Image(painterResource(full), null, Modifier.requiredSize(81.dp))
-        } else {
-            Image(painterResource(icon.foreground), null, Modifier.requiredSize(81.dp))
-        }
+        Image(painterResource(icon.foreground), null, Modifier.requiredSize(81.dp))
     }
 }
