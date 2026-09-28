@@ -28,6 +28,20 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import com.kartoteka.app.messaging.AutoSend
+import com.kartoteka.app.messaging.JobState
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonAdd
@@ -86,8 +100,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 enum class Channel(val title: String, val description: String, val icon: ImageVector, val personal: Boolean) {
-    WHATSAPP("WhatsApp по очереди", "Каждому своё сообщение: чат открывается с готовым текстом — остаётся нажать «Отправить»", Icons.AutoMirrored.Filled.Chat, true),
-    TELEGRAM("Telegram по очереди", "Открывается чат с человеком, текст уже в буфере обмена — вставьте и отправьте", Icons.AutoMirrored.Filled.Send, true),
+    WHATSAPP("WhatsApp", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Chat, true),
+    TELEGRAM("Telegram", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Send, true),
     SMS_AUTO("SMS автоматически", "Персональные SMS уходят сами, без открытия приложений. Оплачивается по тарифу оператора", Icons.Default.Sms, true),
     SMS_APP("SMS одним сообщением", "Открыть SMS-приложение сразу со всеми номерами — один текст всем", Icons.Default.Sms, false),
     SHARE("В группу / чат мессенджера", "Отправить текст в существующий групповой чат WhatsApp, Telegram, Viber или любой другой", Icons.Default.Share, false),
@@ -103,6 +117,22 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
     var sending by mutableStateOf(false)
     val sent = mutableStateMapOf<Long, Boolean>()
     var autoProgress by mutableStateOf<Pair<Int, Int>?>(null)
+    var autoMode by mutableStateOf(true)
+    val delaySec = app.settings.autoSendDelaySec
+
+    /** Полностью автоматическая рассылка в мессенджер через службу авто-отправки. */
+    fun startAuto(context: android.content.Context) {
+        val targets = selected().filter { canReceive(it) }
+        val byId = targets.associateBy { it.person.id }
+        val ch = if (channel == Channel.WHATSAPP) com.kartoteka.app.data.NotifyChannel.WHATSAPP else com.kartoteka.app.data.NotifyChannel.TELEGRAM
+        val jobs = targets.map { pf ->
+            com.kartoteka.app.messaging.SendJob(pf.person.id, pf.person.displayName, ch, (if (ch == com.kartoteka.app.data.NotifyChannel.WHATSAPP) pf.whatsapp else pf.telegram)!!, messageFor(pf))
+        }
+        sending = true
+        com.kartoteka.app.messaging.AutoSend.start(context, jobs, delaySec.value.value.toIntOrNull() ?: 6) { job, ok ->
+            if (ok) byId[job.personId]?.let(::markSent)
+        }
+    }
 
     init {
         viewModelScope.launch {
@@ -152,12 +182,15 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
         }
     }
 
-    fun reset() { sending = false; sent.clear(); autoProgress = null }
+    fun reset() {
+        sending = false; sent.clear(); autoProgress = null
+        com.kartoteka.app.messaging.AutoSend.clear()
+    }
 }
 
 private val placeholders = listOf("{имя}", "{имя_отчество}", "{фамилия}", "{прозвище}")
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: (() -> Unit)?) {
     val app = app()
@@ -169,7 +202,13 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
     val groups by vm.groups.collectAsState()
     val selected = all.filter { it.person.id in vm.recipients }.sortedBy { it.person.sortKey }
     var picker by remember { mutableStateOf(false) }
+    var criteria by remember { mutableStateOf(false) }
     var confirmAuto by remember { mutableStateOf(false) }
+    var confirmMessenger by remember { mutableStateOf(false) }
+    var serviceOn by remember { mutableStateOf(AutoSend.isServiceEnabled(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { serviceOn = AutoSend.isServiceEnabled(context) }
+    val autoProgressState by AutoSend.progress.collectAsState()
+    val delay by vm.delaySec.value.collectAsState()
 
     val smsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) confirmAuto = true
@@ -205,7 +244,10 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = { picker = true }) {
-                            Icon(Icons.Default.PersonAdd, null); Spacer(Modifier.width(6.dp)); Text("Выбрать людей")
+                            Icon(Icons.Default.PersonAdd, null); Spacer(Modifier.width(6.dp)); Text("Люди")
+                        }
+                        FilledTonalButton(onClick = { criteria = true }) {
+                            Icon(Icons.Default.FilterAlt, null); Spacer(Modifier.width(6.dp)); Text("По критериям")
                         }
                         if (vm.recipients.isNotEmpty()) TextButton(onClick = { vm.recipients.clear() }) { Text("Очистить") }
                     }
@@ -289,6 +331,18 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     }
                 }
             }
+            if (vm.channel == Channel.WHATSAPP || vm.channel == Channel.TELEGRAM) {
+                item {
+                    AutoSendCard(
+                        serviceOn = serviceOn,
+                        auto = vm.autoMode,
+                        onAuto = { vm.autoMode = it },
+                        delay = delay.toIntOrNull() ?: 6,
+                        onDelay = { vm.delaySec.set(it.toString()) },
+                        onEnable = { AutoSend.openServiceSettings(context) },
+                    )
+                }
+            }
             item {
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = vm.logToJournal, onCheckedChange = { vm.logToJournal = it })
@@ -315,7 +369,8 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) confirmAuto = true
                                 else smsPermission.launch(Manifest.permission.SEND_SMS)
                             }
-                            Channel.WHATSAPP, Channel.TELEGRAM -> vm.sending = true
+                            Channel.WHATSAPP, Channel.TELEGRAM ->
+                                if (serviceOn && vm.autoMode) confirmMessenger = true else vm.sending = true
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -330,6 +385,58 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp),
                     )
+                }
+            }
+        } else if (autoProgressState != null) {
+            // --- Автоматическая рассылка ---
+            val p = autoProgressState!!
+            item {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        if (p.running) "Отправляем автоматически: ${p.done} из ${p.jobs.size}" else "Готово: отправлено ${p.sent} из ${p.jobs.size}",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (p.failed > 0) Text("Не удалось: ${p.failed}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Spacer(Modifier.size(8.dp))
+                    LinearProgressIndicator(progress = { if (p.jobs.isEmpty()) 1f else p.done / p.jobs.size.toFloat() }, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        if (p.running) "Можно не трогать телефон — приложение само открывает чаты и нажимает «Отправить». Остановить можно здесь или из уведомления."
+                        else "Рассылка завершена.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        if (p.running) OutlinedButton(onClick = { AutoSend.stop() }) { Text("Остановить") }
+                        TextButton(onClick = vm::reset) { Text(if (p.running) "Скрыть" else "Новая рассылка") }
+                    }
+                }
+            }
+            items(p.jobs.size) { i ->
+                val job = p.jobs[i]
+                val pf = all.firstOrNull { it.person.id == job.personId }
+                val st = p.states[i]
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    when (st) {
+                        JobState.SENT -> Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary)
+                        JobState.FAILED -> Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error)
+                        JobState.SENDING -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
+                        JobState.PENDING -> Icon(Icons.Default.RadioButtonUnchecked, null, tint = MaterialTheme.colorScheme.outline)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    if (pf != null) Avatar(pf.person, 36.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(job.name, style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            when (st) {
+                                JobState.SENT -> "Отправлено"
+                                JobState.FAILED -> "Не отправлено (нет в мессенджере или не удалось нажать)"
+                                JobState.SENDING -> "Отправляем…"
+                                JobState.PENDING -> "В очереди"
+                            },
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         } else {
@@ -398,6 +505,28 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             dismissButton = { TextButton(onClick = { confirmAuto = false }) { Text("Отмена") } },
         )
     }
+    if (confirmMessenger) {
+        val count = selected.count { vm.canReceive(it) }
+        AlertDialog(
+            onDismissRequest = { confirmMessenger = false },
+            title = { Text("Отправить $count ${ArchiveLogic.plural(count.toLong(), "сообщение", "сообщения", "сообщений")} в ${vm.channel.title}?") },
+            text = {
+                Text("Приложение по очереди откроет чаты и само нажмёт «Отправить», пауза между сообщениями — ${delay} с и немного случайности. " +
+                    "Не пользуйтесь телефоном во время рассылки. Большие рассылки незнакомым людям мессенджеры могут посчитать спамом.")
+            },
+            confirmButton = { TextButton(onClick = { confirmMessenger = false; vm.startAuto(context) }) { Text("Начать") } },
+            dismissButton = { TextButton(onClick = { confirmMessenger = false }) { Text("Отмена") } },
+        )
+    }
+    if (criteria) {
+        ModalBottomSheet(onDismissRequest = { criteria = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            CriteriaSheet(all, groups) { ids, replace ->
+                if (replace) vm.recipients.clear()
+                ids.forEach { if (it !in vm.recipients) vm.recipients.add(it) }
+                criteria = false
+            }
+        }
+    }
     if (picker) {
         PeoplePickerDialog(
             all = all,
@@ -426,5 +555,41 @@ private fun StepTitle(num: String, title: String) {
         }
         Spacer(Modifier.width(10.dp))
         Text(title, style = MaterialTheme.typography.titleLarge)
+    }
+}
+
+/** Настройка авто-отправки в мессенджерах. */
+@Composable
+private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) -> Unit, delay: Int, onDelay: (Int) -> Unit, onEnable: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = if (serviceOn) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            if (serviceOn) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoMode, null)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Отправлять автоматически", style = MaterialTheme.typography.titleSmall)
+                        Text("Без нажатия «Отправить» на каждом контакте", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(auto, onAuto)
+                }
+                if (auto) {
+                    Text("Пауза между сообщениями: $delay с", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Slider(value = delay.toFloat(), onValueChange = { onDelay(it.toInt()) }, valueRange = 3f..30f, steps = 26)
+                }
+            } else {
+                Text("Авто-отправка выключена", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «Картотека: авто-отправка». " +
+                        "Если переключатель неактивен: Настройки → Приложения → Картотека → ⋮ → «Разрешить ограниченные настройки».",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text("Открыть настройки") }
+            }
+        }
     }
 }

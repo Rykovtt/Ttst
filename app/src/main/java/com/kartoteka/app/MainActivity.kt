@@ -16,6 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import com.kartoteka.app.messaging.AutoSend
+import com.kartoteka.app.reminders.Reminders
 import com.kartoteka.app.ui.KartotekaRoot
 import com.kartoteka.app.ui.LockScreen
 import com.kartoteka.app.ui.theme.KartotekaTheme
@@ -26,6 +28,8 @@ class MainActivity : FragmentActivity() {
     private val app get() = application as KartotekaApp
     private var locked by mutableStateOf(false)
     private var pendingPersonId by mutableStateOf<Long?>(null)
+    private var pendingAppointmentId by mutableStateOf<Long?>(null)
+    private var pendingReminderId: Long? = null
     private var stoppedAt = 0L
     private var authInProgress = false
 
@@ -33,7 +37,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         locked = app.settings.lockEnabled.value && savedInstanceState?.getBoolean(KEY_UNLOCKED) != true
-        pendingPersonId = intent.personId()
+        handleIntent(intent)
 
         lifecycleScope.launch {
             app.settings.secureScreen.collect { secure ->
@@ -50,6 +54,8 @@ class MainActivity : FragmentActivity() {
                     KartotekaRoot(
                         openPersonId = pendingPersonId,
                         onPersonOpened = { pendingPersonId = null },
+                        openAppointmentId = pendingAppointmentId,
+                        onAppointmentOpened = { pendingAppointmentId = null },
                     )
                 }
             }
@@ -58,12 +64,31 @@ class MainActivity : FragmentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        handleIntent(intent)
+        if (!locked) runPendingReminder()
+    }
+
+    private fun handleIntent(intent: Intent) {
         intent.personId()?.let { pendingPersonId = it }
+        intent.getLongExtra(EXTRA_APPOINTMENT_ID, 0L).takeIf { it != 0L }?.let { pendingAppointmentId = it }
+        intent.getLongExtra(EXTRA_SEND_REMINDER, 0L).takeIf { it != 0L }?.let { pendingReminderId = it }
+        if (intent.getBooleanExtra(EXTRA_STOP_AUTOSEND, false)) AutoSend.stop()
+    }
+
+    /** Пользователь нажал уведомление «Напомнить …» — отправляем, как только приложение открыто. */
+    private fun runPendingReminder() {
+        val id = pendingReminderId ?: return
+        pendingReminderId = null
+        lifecycleScope.launch {
+            val r = app.repository.getReminder(id)
+            Reminders.fire(app, id, interactive = true)
+            if (r != null) pendingAppointmentId = r.appointmentId
+        }
     }
 
     override fun onResume() {
         super.onResume()
-        if (locked) authenticate()
+        if (locked) authenticate() else runPendingReminder()
     }
 
     override fun onStop() {
@@ -97,6 +122,7 @@ class MainActivity : FragmentActivity() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 authInProgress = false
                 locked = false
+                runPendingReminder()
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
@@ -116,6 +142,9 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_PERSON_ID = "person_id"
+        const val EXTRA_APPOINTMENT_ID = "appointment_id"
+        const val EXTRA_SEND_REMINDER = "send_reminder"
+        const val EXTRA_STOP_AUTOSEND = "stop_autosend"
         private const val KEY_UNLOCKED = "unlocked"
         private const val LOCK_TIMEOUT_MS = 60_000L
 

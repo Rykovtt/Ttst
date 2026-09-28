@@ -22,7 +22,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Workspaces
@@ -57,7 +59,7 @@ import com.kartoteka.app.ui.theme.AccentPalette
 import kotlinx.coroutines.launch
 
 @Composable
-fun GroupsScreen(onOpen: (Long) -> Unit) {
+fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
     val app = app()
     val groups by app.repository.observeGroups().collectAsState(initial = null)
     val scope = rememberCoroutineScope()
@@ -75,12 +77,14 @@ fun GroupsScreen(onOpen: (Long) -> Unit) {
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
-                Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
-                    Text("Группы", style = MaterialTheme.typography.headlineLarge)
+                Column(Modifier.statusBarsPadding().padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 12.dp)) {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") }
+                    Text("Группы", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 12.dp))
                     Text(
                         "Семья, работа, друзья — для быстрого поиска и рассылок",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 12.dp),
                     )
                 }
             }

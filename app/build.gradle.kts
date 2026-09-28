@@ -14,8 +14,8 @@ android {
         applicationId = "com.kartoteka.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -54,6 +54,10 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+    sourceSets {
+        // Схемы Room нужны тесту миграции (только в debug-сборке, в release их нет).
+        getByName("debug").assets.srcDir("$projectDir/schemas")
+    }
 }
 
 ksp {
@@ -86,6 +90,7 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("org.osmdroid:osmdroid-android:6.1.20")
 
     testImplementation("junit:junit:4.13.2")
     // Скриншот-тесты экранов на JVM (Robolectric + Roborazzi)

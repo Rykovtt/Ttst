@@ -48,13 +48,18 @@ object Messaging {
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
-    /** Telegram: по @username открываем чат; текст передаётся через «Поделиться». */
-    fun telegram(context: Context, handle: String, text: String = "") {
+    /** Ссылка на чат Telegram по @username или номеру. */
+    fun telegramUrl(handle: String): String {
         val h = handle.trim()
         val isPhone = h.count { it.isDigit() } >= 7 && !h.any { it.isLetter() }
-        if (text.isNotEmpty()) copy(context, text)
-        val url = if (isPhone) "https://t.me/" + ArchiveLogic.normalizePhone(h)
+        return if (isPhone) "https://t.me/" + ArchiveLogic.normalizePhone(h)
         else "https://t.me/" + h.removePrefix("@").substringAfterLast("t.me/")
+    }
+
+    /** Telegram: открываем чат с черновиком; текст также копируется на случай, если черновик не подставится. */
+    fun telegram(context: Context, handle: String, text: String = "") {
+        if (text.isNotEmpty()) copy(context, text)
+        val url = telegramUrl(handle) + if (text.isNotEmpty()) "?text=" + Uri.encode(text) else ""
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         if (isInstalled(context, TELEGRAM)) intent.setPackage(TELEGRAM)
         start(context, intent)
@@ -99,6 +104,14 @@ object Messaging {
             ContactType.WEBSITE -> web(context, if (v.startsWith("http")) v else "https://$v")
             ContactType.OTHER -> copy(context, v)
         }
+    }
+
+    /** Открывает адрес в навигаторе / картах телефона. */
+    fun navigate(context: Context, place: com.kartoteka.app.data.Place) {
+        val q = Uri.encode(place.address)
+        val uri = if (place.hasCoords) "geo:${place.lat},${place.lng}?q=${place.lat},${place.lng}(${Uri.encode(place.address.ifBlank { place.placeKind.title })})"
+        else "geo:0,0?q=$q"
+        start(context, Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
     }
 
     fun web(context: Context, url: String) = start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))

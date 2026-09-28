@@ -108,7 +108,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
                             importing = true
                             scope.launch {
                                 val chosen = contacts.orEmpty().filter { it.id in selected }
-                                result = withContext(Dispatchers.IO) { app.phoneContacts.import(chosen, app.repository) }
+                                result = withContext(Dispatchers.IO) { app.phoneContacts.import(chosen, app.repository, app.settings.defaultCountry) }
                                 importing = false
                             }
                         },

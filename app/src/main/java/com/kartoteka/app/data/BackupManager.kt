@@ -32,12 +32,14 @@ class BackupManager(private val context: Context, private val repo: Repository) 
     suspend fun export(uri: Uri, password: String): Int {
         val all = repo.getAll()
         val groups = repo.getGroups()
+        val relations = repo.rawDao.getRelations()
+        val appointments = repo.rawDao.allAppointments()
         val out = context.contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
         out.use { raw ->
             val stream = wrapOutput(raw, password)
             ZipOutputStream(stream).use { zip ->
                 zip.putNextEntry(ZipEntry("data.json"))
-                zip.write(toJson(all, groups).toString().toByteArray())
+                zip.write(toJson(all, groups, relations, appointments).toString().toByteArray())
                 zip.closeEntry()
                 val files = all.flatMap { pf -> pf.photos.map { it.path } + listOfNotNull(pf.person.avatarPath) }.toSet()
                 files.map(::File).filter { it.exists() }.forEach { f ->
@@ -90,6 +92,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
 
         val dao = repo.rawDao
         var count = 0
+        val restoredReminders = mutableListOf<AppointmentReminder>()
         repo.database.withTransaction {
             if (replace) {
                 dao.getAll().forEach { pf ->
@@ -100,6 +103,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
             }
             val existingGroups = dao.getGroups().associateBy { it.name }
             val groupMap = HashMap<Long, Long>()
+            val personMap = HashMap<Long, Long>()
             data.optJSONArray("groups")?.objects()?.forEach { g ->
                 val name = g.getString("name")
                 val newId = existingGroups[name]?.id ?: dao.insertGroup(
@@ -130,7 +134,13 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     DetailField(category = it.optString("category"), name = it.optString("name"), value = it.optString("value"))
                 }.orEmpty()
                 val groupIds = o.optJSONArray("groups")?.let { arr -> (0 until arr.length()).mapNotNull { groupMap[arr.getLong(it)] } }.orEmpty()
-                val id = dao.savePerson(person, contacts, details, groupIds)
+                // v1: адрес хранился в карточке — переносим в «Дом».
+                val places = o.optJSONArray("places")?.objects()?.map {
+                    Place(kind = it.optString("kind"), label = it.optString("label"), address = it.optString("address"),
+                        lat = it.optDoubleOrNull("lat"), lng = it.optDoubleOrNull("lng"))
+                } ?: listOfNotNull(person.address.takeIf { it.isNotBlank() }?.let { Place(kind = PlaceKind.HOME.name, address = it) })
+                val id = dao.savePerson(person, contacts, details, groupIds, places)
+                if (o.has("id")) personMap[o.getLong("id")] = id
                 o.optJSONArray("photos")?.objects()?.forEach { ph ->
                     restoredPath(ph.optString("path"))?.let { path ->
                         dao.insertPhoto(Photo(personId = id, path = path, caption = ph.optString("caption"), addedAt = ph.optLong("addedAt")))
@@ -141,14 +151,45 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                 }
                 count++
             }
+            data.optJSONArray("relations")?.objects()?.forEach { r ->
+                val a = personMap[r.getLong("personId")] ?: return@forEach
+                val b = personMap[r.getLong("relatedId")] ?: return@forEach
+                if (dao.relationCount(a, b) == 0) dao.insertRelation(Relation(personId = a, relatedId = b, type = r.optString("type")))
+            }
+            data.optJSONArray("appointments")?.objects()?.forEach { j ->
+                val pid = personMap[j.getLong("personId")] ?: return@forEach
+                val a = Appointment(
+                    personId = pid, start = j.getLong("start"), durationMin = j.optInt("durationMin", 60),
+                    title = j.optString("title"), place = j.optString("place"), notes = j.optString("notes"),
+                    channel = j.optString("channel", NotifyChannel.NONE.name), status = j.optString("status", AppointmentStatus.PLANNED.name),
+                    createdAt = j.optLong("createdAt", System.currentTimeMillis()),
+                )
+                val aid = dao.insertAppointment(a)
+                val reminders = if (a.appointmentStatus == AppointmentStatus.PLANNED) AppointmentLogic.buildReminders(
+                    a.copy(id = aid),
+                    AppointmentLogic.offsetsFromString(j.optString("clientOffsets")),
+                    AppointmentLogic.offsetsFromString(j.optString("myOffsets")),
+                ) else emptyList()
+                restoredReminders += reminders.zip(dao.insertReminders(reminders)) { r, rid -> r.copy(id = rid) }
+            }
         }
+        com.kartoteka.app.reminders.ReminderScheduler.schedule(context, restoredReminders)
         tmpDir.deleteRecursively()
         return count
     }
 
-    private fun toJson(all: List<PersonFull>, groups: List<Group>): JSONObject = JSONObject().apply {
+    private fun toJson(all: List<PersonFull>, groups: List<Group>, relations: List<Relation>, appointments: List<AppointmentFull>): JSONObject = JSONObject().apply {
         put("format", "kartoteka")
-        put("version", 1)
+        put("version", 2)
+        put("relations", JSONArray(relations.map { JSONObject().put("personId", it.personId).put("relatedId", it.relatedId).put("type", it.type) }))
+        put("appointments", JSONArray(appointments.map { af ->
+            val a = af.appointment
+            JSONObject().put("personId", a.personId).put("start", a.start).put("durationMin", a.durationMin)
+                .put("title", a.title).put("place", a.place).put("notes", a.notes).put("channel", a.channel)
+                .put("status", a.status).put("createdAt", a.createdAt)
+                .put("clientOffsets", AppointmentLogic.offsetsToString(af.reminders.filter { it.target == ReminderTarget.CLIENT.name }.map { it.offsetMin }))
+                .put("myOffsets", AppointmentLogic.offsetsToString(af.reminders.filter { it.target == ReminderTarget.ME.name }.map { it.offsetMin }))
+        }))
         put("exportedAt", System.currentTimeMillis())
         put("groups", JSONArray(groups.map { g ->
             JSONObject().put("id", g.id).put("name", g.name).put("color", g.color).put("emoji", g.emoji)
@@ -156,6 +197,10 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         put("persons", JSONArray(all.map { pf ->
             val p = pf.person
             JSONObject()
+                .put("id", p.id)
+                .put("places", JSONArray(pf.places.map {
+                    JSONObject().put("kind", it.kind).put("label", it.label).put("address", it.address).put("lat", it.lat).put("lng", it.lng)
+                }))
                 .put("person", JSONObject().apply {
                     put("lastName", p.lastName); put("firstName", p.firstName); put("middleName", p.middleName)
                     put("nickname", p.nickname); put("birthDay", p.birthDay); put("birthMonth", p.birthMonth)
@@ -224,4 +269,5 @@ class BackupManager(private val context: Context, private val repo: Repository) 
 private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 private fun JSONObject.optIntOrNull(key: String): Int? = if (isNull(key) || !has(key)) null else optInt(key)
 private fun JSONObject.optLongOrNull(key: String): Long? = if (isNull(key) || !has(key)) null else optLong(key)
+private fun JSONObject.optDoubleOrNull(key: String): Double? = if (isNull(key) || !has(key)) null else optDouble(key)
 private fun JSONObject.optStringOrNull(key: String): String? = if (isNull(key) || !has(key)) null else optString(key)

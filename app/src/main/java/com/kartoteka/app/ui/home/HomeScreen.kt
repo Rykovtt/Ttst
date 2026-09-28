@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -118,7 +119,7 @@ class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit) {
+fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, onGroups: () -> Unit = {}) {
     val app = app()
     val vm: HomeViewModel = viewModel { HomeViewModel(app) }
     val state by vm.state.collectAsState()
@@ -145,13 +146,13 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit) 
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
             item(key = "header") {
-                Header(total = state.total, sort = sort, onSort = vm::setSort)
+                Header(total = state.total, sort = sort, onSort = vm::setSort, onGroups = onGroups)
             }
             item(key = "search") {
                 SearchField(query, onChange = { vm.query.value = it })
             }
             item(key = "filters") {
-                FilterRow(filter, state.groups) { vm.filter.value = it }
+                FilterRow(filter, state.groups, onGroups) { vm.filter.value = it }
             }
             if (query.isBlank() && filter == PeopleFilter.All && state.birthdays.isNotEmpty()) {
                 item(key = "birthdays") { BirthdayStrip(state.birthdays, onOpen) }
@@ -205,7 +206,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit) 
 }
 
 @Composable
-private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit) {
+private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGroups: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.statusBarsPadding().fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
@@ -219,6 +220,7 @@ private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        IconButton(onClick = onGroups) { Icon(Icons.Default.Workspaces, "Группы") }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Сортировка") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -257,7 +259,7 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, onChange: (PeopleFilter) -> Unit) {
+private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, onGroups: () -> Unit, onChange: (PeopleFilter) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -281,6 +283,9 @@ private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, onChan
                 label = { Text(listOf(g.group.emoji, g.group.name).filter { it.isNotBlank() }.joinToString(" ")) },
                 leadingIcon = { ColorDot(g.group.color) },
             )
+        }
+        item {
+            androidx.compose.material3.AssistChip(onClick = onGroups, label = { Text(if (groups.isEmpty()) "+ Группы" else "Группы…") })
         }
     }
 }

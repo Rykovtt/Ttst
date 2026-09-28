@@ -27,6 +27,12 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.AutoFixHigh
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,6 +86,9 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
     var dialog by remember { mutableStateOf<BackupDialog?>(null) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    var countryPicker by remember { mutableStateOf(false) }
+    var resumeTick by remember { mutableStateOf(0) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) { resumeTick++ }
 
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         settings.setBirthdayReminders(ok)
@@ -113,6 +122,44 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
             InfoLine(Icons.Default.EnhancedEncryption, "База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено.")
         }
 
+        SectionCard("Телефоны", Icons.Default.Phone) {
+            val iso by settings.country.value.collectAsState()
+            val country = com.kartoteka.app.data.PhoneFormat.byIso(iso)
+            ActionRow(Icons.Default.Public, "Страна по умолчанию: ${country.flag} ${country.name} (+${country.code})",
+                "Номер «${country.trunk}…» без кода сохранится как «+${country.code}…»") { countryPicker = true }
+            ActionRow(Icons.Default.AutoFixHigh, "Привести все номера к международному виду", "Для уже сохранённых контактов") {
+                scope.launch {
+                    busy = true
+                    val n = app.repository.normalizeAllPhones(country)
+                    busy = false
+                    message = if (n == 0) "Все номера уже в международном формате" else "Исправлено номеров: $n"
+                }
+            }
+        }
+
+        SectionCard("Записи и календарь", Icons.Default.CalendarMonth) {
+            CalendarSettings(settings)
+        }
+
+        SectionCard("Авто-отправка в мессенджерах", Icons.Default.AutoMode) {
+            val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
+            val delay by settings.autoSendDelaySec.value.collectAsState()
+            ActionRow(
+                Icons.Default.AutoMode,
+                if (on) "Включена ✓" else "Выключена — нажмите, чтобы включить",
+                "Картотека сама нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. " +
+                    "Настройки → Спец. возможности → «Картотека: авто-отправка». Если переключатель неактивен: Приложения → Картотека → ⋮ → «Разрешить ограниченные настройки».",
+            ) { com.kartoteka.app.messaging.AutoSend.openServiceSettings(context) }
+            Text("Пауза между сообщениями: ${delay} с", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
+            androidx.compose.material3.Slider(
+                value = (delay.toIntOrNull() ?: 6).toFloat(),
+                onValueChange = { settings.autoSendDelaySec.set(it.toInt().toString()) },
+                valueRange = 3f..30f, steps = 26,
+                modifier = Modifier.padding(horizontal = 18.dp),
+            )
+            InfoLine(Icons.Default.Info, "Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне.")
+        }
+
         SectionCard("Напоминания", Icons.Default.Cake) {
             ToggleRow(Icons.Default.Cake, "Дни рождения", "Уведомление в день рождения и за 3 дня", birthdays) { v ->
                 if (v && Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -135,7 +182,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
         }
 
         Text(
-            "Картотека 1.0 · все данные хранятся только на этом устройстве",
+            "Картотека 2.0 · все данные хранятся только на этом устройстве. Карта — © OpenStreetMap",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(20.dp),
@@ -174,6 +221,9 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
         null -> Unit
     }
 
+    if (countryPicker) {
+        com.kartoteka.app.ui.components.CountryPickerDialog(onDismiss = { countryPicker = false }) { settings.country.set(it.iso); countryPicker = false }
+    }
     if (busy) {
         AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Подождите…") }, text = {
             Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(28.dp)); Spacer(Modifier.width(16.dp)); Text("Работаем с данными") }

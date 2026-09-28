@@ -24,6 +24,7 @@ data class Person(
     val company: String = "",
     val position: String = "",
     val city: String = "",
+    /** Устарело: адреса теперь в таблице places (перенесены миграцией 1→2). */
     val address: String = "",
     val howMet: String = "",
     val notes: String = "",
@@ -154,6 +155,8 @@ data class PersonFull(
     val groups: List<Group>,
     @Relation(parentColumn = "id", entityColumn = "personId")
     val journal: List<JournalEntry>,
+    @Relation(parentColumn = "id", entityColumn = "personId")
+    val places: List<Place> = emptyList(),
 ) {
     fun firstOf(type: ContactType): String? =
         contacts.firstOrNull { it.contactType == type && it.value.isNotBlank() }?.value
@@ -168,4 +171,113 @@ data class PersonFull(
 data class GroupWithCount(
     @Embedded val group: Group,
     val count: Int,
+)
+
+enum class PlaceKind(val title: String) {
+    HOME("Дом"), WORK("Работа"), OTHER("Другое");
+
+    companion object {
+        fun of(name: String) = entries.firstOrNull { it.name == name } ?: OTHER
+    }
+}
+
+/** Адрес человека (дом, работа…) с координатами для карты. */
+@Entity(
+    tableName = "places",
+    foreignKeys = [ForeignKey(Person::class, ["id"], ["personId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("personId")],
+)
+data class Place(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val personId: Long = 0,
+    val kind: String = PlaceKind.HOME.name,
+    val label: String = "",
+    /** Устарело: адреса теперь в таблице places (перенесены миграцией 1→2). */
+    val address: String = "",
+    val lat: Double? = null,
+    val lng: Double? = null,
+) {
+    val placeKind: PlaceKind get() = PlaceKind.of(kind)
+    val hasCoords: Boolean get() = lat != null && lng != null
+}
+
+/** Связь «relatedId является TYPE для personId». Обратная сторона вычисляется через [RelationType.inverse]. */
+@Entity(
+    tableName = "relations",
+    foreignKeys = [
+        ForeignKey(Person::class, ["id"], ["personId"], onDelete = ForeignKey.CASCADE),
+        ForeignKey(Person::class, ["id"], ["relatedId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("personId"), Index("relatedId")],
+)
+data class Relation(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val personId: Long,
+    val relatedId: Long,
+    val type: String,
+)
+
+/** Запись в календаре. */
+@Entity(
+    tableName = "appointments",
+    foreignKeys = [ForeignKey(Person::class, ["id"], ["personId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("personId"), Index("start")],
+)
+data class Appointment(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val personId: Long,
+    val start: Long,
+    val durationMin: Int = 60,
+    val title: String = "",
+    val place: String = "",
+    val notes: String = "",
+    /** Канал оповещения человека: [NotifyChannel]. */
+    val channel: String = NotifyChannel.NONE.name,
+    val status: String = AppointmentStatus.PLANNED.name,
+    val createdAt: Long = System.currentTimeMillis(),
+) {
+    val end: Long get() = start + durationMin * 60_000L
+    val notifyChannel: NotifyChannel get() = NotifyChannel.of(channel)
+    val appointmentStatus: AppointmentStatus get() = AppointmentStatus.of(status)
+}
+
+enum class AppointmentStatus(val title: String) {
+    PLANNED("Запланировано"), DONE("Состоялось"), CANCELLED("Отменено");
+
+    companion object {
+        fun of(name: String) = entries.firstOrNull { it.name == name } ?: PLANNED
+    }
+}
+
+enum class NotifyChannel(val title: String) {
+    WHATSAPP("WhatsApp"), TELEGRAM("Telegram"), SMS("SMS"), NONE("Не оповещать");
+
+    companion object {
+        fun of(name: String) = entries.firstOrNull { it.name == name } ?: NONE
+    }
+}
+
+enum class ReminderTarget { CLIENT, ME }
+
+/** Одно запланированное напоминание по записи — человеку или мне. */
+@Entity(
+    tableName = "appointment_reminders",
+    foreignKeys = [ForeignKey(Appointment::class, ["id"], ["appointmentId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("appointmentId"), Index("fireAt")],
+)
+data class AppointmentReminder(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val appointmentId: Long,
+    val target: String,
+    val offsetMin: Int,
+    val fireAt: Long,
+    val sentAt: Long? = null,
+)
+
+data class AppointmentFull(
+    @Embedded val appointment: Appointment,
+    @Relation(parentColumn = "personId", entityColumn = "id")
+    val person: Person?,
+    @Relation(parentColumn = "id", entityColumn = "appointmentId")
+    val reminders: List<AppointmentReminder>,
 )

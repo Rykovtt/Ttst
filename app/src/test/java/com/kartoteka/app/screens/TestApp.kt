@@ -10,4 +10,5 @@ class TestApp : KartotekaApp() {
         Room.inMemoryDatabaseBuilder(this, AppDatabase::class.java).allowMainThreadQueries().build()
 
     override fun scheduleReminders() = Unit
+    override suspend fun rescheduleAppointmentReminders() = Unit
 }

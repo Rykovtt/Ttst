@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +46,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kartoteka.app.KartotekaApp
 import com.kartoteka.app.ui.broadcast.BroadcastScreen
+import com.kartoteka.app.ui.calendar.AppointmentEditScreen
+import com.kartoteka.app.ui.calendar.CalendarScreen
+import com.kartoteka.app.ui.map.MapScreen
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Map
 import com.kartoteka.app.ui.groups.GroupDetailScreen
 import com.kartoteka.app.ui.groups.GroupsScreen
 import com.kartoteka.app.ui.home.HomeScreen
@@ -69,11 +73,15 @@ object Routes {
     const val PHOTOS = "photos/{personId}/{index}"
     const val GROUP = "group/{id}"
     const val IMPORT = "import"
+    const val CALENDAR = "calendar"
+    const val MAP = "map"
+    const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
     fun person(id: Long) = "person/$id"
     fun edit(id: Long = 0) = "edit/$id"
     fun photos(personId: Long, index: Int) = "photos/$personId/$index"
     fun group(id: Long) = "group/$id"
+    fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0) = "appointment/$id?personId=$personId&date=$date"
     fun broadcast(groupId: Long = 0, personIds: Collection<Long> = emptyList()) =
         "broadcast?groupId=$groupId&personIds=${personIds.joinToString(",")}"
 }
@@ -82,13 +90,19 @@ private data class Tab(val route: String, val base: String, val title: String, v
 
 private val tabs = listOf(
     Tab(Routes.PEOPLE, "people", "Люди", Icons.Default.People),
-    Tab(Routes.GROUPS, "groups", "Группы", Icons.Default.Workspaces),
+    Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Default.CalendarMonth),
+    Tab(Routes.MAP, "map", "Карта", Icons.Default.Map),
     Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Filled.Send),
     Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Default.Settings),
 )
 
 @Composable
-fun KartotekaRoot(openPersonId: Long?, onPersonOpened: () -> Unit) {
+fun KartotekaRoot(
+    openPersonId: Long?,
+    onPersonOpened: () -> Unit,
+    openAppointmentId: Long? = null,
+    onAppointmentOpened: () -> Unit = {},
+) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route.orEmpty()
@@ -101,6 +115,13 @@ fun KartotekaRoot(openPersonId: Long?, onPersonOpened: () -> Unit) {
         }
     }
 
+    LaunchedEffect(openAppointmentId) {
+        if (openAppointmentId != null) {
+            nav.navigate(Routes.appointment(openAppointmentId))
+            onAppointmentOpened()
+        }
+    }
+
     Scaffold(
         bottomBar = {
             if (showBar) {
@@ -110,7 +131,7 @@ fun KartotekaRoot(openPersonId: Long?, onPersonOpened: () -> Unit) {
                             selected = route.startsWith(tab.base),
                             onClick = { nav.switchTab(tab.route) },
                             icon = { Icon(tab.icon, null) },
-                            label = { Text(tab.title) },
+                            label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
                         )
                     }
                 }
@@ -132,10 +153,36 @@ fun KartotekaRoot(openPersonId: Long?, onPersonOpened: () -> Unit) {
                     onOpen = { nav.navigate(Routes.person(it)) },
                     onAdd = { nav.navigate(Routes.edit()) },
                     onImport = { nav.navigate(Routes.IMPORT) },
+                    onGroups = { nav.navigate(Routes.GROUPS) },
                 )
             }
             composable(Routes.GROUPS) {
-                GroupsScreen(onOpen = { nav.navigate(Routes.group(it)) })
+                GroupsScreen(onOpen = { nav.navigate(Routes.group(it)) }, onBack = { nav.popBackStack() })
+            }
+            composable(Routes.CALENDAR) {
+                CalendarScreen(
+                    onNew = { nav.navigate(Routes.appointment(date = it.toEpochDay())) },
+                    onOpen = { nav.navigate(Routes.appointment(it)) },
+                )
+            }
+            composable(Routes.MAP) {
+                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) })
+            }
+            composable(
+                Routes.APPOINTMENT,
+                arguments = listOf(
+                    navArgument("id") { type = NavType.LongType },
+                    navArgument("personId") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("date") { type = NavType.LongType; defaultValue = 0L },
+                ),
+            ) { e ->
+                AppointmentEditScreen(
+                    id = e.arguments!!.getLong("id"),
+                    personId = e.arguments!!.getLong("personId"),
+                    dateEpoch = e.arguments!!.getLong("date"),
+                    onBack = { nav.popBackStack() },
+                    onOpenPerson = { nav.navigate(Routes.person(it)) },
+                )
             }
             composable(
                 Routes.BROADCAST,
@@ -164,6 +211,9 @@ fun KartotekaRoot(openPersonId: Long?, onPersonOpened: () -> Unit) {
                     onEdit = { nav.navigate(Routes.edit(id)) },
                     onOpenPhoto = { nav.navigate(Routes.photos(id, it)) },
                     onMessage = { nav.navigate(Routes.broadcast(personIds = listOf(id))) },
+                    onOpenPerson = { nav.navigate(Routes.person(it)) },
+                    onNewAppointment = { nav.navigate(Routes.appointment(personId = id)) },
+                    onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
                 )
             }
             composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->

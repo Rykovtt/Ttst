@@ -1,5 +1,6 @@
 package com.kartoteka.app.data
 
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 
 class Repository(
@@ -22,9 +23,10 @@ class Repository(
         contacts: List<ContactItem>,
         details: List<DetailField>,
         groupIds: Collection<Long>,
+        places: List<Place>? = null,
     ): Long {
         val old = if (person.id != 0L) dao.getPerson(person.id) else null
-        val id = dao.savePerson(person.copy(updatedAt = System.currentTimeMillis()), contacts, details, groupIds)
+        val id = dao.savePerson(person.copy(updatedAt = System.currentTimeMillis()), contacts, details, groupIds, places)
         // Аватар заменили — удалим старый файл, если он не лежит в галерее человека.
         val oldAvatar = old?.person?.avatarPath
         if (oldAvatar != null && oldAvatar != person.avatarPath && old.photos.none { it.path == oldAvatar }) {
@@ -76,6 +78,69 @@ class Repository(
 
     suspend fun addPersonsToGroup(groupId: Long, personIds: Collection<Long>) =
         dao.insertPersonGroups(personIds.map { PersonGroup(it, groupId) })
+
+    /** Приводит все телефоны к международному виду. Возвращает число изменённых номеров. */
+    suspend fun normalizeAllPhones(country: Country): Int {
+        var changed = 0
+        dao.getAll().forEach { pf ->
+            var touched = false
+            val contacts = pf.contacts.map { c ->
+                if (!PhoneFormat.isPhoneType(c.contactType)) return@map c
+                val n = PhoneFormat.normalize(c.value, country)
+                if (n != c.value) { changed++; touched = true; c.copy(value = n) } else c
+            }
+            if (touched) dao.savePerson(pf.person, contacts, pf.details, pf.groups.map { it.id })
+        }
+        return changed
+    }
+
+    // --- адреса ---
+    suspend fun setPlaceCoords(id: Long, lat: Double?, lng: Double?) = dao.setPlaceCoords(id, lat, lng)
+    suspend fun placesWithoutCoords() = dao.placesWithoutCoords()
+
+    // --- связи ---
+    fun observeRelations() = dao.observeRelations()
+
+    /** Добавляет связь, если между этими людьми её ещё нет. */
+    suspend fun addRelation(personId: Long, relatedId: Long, type: RelationType): Boolean {
+        if (personId == relatedId || dao.relationCount(personId, relatedId) > 0) return false
+        dao.insertRelation(Relation(personId = personId, relatedId = relatedId, type = type.name))
+        return true
+    }
+
+    suspend fun deleteRelation(id: Long) = dao.deleteRelation(id)
+
+    // --- календарь ---
+    fun observeAppointments(from: Long, to: Long) = dao.observeAppointments(from, to)
+    fun observePersonAppointments(personId: Long) = dao.observePersonAppointments(personId)
+    fun observeAppointment(id: Long) = dao.observeAppointment(id)
+    suspend fun getAppointment(id: Long) = dao.getAppointment(id)
+    suspend fun appointmentsBetween(from: Long, to: Long) = dao.appointmentsBetween(from, to)
+
+    /**
+     * Сохраняет запись и пересоздаёт неотправленные напоминания.
+     * Возвращает id записи и новые напоминания (их нужно поставить в будильник).
+     */
+    suspend fun saveAppointment(a: Appointment, clientOffsets: List<Int>, myOffsets: List<Int>): Pair<Long, List<AppointmentReminder>> =
+        db.withTransaction {
+            val id = if (a.id == 0L) dao.insertAppointment(a) else a.id.also { dao.updateAppointment(a) }
+            dao.deletePendingReminders(id)
+            val saved = a.copy(id = id)
+            val reminders = if (saved.appointmentStatus == AppointmentStatus.PLANNED)
+                AppointmentLogic.buildReminders(saved, clientOffsets, myOffsets) else emptyList()
+            val ids = dao.insertReminders(reminders)
+            id to reminders.zip(ids) { r, rid -> r.copy(id = rid) }
+        }
+
+    suspend fun pendingRemindersFor(appointmentId: Long) = dao.pendingRemindersFor(appointmentId)
+    suspend fun setAppointmentStatus(id: Long, status: AppointmentStatus) {
+        dao.setAppointmentStatus(id, status.name)
+        if (status != AppointmentStatus.PLANNED) dao.deletePendingReminders(id)
+    }
+    suspend fun deleteAppointment(id: Long) = dao.deleteAppointment(id)
+    suspend fun getReminder(id: Long) = dao.getReminder(id)
+    suspend fun markReminderSent(id: Long) = dao.markReminderSent(id, System.currentTimeMillis())
+    suspend fun upcomingReminders(since: Long) = dao.upcomingReminders(since)
 
     internal val rawDao get() = dao
     internal val database get() = db

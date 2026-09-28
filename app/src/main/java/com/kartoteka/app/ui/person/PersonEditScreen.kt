@@ -35,6 +35,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContactPhone
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Workspaces
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -73,6 +75,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kartoteka.app.KartotekaApp
 import com.kartoteka.app.data.ContactItem
 import com.kartoteka.app.data.ContactType
+import com.kartoteka.app.data.Country
+import com.kartoteka.app.data.Geo
+import com.kartoteka.app.data.PhoneFormat
+import com.kartoteka.app.data.Place
+import com.kartoteka.app.data.PlaceKind
+import com.kartoteka.app.ui.components.PhoneField
+import com.kartoteka.app.ui.map.LocationPickerDialog
 import com.kartoteka.app.data.DetailField
 import com.kartoteka.app.data.DetailTemplates
 import com.kartoteka.app.data.Group
@@ -90,11 +99,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Контакт в редакторе + страна для телефонных номеров. */
+data class EditContact(val item: ContactItem, val country: Country)
+
 class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewModel() {
     private val repo = app.repository
+    val defaultCountry = app.settings.defaultCountry
     var loaded by mutableStateOf(id == 0L)
     var person by mutableStateOf(Person())
-    val contacts = mutableStateListOf<ContactItem>()
+    val contacts = mutableStateListOf<EditContact>()
+    val places = mutableStateListOf<Place>()
     val details = mutableStateListOf<DetailField>()
     val groupIds = mutableStateListOf<Long>()
     val allGroups = mutableStateListOf<Group>()
@@ -113,7 +127,8 @@ class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewMod
             if (id != 0L) {
                 repo.getPerson(id)?.let { pf ->
                     person = pf.person
-                    contacts.addAll(pf.contacts)
+                    contacts.addAll(pf.contacts.map { EditContact(it, PhoneFormat.countryOf(it.value, defaultCountry) ?: defaultCountry) })
+                    places.addAll(pf.places)
                     details.addAll(pf.details.sortedBy { it.position })
                     groupIds.addAll(pf.groups.map { it.id })
                     bdDay = pf.person.birthDay?.toString().orEmpty()
@@ -122,7 +137,7 @@ class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewMod
                 }
                 loaded = true
             } else {
-                contacts.add(ContactItem(type = ContactType.PHONE.name))
+                contacts.add(EditContact(ContactItem(type = ContactType.PHONE.name), defaultCountry))
             }
         }
     }
@@ -165,7 +180,14 @@ class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewMod
                 lastName = person.lastName.trim(),
                 middleName = person.middleName.trim(),
             )
-            val savedId = repo.savePerson(p, contacts.toList(), details.toList(), groupIds.toList())
+            val items = contacts.map { (c, country) ->
+                if (PhoneFormat.isPhoneType(c.contactType)) c.copy(value = PhoneFormat.normalize(c.value, country)) else c.copy(value = c.value.trim())
+            }
+            val savedId = repo.savePerson(p, items, details.toList(), groupIds.toList(), places.map { it.copy(address = it.address.trim()) })
+            // Адреса без точки на карте — ищем координаты в фоне.
+            if (places.any { !it.hasCoords && it.address.isNotBlank() }) {
+                app.appScope.launch { runCatching { Geo.fillMissing(app, repo) } }
+            }
             // Новый аватар кладём и в галерею, чтобы фото не потерялось.
             val avatar = p.avatarPath
             if (avatar != null && avatar in newFiles) {
@@ -281,7 +303,7 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
             item(key = "contacts") {
                 SectionCard("Контакты", Icons.Default.ContactPhone) {
                     vm.contacts.forEachIndexed { i, c -> ContactEditor(c, onChange = { vm.contacts[i] = it; vm.dirty = true }, onRemove = { vm.contacts.removeAt(i); vm.dirty = true }) }
-                    AddContactButton { type -> vm.contacts.add(ContactItem(type = type.name)); vm.dirty = true }
+                    AddContactButton { type -> vm.contacts.add(EditContact(ContactItem(type = type.name), vm.defaultCountry)); vm.dirty = true }
                 }
             }
 
@@ -291,8 +313,34 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                         Field("Компания", p.company) { v -> vm.update { copy(company = v) } }
                         Field("Должность", p.position) { v -> vm.update { copy(position = v) } }
                         Field("Город", p.city) { v -> vm.update { copy(city = v) } }
-                        Field("Адрес", p.address) { v -> vm.update { copy(address = v) } }
                         Field("Как и где познакомились", p.howMet, singleLine = false) { v -> vm.update { copy(howMet = v) } }
+                    }
+                }
+            }
+
+            item(key = "places") {
+                SectionCard("Адреса", Icons.Default.Place) {
+                    if (vm.places.isEmpty()) {
+                        Text(
+                            "Где живёт и где работает — появится на карте",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                        )
+                    }
+                    vm.places.forEachIndexed { i, pl ->
+                        PlaceEditor(
+                            pl, p,
+                            onChange = { vm.places[i] = it; vm.dirty = true },
+                            onRemove = { vm.places.removeAt(i); vm.dirty = true },
+                        )
+                    }
+                    Row(Modifier.padding(horizontal = 8.dp)) {
+                        PlaceKind.entries.forEach { k ->
+                            TextButton(onClick = { vm.places.add(Place(kind = k.name)); vm.dirty = true }) {
+                                Icon(Icons.Default.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(4.dp)); Text(k.title)
+                            }
+                        }
                     }
                 }
             }
@@ -405,37 +453,103 @@ private fun NumField(label: String, value: String, modifier: Modifier, onChange:
 }
 
 @Composable
-private fun ContactEditor(c: ContactItem, onChange: (ContactItem) -> Unit, onRemove: () -> Unit) {
+private fun ContactEditor(ec: EditContact, onChange: (EditContact) -> Unit, onRemove: () -> Unit) {
+    val c = ec.item
     var typeMenu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box {
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.Top) {
+        Box(Modifier.padding(top = 4.dp)) {
             IconButton(onClick = { typeMenu = true }) { Icon(iconFor(c.contactType), c.contactType.title, tint = MaterialTheme.colorScheme.primary) }
             DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
                 ContactType.entries.forEach { t ->
-                    DropdownMenuItem(text = { Text(t.title) }, leadingIcon = { Icon(iconFor(t), null) }, onClick = { onChange(c.copy(type = t.name)); typeMenu = false })
+                    DropdownMenuItem(text = { Text(t.title) }, leadingIcon = { Icon(iconFor(t), null) }, onClick = { onChange(ec.copy(item = c.copy(type = t.name))); typeMenu = false })
                 }
             }
         }
-        val keyboard = when (c.contactType) {
-            ContactType.PHONE, ContactType.WHATSAPP, ContactType.VIBER -> KeyboardType.Phone
-            ContactType.EMAIL -> KeyboardType.Email
-            ContactType.WEBSITE -> KeyboardType.Uri
-            else -> KeyboardType.Text
+        if (PhoneFormat.isPhoneType(c.contactType)) {
+            PhoneField(
+                value = c.value,
+                onChange = { onChange(ec.copy(item = c.copy(value = it))) },
+                country = ec.country,
+                onCountryChange = { onChange(ec.copy(country = it)) },
+                label = c.contactType.title,
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            val keyboard = when (c.contactType) {
+                ContactType.EMAIL -> KeyboardType.Email
+                ContactType.WEBSITE -> KeyboardType.Uri
+                else -> KeyboardType.Text
+            }
+            val hint = when (c.contactType) {
+                ContactType.TELEGRAM -> "@username или номер"
+                ContactType.INSTAGRAM, ContactType.VK -> "ник или ссылка"
+                else -> c.contactType.title
+            }
+            OutlinedTextField(
+                value = c.value,
+                onValueChange = { onChange(ec.copy(item = c.copy(value = it))) },
+                label = { Text(hint) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+                modifier = Modifier.weight(1f),
+            )
         }
-        val hint = when (c.contactType) {
-            ContactType.TELEGRAM -> "@username или номер"
-            ContactType.INSTAGRAM, ContactType.VK -> "ник или ссылка"
-            else -> c.contactType.title
+        IconButton(onClick = onRemove, modifier = Modifier.padding(top = 4.dp)) { Icon(Icons.Default.Close, "Удалить") }
+    }
+}
+
+@Composable
+private fun PlaceEditor(pl: Place, person: Person, onChange: (Place) -> Unit, onRemove: () -> Unit) {
+    var picker by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PlaceKind.entries.forEach { k ->
+                FilterChip(
+                    selected = pl.placeKind == k,
+                    onClick = { onChange(pl.copy(kind = k.name)) },
+                    label = { Text(k.title) },
+                    modifier = Modifier.padding(end = 6.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Удалить") }
         }
         OutlinedTextField(
-            value = c.value,
-            onValueChange = { onChange(c.copy(value = it)) },
-            label = { Text(hint) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
-            modifier = Modifier.weight(1f),
+            value = pl.address,
+            // Адрес изменили — старая точка больше не верна.
+            onValueChange = { onChange(pl.copy(address = it, lat = null, lng = null)) },
+            label = { Text("Адрес") },
+            placeholder = { Text("Город, улица, дом, квартира") },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            trailingIcon = {
+                IconButton(onClick = { picker = true }) {
+                    Icon(Icons.Default.Map, "Отметить на карте", tint = if (pl.hasCoords) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
         )
-        IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Удалить") }
+        Text(
+            if (pl.hasCoords) "📍 Отмечено на карте" else "Точка найдётся по адресу автоматически, или отметьте её вручную",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (pl.hasCoords) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp, top = 2.dp),
+        )
+        if (pl.placeKind == PlaceKind.OTHER) {
+            OutlinedTextField(pl.label, { onChange(pl.copy(label = it)) }, label = { Text("Что это (дача, родители…)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        }
+    }
+    if (picker) {
+        LocationPickerDialog(
+            initialAddress = pl.address,
+            initialLat = pl.lat,
+            initialLng = pl.lng,
+            person = person,
+            onDismiss = { picker = false },
+            onPick = { lat, lng, addr ->
+                onChange(pl.copy(lat = lat, lng = lng, address = pl.address.ifBlank { addr.orEmpty() }))
+                picker = false
+            },
+        )
     }
 }
 

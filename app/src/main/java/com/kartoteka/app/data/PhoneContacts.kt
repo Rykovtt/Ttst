@@ -64,7 +64,7 @@ class PhoneContacts(private val context: Context) {
         return result
     }
 
-    suspend fun import(contacts: List<PhoneContact>, repo: Repository): Int {
+    suspend fun import(contacts: List<PhoneContact>, repo: Repository, country: Country? = null): Int {
         contacts.forEach { pc ->
             val parts = pc.name.trim().split(Regex("\\s+"))
             val (first, last) = when (parts.size) {
@@ -77,7 +77,8 @@ class PhoneContacts(private val context: Context) {
                 firstName = first, lastName = last, company = pc.organization.orEmpty(),
                 birthDay = bd?.first, birthMonth = bd?.second, birthYear = bd?.third, avatarPath = avatar,
             )
-            val contactItems = pc.phones.map { ContactItem(type = ContactType.PHONE.name, value = it) } +
+            val country = country ?: PhoneFormat.countries.first()
+            val contactItems = pc.phones.map { ContactItem(type = ContactType.PHONE.name, value = PhoneFormat.normalize(it, country)) } +
                 pc.emails.map { ContactItem(type = ContactType.EMAIL.name, value = it) }
             val id = repo.savePerson(person, contactItems, emptyList(), emptyList())
             if (avatar != null) repo.rawDao.insertPhoto(Photo(personId = id, path = avatar))

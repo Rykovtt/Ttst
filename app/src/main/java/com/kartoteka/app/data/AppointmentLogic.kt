@@ -1,0 +1,89 @@
+package com.kartoteka.app.data
+
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
+
+object AppointmentLogic {
+    private val ru = Locale("ru")
+
+    /** Готовые варианты «за сколько напомнить», в минутах. */
+    val presets: List<Int> = listOf(10, 30, 60, 120, 180, 24 * 60, 2 * 24 * 60, 3 * 24 * 60, 7 * 24 * 60)
+
+    fun offsetTitle(min: Int): String = when {
+        min == 0 -> "в момент начала"
+        min % (7 * 24 * 60) == 0 -> (min / (7 * 24 * 60)).let { "за $it ${ArchiveLogic.plural(it.toLong(), "неделю", "недели", "недель")}" }
+        min % (24 * 60) == 0 -> (min / (24 * 60)).let { if (it == 1) "за сутки" else "за $it ${ArchiveLogic.plural(it.toLong(), "день", "дня", "дней")}" }
+        min % 60 == 0 -> (min / 60).let { if (it == 1) "за час" else "за $it ${ArchiveLogic.plural(it.toLong(), "час", "часа", "часов")}" }
+        else -> "за $min мин"
+    }
+
+    fun offsetsToString(list: Collection<Int>) = list.sorted().joinToString(",")
+    fun offsetsFromString(s: String?): List<Int> = s.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.distinct().sorted()
+
+    const val DEFAULT_CONFIRM =
+        "{имя}, здравствуйте! Подтверждаю вашу запись: {дата} ({день_недели}) в {время}.\n{услуга}\n{место}"
+    const val DEFAULT_REMINDER =
+        "{имя}, напоминаю о записи: {когда} в {время}.\n{услуга}\n{место}\nЕсли планы изменились — пожалуйста, сообщите."
+    const val DEFAULT_CANCEL =
+        "{имя}, здравствуйте! К сожалению, запись на {дата} в {время} отменяется. Давайте подберём другое время."
+    const val DEFAULT_RESCHEDULE =
+        "{имя}, здравствуйте! Ваша запись перенесена: теперь {дата} ({день_недели}) в {время}.\n{место}"
+
+    fun zoned(millis: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault())
+
+    fun millis(dt: LocalDateTime): Long = dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+    fun dateText(dt: LocalDateTime) = "${dt.dayOfMonth} ${ArchiveLogic.MONTHS_GEN[dt.monthValue - 1]}"
+
+    fun timeText(dt: LocalDateTime): String = dt.format(DateTimeFormatter.ofPattern("HH:mm"))
+
+    fun weekday(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.FULL, ru)
+
+    /** «сегодня», «завтра», «послезавтра» или дата. */
+    fun whenText(target: LocalDateTime, now: LocalDateTime): String {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), target.toLocalDate())
+        return when (days) {
+            0L -> "сегодня"
+            1L -> "завтра"
+            2L -> "послезавтра"
+            else -> dateText(target)
+        }
+    }
+
+    /**
+     * Подставляет данные записи в шаблон. Пустые строки (например, без места) убираются,
+     * чтобы сообщение выглядело аккуратно.
+     */
+    fun fill(template: String, a: Appointment, p: Person, now: LocalDateTime = LocalDateTime.now()): String {
+        val dt = zoned(a.start)
+        val text = ArchiveLogic.fillTemplate(template, p)
+            .replace("{дата}", dateText(dt))
+            .replace("{время}", timeText(dt))
+            .replace("{день_недели}", weekday(dt.toLocalDate()))
+            .replace("{когда}", whenText(dt, now))
+            .replace("{услуга}", a.title)
+            .replace("{место}", a.place)
+            .replace("{длительность}", "${a.durationMin} мин")
+        return text.lines().map { it.trimEnd() }.filter { it.isNotBlank() }.joinToString("\n").trim()
+    }
+
+    /** Список напоминаний для записи; прошедшие не создаются. */
+    fun buildReminders(a: Appointment, clientOffsets: List<Int>, myOffsets: List<Int>, now: Long = System.currentTimeMillis()): List<AppointmentReminder> {
+        val client = if (a.notifyChannel == NotifyChannel.NONE) emptyList() else clientOffsets
+        return (client.map { ReminderTarget.CLIENT to it } + myOffsets.map { ReminderTarget.ME to it })
+            .map { (t, off) -> AppointmentReminder(appointmentId = a.id, target = t.name, offsetMin = off, fireAt = a.start - off * 60_000L) }
+            .filter { it.fireAt > now }
+    }
+
+    /** Пересечения по времени с другими записями (для предупреждения). */
+    fun conflicts(a: Appointment, others: List<AppointmentFull>): List<AppointmentFull> =
+        others.filter {
+            val o = it.appointment
+            o.id != a.id && o.appointmentStatus != AppointmentStatus.CANCELLED && o.start < a.end && a.start < o.end
+        }
+}

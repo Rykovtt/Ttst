@@ -52,6 +52,9 @@ import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -108,7 +111,17 @@ import com.kartoteka.app.ui.components.initials
 import com.kartoteka.app.ui.components.rememberPhotoPicker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import com.kartoteka.app.data.AppointmentFull
+import com.kartoteka.app.data.AppointmentLogic
+import com.kartoteka.app.data.AppointmentStatus
+import com.kartoteka.app.data.PhoneFormat
+import com.kartoteka.app.data.RelationType
+import com.kartoteka.app.data.RelationView
+import com.kartoteka.app.data.Relations
+import com.kartoteka.app.ui.map.MapMarker
+import com.kartoteka.app.ui.map.OsmMap
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -121,6 +134,15 @@ class PersonDetailViewModel(private val app: KartotekaApp, val id: Long) : ViewM
     private val repo = app.repository
     val person = repo.observePerson(id).map { it ?: DELETED }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+    val everyone = repo.observeAll().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val relations = combine(repo.observeRelations(), everyone) { rels, all ->
+        Relations.viewFor(id, rels, all.associate { it.person.id to it.person })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val appointments = repo.observePersonAppointments(id)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addRelation(otherId: Long, type: RelationType) = viewModelScope.launch { repo.addRelation(id, otherId, type) }
+    fun removeRelation(v: RelationView) = viewModelScope.launch { repo.deleteRelation(v.relation.id) }
 
     fun toggleFavorite() = viewModelScope.launch {
         person.value?.person?.let { repo.setFavorite(it.id, !it.favorite) }
@@ -154,6 +176,9 @@ fun PersonDetailScreen(
     onEdit: () -> Unit,
     onOpenPhoto: (Int) -> Unit,
     onMessage: () -> Unit,
+    onOpenPerson: (Long) -> Unit = {},
+    onNewAppointment: () -> Unit = {},
+    onOpenAppointment: (Long) -> Unit = {},
 ) {
     val app = app()
     val vm: PersonDetailViewModel = viewModel(key = "person_$personId") { PersonDetailViewModel(app, personId) }
@@ -165,6 +190,10 @@ fun PersonDetailScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var journalDialog by remember { mutableStateOf(false) }
     var photoMenu by remember { mutableStateOf(false) }
+    var relationDialog by remember { mutableStateOf(false) }
+    val relations by vm.relations.collectAsState()
+    val appointments by vm.appointments.collectAsState()
+    val everyone by vm.everyone.collectAsState()
     val picker = rememberPhotoPicker(multiple = true) { vm.addPhotos(it) }
 
     val pf = data ?: return
@@ -177,7 +206,7 @@ fun PersonDetailScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") { Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) }) }
-            item(key = "actions") { QuickActions(pf, onMessage) }
+            item(key = "actions") { QuickActions(pf, onMessage, onNewAppointment) }
 
             val bdText = ArchiveLogic.formatBirthday(p)
             if (bdText != null) {
@@ -202,7 +231,7 @@ fun PersonDetailScreen(
                         pf.contacts.forEach { c ->
                             InfoRow(
                                 label = c.label.ifBlank { c.contactType.title },
-                                value = c.value,
+                                value = if (PhoneFormat.isPhoneType(c.contactType)) PhoneFormat.pretty(c.value) else c.value,
                                 icon = iconFor(c.contactType),
                                 onClick = { Messaging.openLink(context, c) },
                                 onLongClick = { Messaging.copy(context, c.value) },
@@ -219,7 +248,6 @@ fun PersonDetailScreen(
                     if (p.company.isNotBlank() || p.position.isNotBlank())
                         add(Triple(Icons.Default.Business, "Работа", listOf(p.position, p.company).filter { it.isNotBlank() }.joinToString(", ")))
                     if (p.city.isNotBlank()) add(Triple(Icons.Default.LocationCity, "Город", p.city))
-                    if (p.address.isNotBlank()) add(Triple(Icons.Default.Home, "Адрес", p.address))
                     if (p.howMet.isNotBlank()) add(Triple(Icons.Default.Info, "Как познакомились", p.howMet))
                 }
                 SectionCard("Основное", Icons.Default.Badge) {
@@ -249,6 +277,38 @@ fun PersonDetailScreen(
                         modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                     )
                 }
+            }
+
+            if (pf.places.isNotEmpty()) {
+                item(key = "places") {
+                    SectionCard("Адреса", Icons.Default.Place) {
+                        val markers = pf.places.filter { it.hasCoords }.map { MapMarker("${it.id}", it.lat!!, it.lng!!, p, it.placeKind.title) }
+                        if (markers.isNotEmpty()) {
+                            OsmMap(
+                                markers = markers,
+                                interactive = false,
+                                modifier = Modifier.fillMaxWidth().height(170.dp).padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(18.dp)),
+                            )
+                        }
+                        pf.places.forEach { pl ->
+                            InfoRow(
+                                label = pl.label.ifBlank { pl.placeKind.title },
+                                value = pl.address.ifBlank { "Точка на карте" },
+                                icon = if (pl.placeKind == com.kartoteka.app.data.PlaceKind.WORK) Icons.Default.Business else Icons.Default.Home,
+                                onClick = { Messaging.navigate(context, pl) },
+                                onLongClick = { Messaging.copy(context, pl.address) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            item(key = "relations") {
+                RelationsSection(relations, onOpen = onOpenPerson, onAdd = { relationDialog = true }, onRemove = vm::removeRelation)
+            }
+
+            item(key = "appointments") {
+                AppointmentsSection(appointments, onNew = onNewAppointment, onOpen = onOpenAppointment)
             }
 
             val byCategory = pf.details.sortedBy { it.position }.groupBy { it.category.ifBlank { "Разное" } }
@@ -366,6 +426,15 @@ fun PersonDetailScreen(
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
         )
     }
+    if (relationDialog) {
+        val linked = relations.map { it.other.id }.toSet() + p.id
+        AddRelationDialog(
+            me = p,
+            candidates = everyone.filter { it.person.id !in linked },
+            onDismiss = { relationDialog = false },
+            onSave = { other, type -> vm.addRelation(other, type); relationDialog = false },
+        )
+    }
     if (journalDialog) {
         JournalDialog(onDismiss = { journalDialog = false }, onSave = { vm.addJournal(it); journalDialog = false })
     }
@@ -417,7 +486,7 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
 }
 
 @Composable
-private fun QuickActions(pf: PersonFull, onMessage: () -> Unit) {
+private fun QuickActions(pf: PersonFull, onMessage: () -> Unit, onNewAppointment: () -> Unit) {
     val context = LocalContext.current
     val actions = buildList<Triple<ImageVector, String, () -> Unit>> {
         pf.phone?.let { add(Triple(Icons.Default.Call, "Звонок") { Messaging.dial(context, it) }) }
@@ -425,6 +494,7 @@ private fun QuickActions(pf: PersonFull, onMessage: () -> Unit) {
         pf.whatsapp?.let { add(Triple(Icons.AutoMirrored.Filled.Chat, "WhatsApp") { Messaging.whatsapp(context, it) }) }
         pf.telegram?.let { add(Triple(Icons.AutoMirrored.Filled.Send, "Telegram") { Messaging.telegram(context, it) }) }
         pf.email?.let { add(Triple(Icons.Default.Email, "Почта") { Messaging.email(context, listOf(it)) }) }
+        add(Triple(Icons.Default.EventAvailable, "Записать", onNewAppointment))
         if (pf.phone != null || pf.telegram != null) add(Triple(Icons.Default.Edit, "Шаблон", onMessage))
     }
     if (actions.isEmpty()) return
@@ -464,6 +534,42 @@ private fun JournalRow(e: JournalEntry, onDelete: () -> Unit) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("Удалить запись") }, onClick = { menu = false; onDelete() })
             }
+        }
+    }
+}
+
+@Composable
+private fun AppointmentsSection(list: List<AppointmentFull>, onNew: () -> Unit, onOpen: (Long) -> Unit) {
+    val now = System.currentTimeMillis()
+    val upcoming = list.filter { it.appointment.end >= now && it.appointment.appointmentStatus == AppointmentStatus.PLANNED }.sortedBy { it.appointment.start }
+    val past = list.filter { it !in upcoming }.take(3)
+    SectionCard(
+        "Записи", Icons.Default.Event,
+        action = { IconButton(onClick = onNew) { Icon(Icons.Default.Add, "Записать") } },
+    ) {
+        if (list.isEmpty()) {
+            Text(
+                "Запишите человека на встречу, приём или звонок — с напоминаниями ему и вам",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
+            )
+        }
+        (upcoming + past).forEach { af ->
+            val a = af.appointment
+            val dt = AppointmentLogic.zoned(a.start)
+            val status = when {
+                a.appointmentStatus == AppointmentStatus.CANCELLED -> " · отменено"
+                a.appointmentStatus == AppointmentStatus.DONE -> " · состоялось"
+                a.end < now -> " · прошло"
+                else -> ""
+            }
+            InfoRow(
+                label = "${AppointmentLogic.dateText(dt)}, ${AppointmentLogic.weekday(dt.toLocalDate())} · ${AppointmentLogic.timeText(dt)}$status",
+                value = a.title.ifBlank { "Запись" },
+                icon = Icons.Default.Event,
+                onClick = { onOpen(a.id) },
+            )
         }
     }
 }
