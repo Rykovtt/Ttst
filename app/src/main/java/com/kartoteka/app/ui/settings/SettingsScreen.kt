@@ -169,8 +169,8 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
             ActionRow(
                 Icons.Default.AutoMode,
                 if (on) "Включена ✓" else "Выключена — нажмите, чтобы включить",
-                "Картотека сама нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. " +
-                    "Настройки → Спец. возможности → «Картотека: авто-отправка». Если переключатель неактивен: Приложения → Картотека → ⋮ → «Разрешить ограниченные настройки».",
+                "RVault сам нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. " +
+                    "Настройки → Спец. возможности → «RVault: авто-отправка». Если переключатель неактивен: Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».",
             ) { com.kartoteka.app.messaging.AutoSend.openServiceSettings(context) }
             Text("Пауза между сообщениями: ${delay} с", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
             androidx.compose.material3.Slider(
@@ -196,7 +196,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
             ActionRow(Icons.Default.Contacts, "Импорт из контактов телефона", "Перенести людей из телефонной книги", onImportContacts)
             ActionRow(Icons.Default.Backup, "Создать резервную копию", "Зашифрованный файл с данными и фото") {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                exportLauncher.launch("kartoteka-$stamp.krtk")
+                exportLauncher.launch("rvault-$stamp.krtk")
             }
             ActionRow(Icons.Default.Restore, "Восстановить из копии", "Загрузить файл .krtk") {
                 importLauncher.launch(arrayOf("*/*"))
@@ -204,7 +204,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
         }
 
         Text(
-            "Картотека 2.1 · все данные хранятся только на этом устройстве. Карта — © OpenStreetMap",
+            "Все данные хранятся только на этом устройстве. Разработчик Rykov.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(20.dp),

@@ -1,4 +1,4 @@
-# Картотека
+# RVault
 
 Личный зашифрованный архив людей для Android: фото, контакты и любые мелочи о каждом человеке, поиск по всем полям и рассылки через SMS и мессенджеры.
 
@@ -40,7 +40,7 @@
 
 ## Установка
 
-APK собирается GitHub Actions при каждом push: **Actions → Build APK → Artifacts → Kartoteka-apk**. Скачайте файл на телефон и установите (Android 8.0+).
+APK собирается GitHub Actions при каждом push: **Actions → Build APK → Artifacts → Kartoteka-apk**. Скачайте файл на телефон и установите приложение RVault (Android 8.0+).
 
 Сборка локально: `./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 

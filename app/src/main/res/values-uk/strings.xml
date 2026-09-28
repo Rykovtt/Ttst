@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Картотека</string>
+    <string name="app_name">RVault</string>
     <string name="alias_notes">Нотатки</string>
     <string name="alias_calc">Калькулятор</string>
     <string name="alias_weather">Погода</string>

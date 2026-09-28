@@ -589,8 +589,8 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
             } else {
                 Text("Авто-отправка выключена", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «Картотека: авто-отправка». " +
-                        "Если переключатель неактивен: Настройки → Приложения → Картотека → ⋮ → «Разрешить ограниченные настройки».",
+                    "Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «RVault: авто-отправка». " +
+                        "Если переключатель неактивен: Настройки → Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».",
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text("Открыть настройки") }
