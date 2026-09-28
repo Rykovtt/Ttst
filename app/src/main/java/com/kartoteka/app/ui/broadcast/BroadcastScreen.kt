@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -50,17 +51,17 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
+import com.kartoteka.app.ui.components.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
+import com.kartoteka.app.ui.components.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.kartoteka.app.ui.components.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -75,6 +76,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -248,7 +250,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         FilledTonalButton(onClick = { criteria = true }) {
                             Icon(Icons.Default.FilterAlt, null); Spacer(Modifier.width(6.dp)); Text("По критериям")
                         }
-                        if (vm.recipients.isNotEmpty()) TextButton(onClick = { vm.recipients.clear() }) { Text("Очистить") }
+                        if (vm.recipients.isNotEmpty()) IconButton(onClick = { vm.recipients.clear() }) { Icon(Icons.Default.Close, "Очистить") }
                     }
                     if (selected.isNotEmpty()) {
                         Text("Выбрано: ${selected.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
@@ -302,16 +304,20 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             item { StepTitle("3", "Как отправить") }
             items(Channel.entries) { ch ->
                 val missing = selected.count { !vm.canReceive(it, ch) }
+                val sel = vm.channel == ch
+                val (tileBg, tileFg) = channelTile(ch)
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = if (vm.channel == ch) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = if (sel) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                        .selectable(selected = vm.channel == ch, role = Role.RadioButton) { vm.channel = ch },
+                        .selectable(selected = sel, role = Role.RadioButton) { vm.channel = ch },
                 ) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = vm.channel == ch, onClick = null)
-                        Spacer(Modifier.width(8.dp))
-                        Icon(ch.icon, null, tint = MaterialTheme.colorScheme.primary)
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(tileBg),
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(ch.icon, null, tint = tileFg) }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(ch.title, style = MaterialTheme.typography.titleSmall)
@@ -327,6 +333,11 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                 }
                             }
                         }
+                        Spacer(Modifier.width(8.dp))
+                        Icon(
+                            if (sel) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, null,
+                            tint = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        )
                     }
                 }
             }
@@ -540,6 +551,14 @@ private fun friendsWord(lang: com.kartoteka.app.data.MessageLang) = when (lang) 
     com.kartoteka.app.data.MessageLang.RU -> "друзья"
     com.kartoteka.app.data.MessageLang.UK -> "друзі"
     com.kartoteka.app.data.MessageLang.EN -> "friends"
+}
+
+/** Фирменные цвета мессенджеров для плашек. */
+private fun channelTile(ch: Channel): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> = when (ch) {
+    Channel.WHATSAPP -> androidx.compose.ui.graphics.Color(0xFF25D366) to androidx.compose.ui.graphics.Color.White
+    Channel.TELEGRAM -> androidx.compose.ui.graphics.Color(0xFF2AABEE) to androidx.compose.ui.graphics.Color.White
+    Channel.SMS_AUTO, Channel.SMS_APP -> androidx.compose.ui.graphics.Color(0xFF7C5CFA) to androidx.compose.ui.graphics.Color.White
+    Channel.SHARE -> androidx.compose.ui.graphics.Color(0xFF3A3A40) to androidx.compose.ui.graphics.Color.White
 }
 
 private fun sendOne(context: android.content.Context, vm: BroadcastViewModel, pf: PersonFull) {

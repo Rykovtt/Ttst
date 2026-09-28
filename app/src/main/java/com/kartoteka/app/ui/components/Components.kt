@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AlternateEmail
@@ -98,16 +99,16 @@ fun SectionCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = MaterialTheme.shapes.large,
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(Modifier.padding(vertical = 14.dp)) {
             Row(Modifier.padding(horizontal = 18.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 if (icon != null) {
-                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
-                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                 action?.invoke()
             }
             Spacer(Modifier.size(6.dp))
@@ -150,7 +151,7 @@ fun InfoRow(
 }
 
 @Composable
-fun ClosenessStars(value: Int, onChange: ((Int) -> Unit)? = null, size: Dp = 22.dp, tint: Color = MaterialTheme.colorScheme.tertiary) {
+fun ClosenessStars(value: Int, onChange: ((Int) -> Unit)? = null, size: Dp = 22.dp, tint: Color = MaterialTheme.colorScheme.onSurface) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (i in 1..5) {
             val filled = i <= value
@@ -187,10 +188,10 @@ fun EmptyState(icon: ImageVector, title: String, text: String, modifier: Modifie
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
-            Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+            Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(44.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(44.dp))
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
         Text(

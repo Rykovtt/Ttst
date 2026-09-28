@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -36,7 +37,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
+import com.kartoteka.app.ui.components.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -131,19 +135,25 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
 
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            Button(
                 onClick = onAdd,
-                expanded = fabExpanded,
-                icon = { Icon(Icons.Default.PersonAdd, null) },
-                text = { Text("Добавить") },
-            )
+                shape = CircleShape,
+                contentPadding = PaddingValues(vertical = 16.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            ) {
+                Icon(Icons.Default.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text(if (fabExpanded) "Добавить человека" else "Добавить", style = MaterialTheme.typography.titleMedium)
+            }
         },
+        floatingActionButtonPosition = FabPosition.Center,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(bottom = 96.dp),
+            contentPadding = PaddingValues(bottom = 112.dp),
         ) {
             item(key = "header") {
                 Header(total = state.total, sort = sort, onSort = vm::setSort, onGroups = onGroups)
@@ -152,7 +162,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
                 SearchField(query, onChange = { vm.query.value = it })
             }
             item(key = "filters") {
-                FilterRow(filter, state.groups, onGroups) { vm.filter.value = it }
+                FilterRow(filter, state.groups, state.total, onGroups) { vm.filter.value = it }
             }
             if (query.isBlank() && filter == PeopleFilter.All && state.birthdays.isNotEmpty()) {
                 item(key = "birthdays") { BirthdayStrip(state.birthdays, onOpen) }
@@ -215,7 +225,7 @@ private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGro
         Column(Modifier.weight(1f)) {
             val context = androidx.compose.ui.platform.LocalContext.current
             val custom by com.kartoteka.app.ui.app().settings.appTitle.value.collectAsState()
-            Text(com.kartoteka.app.AppIcons.title(context, custom), style = MaterialTheme.typography.headlineLarge)
+            Text(com.kartoteka.app.AppIcons.title(context, custom).uppercase(), style = MaterialTheme.typography.headlineLarge)
             Text(
                 "$total ${ArchiveLogic.plural(total.toLong(), "человек", "человека", "человек")} в архиве",
                 style = MaterialTheme.typography.bodyMedium,
@@ -249,25 +259,36 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
             if (query.isNotEmpty()) IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, "Очистить") }
         },
         singleLine = true,
-        shape = CircleShape,
+        shape = RoundedCornerShape(16.dp),
         colors = TextFieldDefaults.colors(
             focusedIndicatorColor = Color.Transparent,
             unfocusedIndicatorColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            unfocusedPlaceholderColor = MaterialTheme.colorScheme.outline,
+            unfocusedLeadingIconColor = MaterialTheme.colorScheme.outline,
         ),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
     )
 }
 
 @Composable
-private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, onGroups: () -> Unit, onChange: (PeopleFilter) -> Unit) {
+private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, total: Int, onGroups: () -> Unit, onChange: (PeopleFilter) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            FilterChip(selected = filter == PeopleFilter.All, onClick = { onChange(PeopleFilter.All) }, label = { Text("Все") })
+            val all = filter == PeopleFilter.All
+            FilterChip(selected = all, onClick = { onChange(PeopleFilter.All) }, label = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Все")
+                    Spacer(Modifier.width(6.dp))
+                    Surface(shape = CircleShape, color = if (all) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerLowest) {
+                        Text("$total", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp))
+                    }
+                }
+            })
         }
         item {
             FilterChip(
@@ -287,7 +308,7 @@ private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, onGrou
             )
         }
         item {
-            androidx.compose.material3.AssistChip(onClick = onGroups, label = { Text(if (groups.isEmpty()) "+ Группы" else "Группы…") })
+            FilledTonalIconButton(onClick = onGroups, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Add, "Группы", Modifier.size(18.dp)) }
         }
     }
 }
@@ -361,7 +382,7 @@ fun PersonRow(hit: ArchiveLogic.SearchHit, onClick: () -> Unit, modifier: Modifi
                 )
                 if (p.favorite) {
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
                 }
                 pf.groups.take(4).forEach {
                     Spacer(Modifier.width(4.dp))

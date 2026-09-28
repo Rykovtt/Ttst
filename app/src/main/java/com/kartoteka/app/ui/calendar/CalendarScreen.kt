@@ -35,7 +35,9 @@ import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Today
-import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -145,16 +147,19 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
 
     Scaffold(
         floatingActionButton = {
-            ExtendedFloatingActionButton(
+            FloatingActionButton(
                 onClick = { onNew(if (listMode) LocalDate.now() else selected) },
-                icon = { Icon(Icons.Default.EventAvailable, null) },
-                text = { Text("Записать") },
-            )
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(60.dp),
+            ) { Icon(Icons.Default.Add, "Записать", Modifier.size(28.dp)) }
         },
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
             item(key = "header") {
+                Column {
                 Row(
                     Modifier.statusBarsPadding().fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -172,9 +177,13 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                         selectedEpoch = LocalDate.now().toEpochDay()
                         scope.launch { pager.animateScrollToPage(MID) }
                     }) { Icon(Icons.Default.Today, "Сегодня") }
-                    IconButton(onClick = { vm.listMode.value = !listMode }) {
-                        Icon(if (listMode) Icons.Default.CalendarMonth else Icons.AutoMirrored.Filled.ViewList, if (listMode) "Месяц" else "Список")
-                    }
+                }
+                com.kartoteka.app.ui.components.Segmented(
+                    options = listOf("Месяц", "Список"),
+                    selected = if (listMode) 1 else 0,
+                    onSelect = { vm.listMode.value = it == 1 },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                )
                 }
             }
 
@@ -247,9 +256,14 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                     val isSel = date == selected
                     val count = byDay[date].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).padding(2.dp).clip(RoundedCornerShape(14.dp))
-                            .background(if (isSel) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
-                            .then(if (date == today && !isSel) Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)) else Modifier)
+                        Modifier.weight(1f).aspectRatio(1f).padding(4.dp).clip(CircleShape)
+                            .background(
+                                when {
+                                    isSel -> MaterialTheme.colorScheme.primary
+                                    date == today -> MaterialTheme.colorScheme.surfaceContainerHighest
+                                    else -> androidx.compose.ui.graphics.Color.Transparent
+                                }
+                            )
                             .clickable { onSelect(date) },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -266,7 +280,7 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(6.dp)) {
                                 repeat(minOf(count, 3)) {
-                                    Box(Modifier.size(5.dp).clip(CircleShape).background(if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
+                                    Box(Modifier.size(4.dp).clip(CircleShape).background(if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
                                 }
                             }
                         }
@@ -300,50 +314,57 @@ fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) {
     val end = AppointmentLogic.zoned(a.end)
     val cancelled = a.appointmentStatus == AppointmentStatus.CANCELLED
     val past = a.end < System.currentTimeMillis()
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)) {
-        Column(Modifier.width(52.dp).padding(top = 12.dp), horizontalAlignment = Alignment.End) {
+    val (tileBg, tileFg) = channelColors(a.notifyChannel)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.width(48.dp)) {
             Text(AppointmentLogic.timeText(start), style = MaterialTheme.typography.titleSmall)
-            Text(AppointmentLogic.timeText(end), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(AppointmentLogic.timeText(end), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
         Surface(
             onClick = onClick,
-            shape = RoundedCornerShape(20.dp),
-            color = when {
-                cancelled -> MaterialTheme.colorScheme.surfaceContainer
-                past -> MaterialTheme.colorScheme.surfaceContainerLow
-                else -> MaterialTheme.colorScheme.primaryContainer
-            },
-            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(18.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.weight(1f).alpha(if (cancelled || past) 0.6f else 1f),
         ) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(p, 44.dp)
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tileBg), contentAlignment = Alignment.Center) {
+                    Icon(channelIcon(a.notifyChannel) ?: Icons.Default.EventAvailable, null, tint = tileFg, modifier = Modifier.size(22.dp))
+                }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        p.displayName,
-                        style = MaterialTheme.typography.titleMedium,
+                        a.title.ifBlank { "Встреча" },
+                        style = MaterialTheme.typography.titleSmall,
                         textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
-                    val sub = listOf(a.title, a.place).filter { it.isNotBlank() }.joinToString(" · ")
-                    if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val pending = af.reminders.count { it.sentAt == null }
-                    val statusText = when (a.appointmentStatus) {
-                        AppointmentStatus.CANCELLED -> "Отменено"
-                        AppointmentStatus.DONE -> "Состоялось"
-                        AppointmentStatus.PLANNED -> if (pending > 0) "Напоминаний впереди: $pending" else null
-                    }
-                    if (statusText != null) Text(statusText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val sub = listOfNotNull(
+                        p.displayName,
+                        a.place.takeIf { it.isNotBlank() },
+                        when (a.appointmentStatus) {
+                            AppointmentStatus.CANCELLED -> "отменено"
+                            AppointmentStatus.DONE -> "состоялось"
+                            AppointmentStatus.PLANNED -> if (pending > 0) "🔔 $pending" else null
+                        },
+                    ).joinToString(" · ")
+                    Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                channelIcon(a.notifyChannel)?.let { Icon(it, a.notifyChannel.title, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                if (af.reminders.any { it.target == ReminderTarget.ME.name && it.sentAt == null }) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.NotificationsActive, "Напомню вам", Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Spacer(Modifier.width(8.dp))
+                Avatar(p, 40.dp)
             }
         }
     }
+}
+
+/** Пастельная плашка и цвет значка для способа оповещения. */
+@Composable
+fun channelColors(ch: NotifyChannel): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> = when (ch) {
+    NotifyChannel.WHATSAPP -> androidx.compose.ui.graphics.Color(0xFFDDF7E6) to androidx.compose.ui.graphics.Color(0xFF1FA855)
+    NotifyChannel.TELEGRAM -> androidx.compose.ui.graphics.Color(0xFFDDF0FC) to androidx.compose.ui.graphics.Color(0xFF229ED9)
+    NotifyChannel.SMS -> androidx.compose.ui.graphics.Color(0xFFEAE4FD) to androidx.compose.ui.graphics.Color(0xFF7456E8)
+    NotifyChannel.NONE -> androidx.compose.ui.graphics.Color(0xFFFDE6EE) to androidx.compose.ui.graphics.Color(0xFFE0406E)
 }
 
 fun channelIcon(ch: NotifyChannel): ImageVector? = when (ch) {

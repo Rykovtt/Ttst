@@ -2,6 +2,8 @@ package com.kartoteka.app.ui.person
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -69,8 +71,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import com.kartoteka.app.ui.components.AssistChip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -261,7 +262,6 @@ fun PersonDetailScreen(
                                     onClick = {},
                                     label = { Text(listOf(g.emoji, g.name).filter { it.isNotBlank() }.joinToString(" ")) },
                                     leadingIcon = { ColorDot(g.color) },
-                                    colors = AssistChipDefaults.assistChipColors(),
                                 )
                             }
                         }
@@ -499,11 +499,11 @@ private fun QuickActions(pf: PersonFull, onMessage: () -> Unit, onNewAppointment
     }
     if (actions.isEmpty()) return
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         actions.forEach { (icon, label, action) ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
                 FilledTonalIconButton(onClick = action, modifier = Modifier.size(52.dp)) { Icon(icon, label) }
                 Spacer(Modifier.height(4.dp))
                 Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)

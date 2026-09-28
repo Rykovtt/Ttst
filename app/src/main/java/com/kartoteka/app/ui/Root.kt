@@ -25,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -125,13 +127,20 @@ fun KartotekaRoot(
     Scaffold(
         bottomBar = {
             if (showBar) {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest, tonalElevation = 0.dp) {
                     tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = route.startsWith(tab.base),
                             onClick = { nav.switchTab(tab.route) },
                             icon = { Icon(tab.icon, null) },
                             label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                indicatorColor = Color.Transparent,
+                                unselectedIconColor = MaterialTheme.colorScheme.outline,
+                                unselectedTextColor = MaterialTheme.colorScheme.outline,
+                            ),
                         )
                     }
                 }

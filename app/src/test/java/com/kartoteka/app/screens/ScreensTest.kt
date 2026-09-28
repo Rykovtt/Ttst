@@ -8,6 +8,7 @@ import android.graphics.Shader
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -130,7 +131,7 @@ class ScreensTest {
         compose.onNodeWithText("Анна Смирнова").performClick()
         settle()
         shot("02_person")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Семья и связи"))
+        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Семья и связи"))
         settle()
         shot("09_person_relations")
 
@@ -154,7 +155,7 @@ class ScreensTest {
         compose.onNodeWithText("Календарь").performClick()
         settle()
         shot("11_calendar")
-        compose.onNodeWithText("Анна Смирнова").performClick()
+        compose.onNodeWithText("Стрижка и укладка").performClick()
         settle()
         shot("12_appointment")
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Напомнить мне"))

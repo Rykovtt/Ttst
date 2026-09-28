@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Directions
@@ -85,17 +86,17 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
         Column(Modifier.statusBarsPadding().padding(top = 8.dp)) {
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    FilterChip(kind == null, { kind = null }, label = { Text("Все адреса") }, leadingIcon = { Icon(Icons.Default.Map, null, Modifier.size(18.dp)) }, colors = chipColors())
+                    FilterChip(kind == null, { kind = null }, label = { Text("Все адреса") }, leadingIcon = { Icon(Icons.Default.Map, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 item {
-                    FilterChip(kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, label = { Text("Где живут") }, leadingIcon = { Icon(Icons.Default.Home, null, Modifier.size(18.dp)) }, colors = chipColors())
+                    FilterChip(kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, label = { Text("Где живут") }, leadingIcon = { Icon(Icons.Default.Home, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 item {
-                    FilterChip(kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, label = { Text("Где работают") }, leadingIcon = { Icon(Icons.Default.Work, null, Modifier.size(18.dp)) }, colors = chipColors())
+                    FilterChip(kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, label = { Text("Где работают") }, leadingIcon = { Icon(Icons.Default.Work, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 items(groups, key = { it.group.id }) { g ->
                     val sel = groupId == g.group.id
-                    FilterChip(sel, { groupId = if (sel) null else g.group.id }, label = { Text("${g.group.emoji} ${g.group.name}".trim()) }, leadingIcon = { ColorDot(g.group.color) }, colors = chipColors())
+                    FilterChip(sel, { groupId = if (sel) null else g.group.id }, label = { Text("${g.group.emoji} ${g.group.name}".trim()) }, leadingIcon = { ColorDot(g.group.color) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
             }
         }
@@ -108,6 +109,8 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
 
         SmallFloatingActionButton(
             onClick = { fitKey++ },
+            shape = CircleShape,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = if (selected != null) 150.dp else 16.dp),
         ) { Icon(Icons.Default.CenterFocusStrong, "Показать всех") }
 
@@ -138,5 +141,8 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
 
 @Composable
 private fun chipColors() = FilterChipDefaults.filterChipColors(
-    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+    selectedContainerColor = MaterialTheme.colorScheme.primary,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary,
 )

@@ -40,7 +40,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.kartoteka.app.ui.components.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -154,7 +154,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
             )
             androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 com.kartoteka.app.data.MessageLang.entries.forEach { l ->
-                    androidx.compose.material3.FilterChip(lang == l.name, { settings.messageLang.set(l.name) }, label = { Text(l.title) })
+                    com.kartoteka.app.ui.components.FilterChip(lang == l.name, { settings.messageLang.set(l.name) }, label = { Text(l.title) })
                 }
             }
         }
