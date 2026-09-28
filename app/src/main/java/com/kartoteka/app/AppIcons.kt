@@ -17,9 +17,11 @@ enum class AppIcon(
     val bgStart: Long,
     val bgEnd: Long,
     val disguise: Boolean,
+    /** Готовая картинка значка целиком (для основного варианта). */
+    @DrawableRes val fullImage: Int? = null,
 ) {
-    DEFAULT("Default", R.string.app_name, R.drawable.ic_launcher_foreground, 0xFF5B4BD6, 0xFF2A1F73, false),
-    DARK("Dark", R.string.app_name, R.drawable.ic_launcher_foreground, 0xFF2B2B33, 0xFF0D0D12, false),
+    DEFAULT("Default", R.string.app_name, R.drawable.rvault_mono, 0xFF1B6FA0, 0xFF12305F, false, R.drawable.rvault_bg),
+    DARK("Dark", R.string.app_name, R.drawable.rvault_mono, 0xFF2B2B33, 0xFF0D0D12, false),
     NOTES("Notes", R.string.alias_notes, R.drawable.icfg_notes, 0xFFFFD54F, 0xFFFFB300, true),
     CALC("Calc", R.string.alias_calc, R.drawable.icfg_calc, 0xFF455A64, 0xFF263238, true),
     WEATHER("Weather", R.string.alias_weather, R.drawable.icfg_weather, 0xFF4FC3F7, 0xFF1E88E5, true),

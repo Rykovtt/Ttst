@@ -30,7 +30,6 @@ object ArchiveLogic {
         add("Отношение" to p.relation)
         add("Работа" to "${p.company} ${p.position}")
         add("Город" to p.city)
-        add("Адрес" to p.address)
         pf.places.forEach { add(it.placeKind.title to it.address) }
         add("Знакомство" to p.howMet)
         add("Заметки" to p.notes)

@@ -40,11 +40,11 @@
 
 ## Установка
 
-APK собирается GitHub Actions при каждом push: **Actions → Build APK → Artifacts → Kartoteka-apk**. Скачайте файл на телефон и установите приложение RVault (Android 8.0+).
+APK собирается GitHub Actions при каждом push: **Actions → Build APK → Artifacts → RVault-apk**. Скачайте файл на телефон и установите приложение RVault (Android 8.0+).
 
 Сборка локально: `./gradlew :app:assembleRelease` → `app/build/outputs/apk/release/app-release.apk`.
 
-Все сборки подписаны одним ключом (`app/kartoteka.keystore`), поэтому обновления ставятся поверх без потери данных.
+Версия 1.0 — первая финальная сборка (`com.rykov.rvault`), ставится начисто. Тестовые сборки «Картотека» (`com.kartoteka.app`) — отдельное приложение: удалите его вручную. Все сборки подписаны одним ключом (`app/kartoteka.keystore`), поэтому будущие обновления RVault ставятся поверх без потери данных.
 
 ## Технологии
 

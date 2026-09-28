@@ -123,6 +123,11 @@ private fun IconPreview(icon: AppIcon, selected: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         // Передний слой адаптивного значка рассчитан на 108dp, видимая часть — центральные 72dp.
-        Image(painterResource(icon.foreground), null, Modifier.requiredSize(81.dp))
+        val full = icon.fullImage
+        if (full != null) {
+            Image(painterResource(full), null, Modifier.requiredSize(81.dp))
+        } else {
+            Image(painterResource(icon.foreground), null, Modifier.requiredSize(81.dp))
+        }
     }
 }

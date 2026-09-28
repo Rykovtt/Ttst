@@ -11,11 +11,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.kartoteka.app"
+        applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "2.2"
+        versionCode = 1
+        versionName = "1.0"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -53,10 +53,6 @@ android {
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
-    }
-    sourceSets {
-        // Схемы Room нужны тесту миграции (только в debug-сборке, в release их нет).
-        getByName("debug").assets.srcDir("$projectDir/schemas")
     }
 }
 
@@ -98,6 +94,5 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.32.2")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.32.2")
     testImplementation("androidx.compose.ui:ui-test-junit4")
-    testImplementation("androidx.room:room-testing:2.6.1")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

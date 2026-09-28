@@ -120,7 +120,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     birthYear = p.optIntOrNull("birthYear"), gender = p.optString("gender"),
                     relation = p.optString("relation"), closeness = p.optInt("closeness"),
                     company = p.optString("company"), position = p.optString("position"),
-                    city = p.optString("city"), address = p.optString("address"),
+                    city = p.optString("city"),
                     howMet = p.optString("howMet"), notes = p.optString("notes"),
                     favorite = p.optBoolean("favorite"), avatarPath = restoredPath(p.optStringOrNull("avatarPath")),
                     createdAt = p.optLong("createdAt", System.currentTimeMillis()),
@@ -139,7 +139,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                 val places = o.optJSONArray("places")?.objects()?.map {
                     Place(kind = it.optString("kind"), label = it.optString("label"), address = it.optString("address"),
                         lat = it.optDoubleOrNull("lat"), lng = it.optDoubleOrNull("lng"))
-                } ?: listOfNotNull(person.address.takeIf { it.isNotBlank() }?.let { Place(kind = PlaceKind.HOME.name, address = it) })
+                } ?: listOfNotNull(p.optString("address").takeIf { it.isNotBlank() }?.let { Place(kind = PlaceKind.HOME.name, address = it) })
                 val id = dao.savePerson(person, contacts, details, groupIds, places)
                 if (o.has("id")) personMap[o.getLong("id")] = id
                 o.optJSONArray("photos")?.objects()?.forEach { ph ->
@@ -207,7 +207,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     put("nickname", p.nickname); put("birthDay", p.birthDay); put("birthMonth", p.birthMonth)
                     put("birthYear", p.birthYear); put("gender", p.gender); put("relation", p.relation)
                     put("closeness", p.closeness); put("company", p.company); put("position", p.position)
-                    put("city", p.city); put("address", p.address); put("howMet", p.howMet); put("notes", p.notes)
+                    put("city", p.city); put("howMet", p.howMet); put("notes", p.notes)
                     put("favorite", p.favorite); put("avatarPath", p.avatarPath); put("createdAt", p.createdAt)
                     put("updatedAt", p.updatedAt); put("lastContactAt", p.lastContactAt); put("language", p.language)
                 })

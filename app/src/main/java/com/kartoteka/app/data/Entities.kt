@@ -25,8 +25,6 @@ data class Person(
     val company: String = "",
     val position: String = "",
     val city: String = "",
-    /** Устарело: адреса теперь в таблице places (перенесены миграцией 1→2). */
-    val address: String = "",
     val howMet: String = "",
     val notes: String = "",
     val favorite: Boolean = false,
