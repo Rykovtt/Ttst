@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/icbg_calendar" />
+    <foreground android:drawable="@drawable/icfg_calendar" />
+    <monochrome android:drawable="@drawable/icfg_calendar" />
+</adaptive-icon>

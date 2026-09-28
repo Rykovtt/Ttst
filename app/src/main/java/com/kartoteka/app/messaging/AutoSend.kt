@@ -198,7 +198,7 @@ object AutoSend {
         )
         val current = p.jobs.getOrNull(index)?.name.orEmpty()
         val n = NotificationCompat.Builder(appContext, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(appContext))
             .setContentTitle("Рассылка: ${p.done} из ${p.jobs.size}")
             .setContentText(if (current.isNotBlank()) "Сейчас: $current" else "")
             .setProgress(p.jobs.size, p.done, false)

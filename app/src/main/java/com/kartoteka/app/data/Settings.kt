@@ -25,6 +25,9 @@ class Settings(context: Context) {
     fun setBirthdayReminders(v: Boolean) { prefs.edit().putBoolean(BIRTHDAYS, v).apply(); _birthdayReminders.value = v }
     fun setSortMode(v: SortMode) { prefs.edit().putString(SORT, v.name).apply(); _sortMode.value = v }
 
+    /** Своё название внутри приложения; пусто — как у значка. */
+    val appTitle = StringPref("app_title", "")
+
     // --- телефоны ---
     val country = StringPref("country", "UA")
     val defaultCountry: Country get() = PhoneFormat.byIso(country.value.value)
@@ -35,10 +38,21 @@ class Settings(context: Context) {
     val apptClientOffsets = StringPref("appt_client_offsets", "${24 * 60},120")
     val apptMyOffsets = StringPref("appt_my_offsets", "60")
     val apptSendConfirm = StringPref("appt_send_confirm", "true")
-    val tplConfirm = StringPref("tpl_confirm", AppointmentLogic.DEFAULT_CONFIRM)
-    val tplReminder = StringPref("tpl_reminder", AppointmentLogic.DEFAULT_REMINDER)
-    val tplCancel = StringPref("tpl_cancel", AppointmentLogic.DEFAULT_CANCEL)
-    val tplReschedule = StringPref("tpl_reschedule", AppointmentLogic.DEFAULT_RESCHEDULE)
+    /** Язык сообщений по умолчанию. */
+    val messageLang = StringPref("msg_lang", MessageLang.RU.name)
+    val defaultLang: MessageLang get() = MessageLang.of(messageLang.value.value) ?: MessageLang.RU
+
+    private val templates = HashMap<String, StringPref>()
+
+    /** Шаблон на конкретном языке. Для русского сохранены ключи версии 2.0. */
+    fun template(kind: TemplateKind, lang: MessageLang): StringPref {
+        val key = "tpl_" + kind.name.lowercase() + if (lang == MessageLang.RU) "" else "_" + lang.name.lowercase()
+        return templates.getOrPut(key) { StringPref(key, lang.template(kind)) }
+    }
+
+    /** Язык для человека: его личный или общий. */
+    fun langFor(p: Person): MessageLang = MessageLang.of(p.language) ?: defaultLang
+
     val dayStartHour = StringPref("day_start", "8")
     val dayEndHour = StringPref("day_end", "21")
 

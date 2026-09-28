@@ -17,6 +17,7 @@ import com.kartoteka.app.data.AppointmentStatus
 import com.kartoteka.app.data.JournalEntry
 import com.kartoteka.app.data.NotifyChannel
 import com.kartoteka.app.data.ReminderTarget
+import com.kartoteka.app.data.TemplateKind
 import com.kartoteka.app.messaging.AutoSend
 import com.kartoteka.app.messaging.Sender
 import kotlinx.coroutines.CoroutineScope
@@ -83,7 +84,8 @@ object Reminders {
         if (a.start < System.currentTimeMillis()) {
             repo.markReminderSent(reminderId); return
         }
-        val text = AppointmentLogic.fill(app.settings.tplReminder.value.value, a, p)
+        val lang = app.settings.langFor(p)
+        val text = AppointmentLogic.fill(app.settings.template(TemplateKind.REMINDER, lang).value.value, a, p, lang)
         val channel = a.notifyChannel
         val canAutoMessenger = channel != NotifyChannel.SMS && AutoSend.isServiceEnabled(app) && deviceUnlocked(app)
         val automatic = interactive || channel == NotifyChannel.SMS && Sender.canSmsDirect(app) || canAutoMessenger
@@ -130,7 +132,7 @@ object Reminders {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Записи и напоминания", NotificationManager.IMPORTANCE_HIGH))
         val n = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(context))
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))

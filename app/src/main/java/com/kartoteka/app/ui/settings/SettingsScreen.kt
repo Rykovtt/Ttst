@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,6 +76,7 @@ private sealed interface BackupDialog {
     data class Import(val uri: android.net.Uri) : BackupDialog
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(onImportContacts: () -> Unit) {
     val app = app()
@@ -106,6 +109,10 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
             Text("Настройки", style = MaterialTheme.typography.headlineLarge)
         }
 
+        SectionCard("Значок и название", Icons.Default.Palette) {
+            AppearanceSettings(settings)
+        }
+
         SectionCard("Приватность", Icons.Default.Shield) {
             ToggleRow(
                 Icons.Default.Fingerprint, "Блокировка приложения",
@@ -133,6 +140,21 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
                     val n = app.repository.normalizeAllPhones(country)
                     busy = false
                     message = if (n == 0) "Все номера уже в международном формате" else "Исправлено номеров: $n"
+                }
+            }
+        }
+
+        SectionCard("Язык сообщений", Icons.Default.Translate) {
+            val lang by settings.messageLang.value.collectAsState()
+            Text(
+                "На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. " +
+                    "Для отдельного человека язык можно поменять в его карточке.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 18.dp),
+            )
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.kartoteka.app.data.MessageLang.entries.forEach { l ->
+                    androidx.compose.material3.FilterChip(lang == l.name, { settings.messageLang.set(l.name) }, label = { Text(l.title) })
                 }
             }
         }
@@ -182,7 +204,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
         }
 
         Text(
-            "Картотека 2.0 · все данные хранятся только на этом устройстве. Карта — © OpenStreetMap",
+            "Картотека 2.1 · все данные хранятся только на этом устройстве. Карта — © OpenStreetMap",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(20.dp),

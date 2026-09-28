@@ -77,7 +77,7 @@ class AppointmentLogicTest {
 
     @Test fun whenTextIsRelative() {
         val now = LocalDateTime.of(2026, 10, 1, 9, 0)
-        assertEquals("Анна, завтра в 14:30", AppointmentLogic.fill("{имя}, {когда} в {время}", appt, anna, now))
+        assertEquals("Анна, завтра в 14:30", AppointmentLogic.fill("{имя}, {когда} в {время}", appt, anna, now = now))
     }
 
     @Test fun remindersSkipPastAndNoneChannel() {
@@ -88,6 +88,27 @@ class AppointmentLogicTest {
 
         val silent = AppointmentLogic.buildReminders(appt.copy(channel = NotifyChannel.NONE.name), listOf(120), listOf(30), now)
         assertEquals(listOf("ME"), silent.map { it.target })
+    }
+
+    @Test fun ukrainianTemplate() {
+        val now = LocalDateTime.of(2026, 10, 1, 9, 0)
+        val tpl = MessageLang.UK.template(TemplateKind.REMINDER)
+        assertEquals(
+            "Анна, нагадую про запис: завтра о 14:30.\nСтрижка\nЯкщо плани змінилися — будь ласка, повідомте.",
+            AppointmentLogic.fill(tpl, appt, anna, MessageLang.UK, now),
+        )
+        val confirm = AppointmentLogic.fill(MessageLang.UK.template(TemplateKind.CONFIRM), appt, anna, MessageLang.UK, now)
+        assertEquals("Анна, добрий день! Підтверджую ваш запис: 2 жовтня (пʼятниця) о 14:30.\nСтрижка", confirm)
+    }
+
+    @Test fun englishDates() {
+        val text = AppointmentLogic.fill(MessageLang.EN.template(TemplateKind.CONFIRM), appt, anna, MessageLang.EN)
+        assertEquals("Hi Анна! Your appointment is confirmed: Friday, October 2 at 14:30.\nСтрижка", text)
+    }
+
+    @Test fun placeholdersInAnyLanguage() {
+        // Можно смешивать: {ім'я} с обычным апострофом, {name}, {імʼя_по_батькові}
+        assertEquals("Анна / Анна / Анна Викторовна", ArchiveLogic.fillTemplate("{ім'я} / {name} / {імʼя_по_батькові}", anna))
     }
 
     @Test fun offsetTitles() {

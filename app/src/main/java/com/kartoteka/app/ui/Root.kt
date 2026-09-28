@@ -267,7 +267,7 @@ private fun NavHostController.switchTab(route: String) {
 }
 
 @Composable
-fun LockScreen(onUnlock: () -> Unit) {
+fun LockScreen(title: String, onUnlock: () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center,
@@ -279,7 +279,7 @@ fun LockScreen(onUnlock: () -> Unit) {
             ) {
                 Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(52.dp))
             }
-            Text("Картотека заблокирована", style = MaterialTheme.typography.headlineSmall)
+            Text(title, style = MaterialTheme.typography.headlineSmall)
             Text(
                 "Подтвердите личность, чтобы продолжить",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

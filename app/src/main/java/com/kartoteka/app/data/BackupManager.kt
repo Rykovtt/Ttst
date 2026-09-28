@@ -126,6 +126,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     createdAt = p.optLong("createdAt", System.currentTimeMillis()),
                     updatedAt = p.optLong("updatedAt", System.currentTimeMillis()),
                     lastContactAt = p.optLongOrNull("lastContactAt"),
+                    language = p.optString("language"),
                 )
                 val contacts = o.optJSONArray("contacts")?.objects()?.map {
                     ContactItem(type = it.optString("type"), label = it.optString("label"), value = it.optString("value"))
@@ -208,7 +209,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     put("closeness", p.closeness); put("company", p.company); put("position", p.position)
                     put("city", p.city); put("address", p.address); put("howMet", p.howMet); put("notes", p.notes)
                     put("favorite", p.favorite); put("avatarPath", p.avatarPath); put("createdAt", p.createdAt)
-                    put("updatedAt", p.updatedAt); put("lastContactAt", p.lastContactAt)
+                    put("updatedAt", p.updatedAt); put("lastContactAt", p.lastContactAt); put("language", p.language)
                 })
                 .put("contacts", JSONArray(pf.contacts.map {
                     JSONObject().put("type", it.type).put("label", it.label).put("value", it.value)

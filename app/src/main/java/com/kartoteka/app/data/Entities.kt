@@ -1,5 +1,6 @@
 package com.kartoteka.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -33,6 +34,9 @@ data class Person(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val lastContactAt: Long? = null,
+    /** Язык сообщений этому человеку; пусто — как в настройках. */
+    @ColumnInfo(defaultValue = "")
+    val language: String = "",
 ) {
     val displayName: String
         get() = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")

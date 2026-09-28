@@ -162,7 +162,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
                 item(key = "empty") {
                     EmptyState(
                         Icons.Default.Contacts,
-                        "Картотека пуста",
+                        "Пока никого нет",
                         "Добавьте первого человека вручную или импортируйте контакты из телефона.",
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -213,7 +213,9 @@ private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGro
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Картотека", style = MaterialTheme.typography.headlineLarge)
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val custom by com.kartoteka.app.ui.app().settings.appTitle.value.collectAsState()
+            Text(com.kartoteka.app.AppIcons.title(context, custom), style = MaterialTheme.typography.headlineLarge)
             Text(
                 "$total ${ArchiveLogic.plural(total.toLong(), "человек", "человека", "человек")} в архиве",
                 style = MaterialTheme.typography.bodyMedium,

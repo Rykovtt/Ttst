@@ -281,6 +281,13 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                             }
                         }
                         Field("Или своё", if (p.relation in DetailTemplates.relations) "" else p.relation) { v -> vm.update { copy(relation = v) } }
+                        Text("Язык сообщений", style = MaterialTheme.typography.labelLarge)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = p.language.isBlank(), onClick = { vm.update { copy(language = "") } }, label = { Text("Как в настройках") })
+                            com.kartoteka.app.data.MessageLang.entries.forEach { l ->
+                                FilterChip(selected = p.language == l.name, onClick = { vm.update { copy(language = l.name) } }, label = { Text(l.title) })
+                            }
+                        }
                         Text("Близость", style = MaterialTheme.typography.labelLarge)
                         ClosenessStars(p.closeness, onChange = { v -> vm.update { copy(closeness = v) } }, size = 28.dp)
                     }

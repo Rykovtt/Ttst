@@ -48,7 +48,7 @@ class BirthdayWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             val pi = PendingIntent.getActivity(app, p.id.toInt(), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val n = NotificationCompat.Builder(app, CHANNEL)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(app))
                 .setContentTitle(title)
                 .setContentText("Не забудьте поздравить$age")
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)

@@ -95,7 +95,7 @@ object ArchiveLogic {
 
     /** Подстановка в шаблон рассылки. */
     fun fillTemplate(template: String, p: Person): String =
-        template
+        MessageLang.canonicalize(template)
             .replace("{имя}", p.firstName.ifBlank { p.displayName })
             .replace("{отчество}", p.middleName)
             .replace("{фамилия}", p.lastName)

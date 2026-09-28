@@ -183,6 +183,9 @@ class ScreensTest {
         compose.onNodeWithText("Настройки").performClick()
         settle()
         shot("06_settings")
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Язык сообщений"))
+        settle()
+        shot("16_settings_language")
     }
 
     @Test

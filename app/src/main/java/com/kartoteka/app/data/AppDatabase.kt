@@ -15,9 +15,12 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         Group::class, PersonGroup::class, JournalEntry::class,
         Place::class, Relation::class, Appointment::class, AppointmentReminder::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2, spec = AppDatabase.Migration1To2::class)],
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = AppDatabase.Migration1To2::class),
+        AutoMigration(from = 2, to = 3),
+    ],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): ArchiveDao

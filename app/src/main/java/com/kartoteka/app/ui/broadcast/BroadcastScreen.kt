@@ -111,7 +111,8 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
     val all = app.repository.observeAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val groups = app.repository.observeGroups().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val recipients = mutableStateListOf<Long>()
-    var text by mutableStateOf(TextFieldValue("Привет, {имя}! "))
+    val lang = app.settings.defaultLang
+    var text by mutableStateOf(TextFieldValue(lang.greeting, TextRange(lang.greeting.length)))
     var channel by mutableStateOf(Channel.WHATSAPP)
     var logToJournal by mutableStateOf(true)
     var sending by mutableStateOf(false)
@@ -187,8 +188,6 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
         com.kartoteka.app.messaging.AutoSend.clear()
     }
 }
-
-private val placeholders = listOf("{имя}", "{имя_отчество}", "{фамилия}", "{прозвище}")
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -280,7 +279,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     )
                     Text("Подставить:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        placeholders.forEach { ph ->
+                        vm.lang.personTokens.forEach { ph ->
                             AssistChip(onClick = {
                                 val t = vm.text
                                 val newText = t.text.substring(0, t.selection.start) + ph + t.text.substring(t.selection.end)
@@ -358,7 +357,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         when (vm.channel) {
                             Channel.SHARE -> {
                                 Messaging.share(context, selected.firstOrNull()?.let { if (selected.size == 1) vm.messageFor(it) else null }
-                                    ?: ArchiveLogic.fillTemplate(vm.text.text, com.kartoteka.app.data.Person(firstName = "друзья")).trim())
+                                    ?: ArchiveLogic.fillTemplate(vm.text.text, com.kartoteka.app.data.Person(firstName = friendsWord(vm.lang))).trim())
                                 selected.forEach(vm::markSent)
                             }
                             Channel.SMS_APP -> {
@@ -380,7 +379,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                 }
                 if (vm.channel == Channel.SHARE && selected.size > 1) {
                     Text(
-                        "Подсказка: в групповой чат уйдёт один общий текст, плейсхолдер {имя} заменится на «друзья».",
+                        "Подсказка: в групповой чат уйдёт один общий текст, имя заменится на «${friendsWord(vm.lang)}».",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp),
@@ -535,6 +534,12 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             onPick = { ids -> vm.recipients.clear(); vm.recipients.addAll(ids); picker = false },
         )
     }
+}
+
+private fun friendsWord(lang: com.kartoteka.app.data.MessageLang) = when (lang) {
+    com.kartoteka.app.data.MessageLang.RU -> "друзья"
+    com.kartoteka.app.data.MessageLang.UK -> "друзі"
+    com.kartoteka.app.data.MessageLang.EN -> "friends"
 }
 
 private fun sendOne(context: android.content.Context, vm: BroadcastViewModel, pf: PersonFull) {

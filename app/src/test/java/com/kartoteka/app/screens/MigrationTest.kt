@@ -43,5 +43,9 @@ class MigrationTest {
             assertEquals("HOME", c.getString(1))
             assertEquals("Киев, Крещатик 1", c.getString(2))
         }
+        db.close()
+        // 2 → 3: у людей появляется язык сообщений (пустой = как в настройках)
+        val v3 = helper.runMigrationsAndValidate("migration.db", 3, true)
+        v3.query("SELECT language FROM persons WHERE id = 1").use { it.moveToFirst(); assertEquals("", it.getString(0)) }
     }
 }

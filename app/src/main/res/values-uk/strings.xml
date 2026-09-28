@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Картотека</string>
+    <string name="alias_notes">Нотатки</string>
+    <string name="alias_calc">Калькулятор</string>
+    <string name="alias_weather">Погода</string>
+    <string name="alias_organizer">Органайзер</string>
+    <string name="alias_files">Файли</string>
+    <string name="alias_contacts">Контакти</string>
+</resources>

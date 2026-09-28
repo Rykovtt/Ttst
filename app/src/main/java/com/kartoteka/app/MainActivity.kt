@@ -10,6 +10,7 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -40,6 +41,9 @@ class MainActivity : FragmentActivity() {
         handleIntent(intent)
 
         lifecycleScope.launch {
+            app.settings.appTitle.value.collect { updateTaskTitle() }
+        }
+        lifecycleScope.launch {
             app.settings.secureScreen.collect { secure ->
                 if (secure) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -49,7 +53,8 @@ class MainActivity : FragmentActivity() {
         setContent {
             KartotekaTheme {
                 if (locked) {
-                    LockScreen(onUnlock = ::authenticate)
+                    val custom by app.settings.appTitle.value.collectAsState()
+                    LockScreen(title = AppIcons.title(this, custom), onUnlock = ::authenticate)
                 } else {
                     KartotekaRoot(
                         openPersonId = pendingPersonId,
@@ -131,11 +136,17 @@ class MainActivity : FragmentActivity() {
         })
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Картотека")
+                .setTitle(AppIcons.title(this, app.settings.appTitle.value.value))
                 .setSubtitle("Подтвердите, что это вы")
                 .setAllowedAuthenticators(authenticators)
                 .build()
         )
+    }
+
+    /** Название в списке недавних приложений — под маскировку. */
+    fun updateTaskTitle() {
+        @Suppress("DEPRECATION")
+        setTaskDescription(android.app.ActivityManager.TaskDescription(AppIcons.title(this, app.settings.appTitle.value.value)))
     }
 
     private fun Intent.personId(): Long? = getLongExtra(EXTRA_PERSON_ID, 0L).takeIf { it != 0L }

@@ -34,7 +34,9 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.kartoteka.app.data.AppointmentLogic
+import com.kartoteka.app.data.MessageLang
 import com.kartoteka.app.data.NotifyChannel
+import com.kartoteka.app.data.TemplateKind
 import com.kartoteka.app.data.Settings
 
 /** Настройки записей: способ оповещения, напоминания по умолчанию, шаблоны сообщений. */
@@ -47,6 +49,8 @@ fun CalendarSettings(settings: Settings) {
     val mine by settings.apptMyOffsets.value.collectAsState()
     val confirm by settings.apptSendConfirm.value.collectAsState()
     var editing by remember { mutableStateOf<Pair<String, Settings.StringPref>?>(null) }
+    val defaultLang by settings.messageLang.value.collectAsState()
+    var tplLang by remember(defaultLang) { mutableStateOf(MessageLang.of(defaultLang) ?: MessageLang.RU) }
 
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label("Как оповещать по умолчанию")
@@ -67,13 +71,11 @@ fun CalendarSettings(settings: Settings) {
         OffsetPrefChips(client) { settings.apptClientOffsets.set(it) }
         Label("Напоминания мне")
         OffsetPrefChips(mine) { settings.apptMyOffsets.set(it) }
-        Label("Шаблоны сообщений")
-        listOf(
-            "Подтверждение" to settings.tplConfirm,
-            "Напоминание" to settings.tplReminder,
-            "Перенос" to settings.tplReschedule,
-            "Отмена" to settings.tplCancel,
-        ).forEach { (title, pref) ->
+        Label("Шаблоны сообщений — ${tplLang.title}")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MessageLang.entries.forEach { l -> FilterChip(tplLang == l, { tplLang = l }, label = { Text(l.title) }) }
+        }
+        TemplateKind.entries.map { it.title to settings.template(it, tplLang) }.forEach { (title, pref) ->
             val v by pref.value.collectAsState()
             Row(Modifier.fillMaxWidth().clickable { editing = title to pref }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -85,7 +87,7 @@ fun CalendarSettings(settings: Settings) {
         }
     }
 
-    editing?.let { (title, pref) -> TemplateDialog(title, pref, onDismiss = { editing = null }) }
+    editing?.let { (title, pref) -> TemplateDialog(title, pref, tplLang, onDismiss = { editing = null }) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -100,15 +102,14 @@ private fun OffsetPrefChips(value: String, onChange: (String) -> Unit) {
     }
 }
 
-private val placeholders = listOf("{имя}", "{имя_отчество}", "{дата}", "{время}", "{день_недели}", "{когда}", "{услуга}", "{место}", "{длительность}")
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TemplateDialog(title: String, pref: Settings.StringPref, onDismiss: () -> Unit) {
+private fun TemplateDialog(title: String, pref: Settings.StringPref, lang: MessageLang, onDismiss: () -> Unit) {
+    val placeholders = lang.allTokens.filter { it != lang.allTokens[3] }
     var text by remember { mutableStateOf(TextFieldValue(pref.value.value)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Шаблон: $title") },
+        title = { Text("$title · ${lang.title}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))

@@ -6,11 +6,8 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
 
 object AppointmentLogic {
-    private val ru = Locale("ru")
-
     /** Готовые варианты «за сколько напомнить», в минутах. */
     val presets: List<Int> = listOf(10, 30, 60, 120, 180, 24 * 60, 2 * 24 * 60, 3 * 24 * 60, 7 * 24 * 60)
 
@@ -25,33 +22,25 @@ object AppointmentLogic {
     fun offsetsToString(list: Collection<Int>) = list.sorted().joinToString(",")
     fun offsetsFromString(s: String?): List<Int> = s.orEmpty().split(",").mapNotNull { it.trim().toIntOrNull() }.distinct().sorted()
 
-    const val DEFAULT_CONFIRM =
-        "{имя}, здравствуйте! Подтверждаю вашу запись: {дата} ({день_недели}) в {время}.\n{услуга}\n{место}"
-    const val DEFAULT_REMINDER =
-        "{имя}, напоминаю о записи: {когда} в {время}.\n{услуга}\n{место}\nЕсли планы изменились — пожалуйста, сообщите."
-    const val DEFAULT_CANCEL =
-        "{имя}, здравствуйте! К сожалению, запись на {дата} в {время} отменяется. Давайте подберём другое время."
-    const val DEFAULT_RESCHEDULE =
-        "{имя}, здравствуйте! Ваша запись перенесена: теперь {дата} ({день_недели}) в {время}.\n{место}"
-
     fun zoned(millis: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), ZoneId.systemDefault())
 
     fun millis(dt: LocalDateTime): Long = dt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-    fun dateText(dt: LocalDateTime) = "${dt.dayOfMonth} ${ArchiveLogic.MONTHS_GEN[dt.monthValue - 1]}"
+    fun dateText(dt: LocalDateTime, lang: MessageLang = MessageLang.RU) = lang.dateText(dt.dayOfMonth, dt.monthValue)
 
     fun timeText(dt: LocalDateTime): String = dt.format(DateTimeFormatter.ofPattern("HH:mm"))
 
-    fun weekday(date: LocalDate): String = date.dayOfWeek.getDisplayName(TextStyle.FULL, ru)
+    fun weekday(date: LocalDate, lang: MessageLang = MessageLang.RU): String =
+        date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, lang.locale).let { if (lang == MessageLang.EN) it else it.lowercase(lang.locale) }
 
     /** «сегодня», «завтра», «послезавтра» или дата. */
-    fun whenText(target: LocalDateTime, now: LocalDateTime): String {
+    fun whenText(target: LocalDateTime, now: LocalDateTime, lang: MessageLang = MessageLang.RU): String {
         val days = java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), target.toLocalDate())
         return when (days) {
-            0L -> "сегодня"
-            1L -> "завтра"
-            2L -> "послезавтра"
-            else -> dateText(target)
+            0L -> lang.today
+            1L -> lang.tomorrow
+            2L -> lang.afterTomorrow
+            else -> (if (lang == MessageLang.EN) "on " else "") + dateText(target, lang)
         }
     }
 
@@ -59,16 +48,22 @@ object AppointmentLogic {
      * Подставляет данные записи в шаблон. Пустые строки (например, без места) убираются,
      * чтобы сообщение выглядело аккуратно.
      */
-    fun fill(template: String, a: Appointment, p: Person, now: LocalDateTime = LocalDateTime.now()): String {
+    fun fill(
+        template: String,
+        a: Appointment,
+        p: Person,
+        lang: MessageLang = MessageLang.RU,
+        now: LocalDateTime = LocalDateTime.now(),
+    ): String {
         val dt = zoned(a.start)
         val text = ArchiveLogic.fillTemplate(template, p)
-            .replace("{дата}", dateText(dt))
+            .replace("{дата}", dateText(dt, lang))
             .replace("{время}", timeText(dt))
-            .replace("{день_недели}", weekday(dt.toLocalDate()))
-            .replace("{когда}", whenText(dt, now))
+            .replace("{день_недели}", weekday(dt.toLocalDate(), lang))
+            .replace("{когда}", whenText(dt, now, lang))
             .replace("{услуга}", a.title)
             .replace("{место}", a.place)
-            .replace("{длительность}", "${a.durationMin} мин")
+            .replace("{длительность}", "${a.durationMin} ${lang.minutes}")
         return text.lines().map { it.trimEnd() }.filter { it.isNotBlank() }.joinToString("\n").trim()
     }
 

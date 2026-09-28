@@ -87,6 +87,7 @@ import com.kartoteka.app.data.NotifyChannel
 import com.kartoteka.app.data.PersonFull
 import com.kartoteka.app.data.ReminderTarget
 import com.kartoteka.app.data.SortMode
+import com.kartoteka.app.data.TemplateKind
 import com.kartoteka.app.messaging.Sender
 import com.kartoteka.app.reminders.ReminderScheduler
 import com.kartoteka.app.ui.app
@@ -101,11 +102,11 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 
 /** Какое сообщение предложить отправить человеку. */
-enum class MessageKind(val title: String) {
-    CONFIRM("Подтверждение записи"),
-    RESCHEDULE("Перенос записи"),
-    REMINDER("Напоминание"),
-    CANCEL("Отмена записи"),
+enum class MessageKind(val title: String, val template: TemplateKind) {
+    CONFIRM("Подтверждение записи", TemplateKind.CONFIRM),
+    RESCHEDULE("Перенос записи", TemplateKind.RESCHEDULE),
+    REMINDER("Напоминание", TemplateKind.REMINDER),
+    CANCEL("Отмена записи", TemplateKind.CANCEL),
 }
 
 class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, personId: Long, dateEpoch: Long) : ViewModel() {
@@ -180,15 +181,11 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
 
     val conflicts get() = AppointmentLogic.conflicts(draft(), dayOthers)
 
-    fun previewText(kind: MessageKind): String {
+    fun langOf(): com.kartoteka.app.data.MessageLang = person?.person?.let(settings::langFor) ?: settings.defaultLang
+
+    fun previewText(kind: MessageKind, lang: com.kartoteka.app.data.MessageLang = langOf()): String {
         val p = person?.person ?: return ""
-        val tpl = when (kind) {
-            MessageKind.CONFIRM -> settings.tplConfirm
-            MessageKind.RESCHEDULE -> settings.tplReschedule
-            MessageKind.REMINDER -> settings.tplReminder
-            MessageKind.CANCEL -> settings.tplCancel
-        }.value.value
-        return AppointmentLogic.fill(tpl, draft(), p)
+        return AppointmentLogic.fill(settings.template(kind.template, lang).value.value, draft(), p, lang)
     }
 
     /** Сохраняет и возвращает, какое сообщение предложить отправить (или null). */
@@ -520,7 +517,8 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             kind = kind,
             person = vm.person,
             initialChannel = vm.channel,
-            initialText = vm.previewText(kind),
+            initialLang = vm.langOf(),
+            textFor = { lang -> vm.previewText(kind, lang) },
             onDismiss = { message = null; if (closeAfterMessage) onBack() },
             onSend = { ch, text ->
                 vm.send(context, ch, text, kind) { r -> scope.launch { snackbar.showSnackbar(r.message) } }
@@ -647,12 +645,14 @@ fun SendMessageDialog(
     kind: MessageKind,
     person: PersonFull?,
     initialChannel: NotifyChannel,
-    initialText: String,
+    initialLang: com.kartoteka.app.data.MessageLang,
+    textFor: (com.kartoteka.app.data.MessageLang) -> String,
     onDismiss: () -> Unit,
     onSend: (NotifyChannel, String) -> Unit,
 ) {
     var ch by remember { mutableStateOf(initialChannel) }
-    var text by remember { mutableStateOf(initialText) }
+    var lang by remember { mutableStateOf(initialLang) }
+    var text by remember { mutableStateOf(textFor(initialLang)) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${kind.title}: ${person?.person?.displayName.orEmpty()}") },
@@ -661,6 +661,11 @@ fun SendMessageDialog(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     NotifyChannel.entries.filter { it != NotifyChannel.NONE }.forEach { c ->
                         FilterChip(ch == c, { ch = c }, enabled = person?.let { Sender.targetFor(it, c) } != null, label = { Text(c.title) })
+                    }
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    com.kartoteka.app.data.MessageLang.entries.forEach { l ->
+                        FilterChip(lang == l, { lang = l; text = textFor(l) }, label = { Text(l.title) })
                     }
                 }
                 OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp))
