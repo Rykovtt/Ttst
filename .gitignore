@@ -10,3 +10,4 @@ build/
 .kotlin/
 ios/.build/
 ios/.swiftpm/
+*.apk
