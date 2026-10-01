@@ -76,43 +76,6 @@ class Repository(
         return moved.size
     }
 
-    // --- переписка ---
-    fun observeChats(personId: Long) = dao.observeChats(personId)
-    fun observeChat(id: Long) = dao.observeChat(id)
-    suspend fun allChats() = dao.allChats()
-    suspend fun chatMessages(chatId: Long) = dao.chatMessages(chatId)
-    suspend fun setChatMe(id: Long, me: String) = dao.setChatMe(id, me)
-    suspend fun deleteChat(id: Long) = dao.deleteChat(id)
-
-    /** Сохранить переписку. Та же переписка (источник + название) у человека заменяется новой выгрузкой. */
-    suspend fun importChat(personId: Long, chat: ParsedChat, me: String, importedAt: Long = System.currentTimeMillis()): Long =
-        db.withTransaction {
-            dao.findChats(personId, chat.source, chat.title).forEach { dao.deleteChat(it.id) }
-            val msgs = chat.messages.sortedBy { it.time }
-            val id = dao.insertChat(
-                Chat(
-                    personId = personId, source = chat.source, title = chat.title, meAuthor = me, importedAt = importedAt,
-                    messageCount = msgs.size, firstAt = msgs.firstOrNull()?.time ?: 0, lastAt = msgs.lastOrNull()?.time ?: 0,
-                )
-            )
-            msgs.chunked(500).forEach { part ->
-                dao.insertChatMessages(part.map { ChatMessage(chatId = id, time = it.time, author = it.author, text = it.text) })
-            }
-            id
-        }
-
-    /**
-     * Поиск по переписке: сообщения, где есть все слова запроса. Возвращает по каждому человеку
-     * первое (самое свежее) подходящее сообщение.
-     */
-    suspend fun searchChats(query: String): Map<Long, String> {
-        val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.length >= 2 }
-        if (words.isEmpty()) return emptyMap()
-        val hits = dao.searchChatMessages(words.maxBy { it.length })
-        return hits.filter { h -> val t = h.text.lowercase(); words.all { t.contains(it) } }
-            .groupBy { it.personId }.mapValues { it.value.first().text }
-    }
-
     // --- голосовые заметки ---
     fun observeVoiceNotes(personId: Long) = dao.observeVoiceNotes(personId)
     suspend fun allVoiceNotes() = dao.allVoiceNotes()

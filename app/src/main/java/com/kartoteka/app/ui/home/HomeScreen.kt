@@ -82,7 +82,6 @@ import com.kartoteka.app.ui.components.EmptyState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 sealed interface PeopleFilter {
@@ -104,20 +103,9 @@ class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
     val filter = MutableStateFlow<PeopleFilter>(PeopleFilter.All)
     val sort = app.settings.sortMode
 
-    /** Совпадения в импортированной переписке: человек → текст сообщения. */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val chatHits = query.mapLatest { q ->
-        if (q.trim().length < 2) emptyMap()
-        else {
-            kotlinx.coroutines.delay(250) // ждём, пока допечатают
-            runCatching { app.repository.searchChats(q) }.getOrDefault(emptyMap())
-        }
-    }
-
     val state = combine(
-        combine(app.repository.observeAll(), chatHits) { all, hits -> all to hits },
-        app.repository.observeGroups(), query, filter, sort,
-    ) { (all, hits), groups, q, f, s ->
+        app.repository.observeAll(), app.repository.observeGroups(), query, filter, sort,
+    ) { all, groups, q, f, s ->
         val filtered = when (f) {
             PeopleFilter.All -> all
             PeopleFilter.Favorites -> all.filter { it.person.favorite }
@@ -126,7 +114,7 @@ class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
         HomeState(
             loading = false,
             total = all.size,
-            results = ArchiveLogic.sort(ArchiveLogic.search(filtered, q, hits), s),
+            results = ArchiveLogic.sort(ArchiveLogic.search(filtered, q), s),
             birthdays = ArchiveLogic.upcomingBirthdays(all, 30),
             groups = groups,
         )

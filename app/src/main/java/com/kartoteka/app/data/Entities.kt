@@ -355,39 +355,3 @@ data class VoiceNote(
     val text: String = "",
 )
 
-/** Импортированная переписка (WhatsApp / Telegram) с человеком. */
-@Entity(
-    tableName = "chats",
-    foreignKeys = [ForeignKey(Person::class, ["id"], ["personId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("personId")],
-)
-data class Chat(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val personId: Long,
-    val source: String,
-    val title: String,
-    /** Как вы подписаны в этой переписке (для «пузырей» справа). Пусто — не выбрано. */
-    val meAuthor: String = "",
-    val importedAt: Long = System.currentTimeMillis(),
-    val messageCount: Int = 0,
-    val firstAt: Long = 0,
-    val lastAt: Long = 0,
-)
-
-@Entity(
-    tableName = "chat_messages",
-    foreignKeys = [ForeignKey(Chat::class, ["id"], ["chatId"], onDelete = ForeignKey.CASCADE)],
-    indices = [Index("chatId")],
-)
-data class ChatMessage(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val chatId: Long,
-    val time: Long,
-    val author: String,
-    val text: String,
-    /** Текст в нижнем регистре: LIKE в SQLite не понимает регистр кириллицы. */
-    val textLower: String = text.lowercase(),
-)
-
-/** Найденное сообщение для общего поиска. */
-data class ChatSearchHit(val personId: Long, val text: String)

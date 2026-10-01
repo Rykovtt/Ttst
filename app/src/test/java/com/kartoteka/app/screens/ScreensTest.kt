@@ -92,19 +92,6 @@ class ScreensTest {
         repo.addPhoto(anna, annaPhoto, makeAvatarIfEmpty = false)
         repo.addPhoto(anna, portrait(0xFF5B4BD6.toInt(), 0xFFFFD8B5.toInt()))
         repo.addPhoto(anna, portrait(0xFF0E8A7E.toInt(), 0xFFF1C27D.toInt()))
-        val day = java.time.LocalDate.now().minusDays(40)
-        fun line(d: java.time.LocalDate, time: String, who: String, text: String) =
-            "${d.format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))}, $time - $who: $text"
-        val chatText = listOf(
-            line(day, "19:02", "Анна", "Привет! Ты в субботу свободен?"),
-            line(day, "19:05", "Я", "Да, после обеда. Что-то случилось?"),
-            line(day, "19:06", "Анна", "Хотим с Димой отметить новоселье во Львове 🙂 Приходи!"),
-            line(day, "19:07", "Я", "Обязательно. Что подарить?"),
-            line(day, "19:10", "Анна", "Ничего не надо! Ну или кофе в зёрнах, мы его быстро пьём"),
-            line(day.plusDays(1), "10:15", "Я", "Адрес скинешь?"),
-            line(day.plusDays(1), "10:20", "Анна", "Саксаганского 45, кв. 12. Домофон не работает — звони"),
-        ).joinToString("\n")
-        repo.importChat(anna, com.kartoteka.app.data.ChatParser.parseWhatsApp(chatText, "Анна Смирнова")!!, "Я")
         app.settings.autoBackup.set(true)
         app.settings.autoBackupFolder.set("content://com.android.externalstorage.documents/tree/primary%3ARVault")
         app.settings.autoBackupLastAt.set((System.currentTimeMillis() - 3_600_000L * 7).toString())
@@ -171,15 +158,6 @@ class ScreensTest {
         settle()
         screenShot("23_photo_menu")
         androidx.test.espresso.Espresso.pressBack()
-        settle()
-        compose.onNode(hasScrollToIndexAction() and androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
-            .performScrollToNode(hasText("Переписка"))
-        settle()
-        shot("24_person_chats")
-        compose.onNodeWithText("WhatsApp ·", substring = true).performClick()
-        settle()
-        shot("25_chat")
-        compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
         compose.onNodeWithContentDescription("Редактировать").performClick()

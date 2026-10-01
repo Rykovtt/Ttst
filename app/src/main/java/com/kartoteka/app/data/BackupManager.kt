@@ -24,7 +24,7 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Резервная копия: ZIP (data.json с перепиской + фото + голосовые заметки), зашифрованный паролем (PBKDF2 + AES-256).
+ * Резервная копия: ZIP (data.json + фото + голосовые заметки), зашифрованный паролем (PBKDF2 + AES-256).
  * Файл можно хранить где угодно — без пароля его не прочитать.
  */
 class BackupManager(private val context: Context, private val repo: Repository) {
@@ -38,13 +38,12 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         val appointments = repo.rawDao.allAppointments()
         val services = repo.getServices()
         val voices = repo.allVoiceNotes().filter { repo.voices.exists(it.file) }
-        val chats = repo.allChats().map { it to repo.chatMessages(it.id) }
         val out = context.contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
         out.use { raw ->
             val stream = wrapOutput(raw, password)
             ZipOutputStream(stream).use { zip ->
                 zip.putNextEntry(ZipEntry("data.json"))
-                zip.write(toJson(all, groups, relations, appointments, services, voices, chats).toString().toByteArray())
+                zip.write(toJson(all, groups, relations, appointments, services, voices).toString().toByteArray())
                 zip.closeEntry()
                 // Голосовые заметки: на устройстве они зашифрованы ключом телефона, в копию кладём звук —
                 // его защищает пароль копии, и восстановить можно на любом телефоне.
@@ -165,15 +164,6 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                         dao.insertPhoto(Photo(personId = id, path = path, caption = ph.optString("caption"), addedAt = ph.optLong("addedAt")))
                     }
                 }
-                o.optJSONArray("chats")?.objects()?.forEach { c ->
-                    val arr = c.optJSONArray("messages") ?: return@forEach
-                    val msgs = (0 until arr.length()).map { i ->
-                        val m = arr.getJSONArray(i)
-                        ParsedMessage(m.getLong(0), m.optString(1), m.optString(2))
-                    }
-                    repo.importChat(id, ParsedChat(c.optString("source"), c.optString("title"), msgs), c.optString("me"),
-                        c.optLong("importedAt", System.currentTimeMillis()))
-                }
                 o.optJSONArray("voiceNotes")?.objects()?.forEach { v ->
                     val src = File(voiceTmp, File(v.optString("file")).name)
                     if (!src.exists()) return@forEach
@@ -238,7 +228,6 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         appointments: List<AppointmentFull>,
         services: List<ServiceTemplate>,
         voices: List<VoiceNote>,
-        chats: List<Pair<Chat, List<ChatMessage>>>,
     ): JSONObject = JSONObject().apply {
         put("format", "kartoteka")
         put("version", 3)
@@ -262,7 +251,6 @@ class BackupManager(private val context: Context, private val repo: Repository) 
             JSONObject().put("id", g.id).put("name", g.name).put("color", g.color).put("emoji", g.emoji)
         }))
         val voicesBy = voices.groupBy { it.personId }
-        val chatsBy = chats.groupBy { it.first.personId }
         put("persons", JSONArray(all.map { pf ->
             val p = pf.person
             JSONObject()
@@ -289,10 +277,6 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     JSONObject().put("path", it.path).put("caption", it.caption).put("addedAt", it.addedAt)
                 }))
                 .put("groups", JSONArray(pf.groups.map { it.id }))
-                .put("chats", JSONArray(chatsBy[p.id].orEmpty().map { (c, msgs) ->
-                    JSONObject().put("source", c.source).put("title", c.title).put("me", c.meAuthor).put("importedAt", c.importedAt)
-                        .put("messages", JSONArray(msgs.map { JSONArray().put(it.time).put(it.author).put(it.text) }))
-                }))
                 .put("voiceNotes", JSONArray(voicesBy[p.id].orEmpty().map {
                     JSONObject().put("file", it.file).put("durationMs", it.durationMs).put("createdAt", it.createdAt).put("text", it.text)
                 }))

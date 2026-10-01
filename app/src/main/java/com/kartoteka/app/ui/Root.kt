@@ -91,14 +91,12 @@ object Routes {
     const val CALENDAR = "calendar"
     const val MAP = "map"
     const val SERVICES = "services"
-    const val CHAT = "chat/{id}"
     const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
     fun person(id: Long) = "person/${id}"
     fun edit(id: Long = 0) = "edit/${id}"
     fun photos(personId: Long, index: Int) = "photos/${personId}/${index}"
     fun group(id: Long) = "group/${id}"
-    fun chat(id: Long) = "chat/${id}"
     fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0) = "appointment/${id}?personId=${personId}&date=${date}"
     fun broadcast(groupId: Long = 0, personIds: Collection<Long> = emptyList()) =
         "broadcast?groupId=${groupId}&personIds=${personIds.joinToString(",")}"
@@ -238,7 +236,6 @@ fun KartotekaRoot(
                     onOpenPerson = { nav.navigate(Routes.person(it)) },
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = id)) },
                     onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
-                    onOpenChat = { nav.navigate(Routes.chat(it)) },
                 )
             }
             composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
@@ -282,12 +279,8 @@ fun KartotekaRoot(
             composable(Routes.IMPORT) {
                 ImportContactsScreen(onBack = { nav.popBackStack() })
             }
-            composable(Routes.CHAT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
-                com.kartoteka.app.ui.chat.ChatScreen(chatId = e.arguments!!.getLong("id"), onBack = { nav.popBackStack() })
-            }
         }
     }
-    com.kartoteka.app.ui.chat.ChatImportHost(onOpenPerson = { nav.navigate(Routes.person(it)) })
 }
 
 private fun NavHostController.switchTab(route: String) {

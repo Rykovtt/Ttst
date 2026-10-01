@@ -214,7 +214,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
 
         SectionCard(t("Данные"), Icons.Default.Backup) {
             ActionRow(Icons.Default.Contacts, t("Импорт из контактов телефона"), t("Перенести людей из телефонной книги"), onImportContacts)
-            ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными, фото и перепиской")) {
+            ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными и фото")) {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                 exportLauncher.launch("rvault-${stamp}.krtk")
             }

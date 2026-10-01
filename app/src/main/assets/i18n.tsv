@@ -610,7 +610,6 @@ SMS одним сообщением	SMS одним повідомленням	SM
 Однокурсник	Одногрупник	Fellow student
 Мужской	Чоловіча	Male
 Женский	Жіноча	Female
-Переписка	Листування	Messages
 Событие	Подія	Event
 Подарок	Подарунок	Gift
 Заметка	Нотатка	Note
@@ -693,58 +692,30 @@ SMS одним сообщением	SMS одним повідомленням	SM
 Текст заметки	Текст нотатки	Note text
 Удалить голосовую заметку?	Видалити голосову нотатку?	Delete voice note?
 Фронтальная камера тихо фотографирует того, кто подбирает PIN-код	Фронтальна камера тихо фотографує того, хто підбирає PIN-код	The front camera silently photographs whoever is guessing the PIN
-Голосовая заметка	Голосова нотатка	Voice note
 Оригиналы удалятся с телефона, минуя корзину	Оригінали видаляться з телефона, оминаючи кошик	Originals are deleted from the phone, bypassing the trash
 Перенести из галереи	Перенести з галереї	Move from gallery
 Скопировано. Через 30 секунд исчезнет из буфера обмена	Скопійовано. Через 30 секунд зникне з буфера обміну	Copied. It will be cleared from the clipboard in 30 seconds
 Фото добавлены в архив, но %1$s не удалось удалить с телефона — удалите их вручную	Фото додано до архіву, але %1$s не вдалося видалити з телефона — видаліть їх вручну	Photos were added to the vault, but %1$s couldn't be deleted from the phone — delete them manually
 Фото перенесены в архив. Оригиналы удалены с телефона	Фото перенесено до архіву. Оригінали видалено з телефона	Photos moved to the vault. Originals deleted from the phone
-%1$s %2$s, %3$s — %4$s	%1$s %2$s, %3$s — %4$s	%1$s %2$s, %3$s — %4$s
-%1$s сообщ.	%1$s повід.	%1$s msgs
-1. Откройте чат в WhatsApp → ⋮ → Ещё → Экспорт чата.\n2. Выберите «Без медиафайлов».\n3. В списке приложений нажмите «RVault: импорт переписки».\n\nЭтот пункт появится в меню «Поделиться» только на 15 минут.	1. Відкрийте чат у WhatsApp → ⋮ → Ще → Експорт чату.\n2. Оберіть «Без медіафайлів».\n3. У списку застосунків натисніть «RVault: імпорт листування».\n\nЦей пункт з'явиться в меню «Поділитися» лише на 15 хвилин.	1. Open the chat in WhatsApp → ⋮ → More → Export chat.\n2. Choose "Without media".\n3. In the app list tap "RVault: import chat".\n\nThis option appears in the Share menu for 15 minutes only.
-WhatsApp .txt / .zip, Telegram result.json или messages.html	WhatsApp .txt / .zip, Telegram result.json або messages.html	WhatsApp .txt / .zip, Telegram result.json or messages.html
 Автоматическая копия	Автоматична копія	Automatic backup
-Все сообщения этой переписки будут удалены из архива.	Усі повідомлення цього листування буде видалено з архіву.	All messages of this chat will be deleted from the vault.
-Выбрать файл	Вибрати файл	Choose file
 Зашифрованная копия в выбранную папку или на флешку, без облака	Зашифрована копія у вибрану папку чи на флешку, без хмари	Encrypted backup to a chosen folder or USB drive, no cloud
-Зашифрованный файл с данными, фото и перепиской	Зашифрований файл з даними, фото й листуванням	Encrypted file with data, photos and chats
-Здесь нет файла переписки	Тут немає файлу листування	There's no chat file here
-Из WhatsApp через «Поделиться»	З WhatsApp через «Поділитися»	From WhatsApp via Share
-Импорт переписки	Імпорт листування	Import chat
-Импортировать	Імпортувати	Import
-Импортировать переписку	Імпортувати листування	Import chat
-К кому прикрепить переписку?	До кого прикріпити листування?	Who is this chat with?
 Каждая копия шифруется этим паролем. Без него копию не открыть — запишите его в надёжном месте. Минимум 6 символов.	Кожна копія шифрується цим паролем. Без нього копію не відкрити — запишіть його в надійному місці. Мінімум 6 символів.	Every backup is encrypted with this password. Without it the backup can't be opened — keep it somewhere safe. At least 6 characters.
 Каждый день	Щодня	Every day
-Как отправить чат из WhatsApp	Як надіслати чат із WhatsApp	How to send a chat from WhatsApp
-Карточка, фото, голосовые заметки, переписка и хроника будут удалены без возможности восстановления.	Картку, фото, голосові нотатки, листування й хроніку буде видалено без можливості відновлення.	The card, photos, voice notes, chats and timeline will be permanently deleted.
 Копий ещё не было	Копій ще не було	No backups yet
-Кто из участников — вы?	Хто з учасників — ви?	Which participant are you?
 Не выбрана	Не вибрано	Not selected
 Не выбрана папка для копий	Не вибрано папку для копій	No backup folder selected
 Не задан пароль копий	Не задано пароль копій	Backup password is not set
-Не удалось прочитать переписку	Не вдалося прочитати листування	Couldn't read the chat
-Не указывать	Не вказувати	Don't specify
 Нужен, чтобы восстановить копию на любом телефоне	Потрібен, щоб відновити копію на будь-якому телефоні	Needed to restore a backup on any phone
 Папка для копий	Папка для копій	Backup folder
 Папка недоступна — возможно, флешка отключена	Папка недоступна — можливо, флешку від'єднано	Folder unavailable — the USB drive may be disconnected
 Пароли не совпадают	Паролі не збігаються	Passwords don't match
 Пароль для копий	Пароль для копій	Backup password
 Пароль копий	Пароль копій	Backup password
-Переписка сохранена: %1$s %2$s	Листування збережено: %1$s %2$s	Chat saved: %1$s %2$s
-Переписка хранится только в зашифрованной базе архива.	Листування зберігається лише в зашифрованій базі архіву.	The chat is stored only in the vault's encrypted database.
 Повторите пароль	Повторіть пароль	Repeat password
-Поддерживаются выгрузки WhatsApp («Экспорт чата» → .txt или .zip) и Telegram Desktop (result.json или messages.html).	Підтримуються вивантаження WhatsApp («Експорт чату» → .txt або .zip) і Telegram Desktop (result.json або messages.html).	Supported: WhatsApp exports ("Export chat" → .txt or .zip) and Telegram Desktop (result.json or messages.html).
-Поиск по переписке	Пошук у листуванні	Search chat
-Понятно	Зрозуміло	Got it
 Последняя копия: %1$s	Остання копія: %1$s	Last backup: %1$s
 Раз в неделю	Раз на тиждень	Once a week
 Резервная копия сохранена	Резервну копію збережено	Backup saved
 Сделать копию сейчас	Зробити копію зараз	Back up now
-Сохраните сюда переписку из WhatsApp или Telegram — она будет храниться в архиве, и по ней работает поиск	Збережіть сюди листування з WhatsApp чи Telegram — воно зберігатиметься в архіві, і по ньому працює пошук	Save chats from WhatsApp or Telegram here — they're kept in the vault and are searchable
 Сохраняю копию…	Зберігаю копію…	Saving backup…
-Удалить переписку	Видалити листування	Delete chat
-Удалить переписку?	Видалити листування?	Delete chat?
 Хранить %1$s	Зберігати %1$s	Keep %1$s
-Читаю переписку…	Читаю листування…	Reading chat…
-Экспорт чата прямо в архив	Експорт чату просто в архів	Export a chat straight into the vault
+Голосовая заметка	Голосова нотатка	Voice note
