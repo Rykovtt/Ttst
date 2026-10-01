@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.importer
 
+import com.kartoteka.app.i18n.t
+
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -87,14 +89,14 @@ fun ImportContactsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Импорт контактов") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } },
+                title = { Text(t("Импорт контактов")) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
                 actions = {
                     val list = contacts
                     if (list != null) {
                         TextButton(onClick = {
                             if (selected.size == list.size) selected.clear() else { selected.clear(); selected.addAll(list.map { it.id }) }
-                        }) { Text(if (selected.size == list.size) "Снять все" else "Выбрать все") }
+                        }) { Text(if (selected.size == list.size) t("Снять все") else t("Выбрать все")) }
                     }
                 },
             )
@@ -113,7 +115,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
                             }
                         },
                         modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
-                    ) { Text(if (importing) "Импортируем…" else "Импортировать (${selected.size})") }
+                    ) { Text(if (importing) t("Импортируем…") else t("Импортировать (%1\$s)", selected.size)) }
                 }
             }
         },
@@ -121,12 +123,12 @@ fun ImportContactsScreen(onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().padding(padding)) {
             when {
                 !granted -> EmptyState(
-                    Icons.Default.Contacts, "Доступ к контактам",
-                    "Нужно разрешение, чтобы прочитать телефонную книгу. Данные никуда не отправляются.",
-                ) { Button(onClick = { permission.launch(Manifest.permission.READ_CONTACTS) }) { Text("Разрешить") } }
+                    Icons.Default.Contacts, t("Доступ к контактам"),
+                    t("Нужно разрешение, чтобы прочитать телефонную книгу. Данные никуда не отправляются."),
+                ) { Button(onClick = { permission.launch(Manifest.permission.READ_CONTACTS) }) { Text(t("Разрешить")) } }
 
-                result != null -> EmptyState(Icons.Default.Contacts, "Готово!", "Добавлено людей: $result. Теперь дополните их карточки деталями и фото.") {
-                    Button(onClick = onBack) { Text("К картотеке") }
+                result != null -> EmptyState(Icons.Default.Contacts, t("Готово!"), t("Добавлено людей: %1\$s. Теперь дополните их карточки деталями и фото.", result)) {
+                    Button(onClick = onBack) { Text(t("К картотеке")) }
                 }
 
                 contacts == null -> FullScreenCenter { CircularProgressIndicator() }
@@ -135,7 +137,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
                     OutlinedTextField(
                         query, { query = it },
                         leadingIcon = { Icon(Icons.Default.Search, null) },
-                        placeholder = { Text("Поиск") }, singleLine = true,
+                        placeholder = { Text(t("Поиск")) }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                     val q = query.trim().lowercase()
@@ -152,7 +154,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
                                 Spacer(Modifier.width(4.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(c.name, style = MaterialTheme.typography.bodyLarge)
-                                    val sub = listOfNotNull(c.phones.firstOrNull(), if (exists) "уже в картотеке" else null).joinToString(" · ")
+                                    val sub = listOfNotNull(c.phones.firstOrNull(), if (exists) t("уже в картотеке") else null).joinToString(" · ")
                                     if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = if (exists) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }

@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.broadcast
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -55,15 +57,15 @@ fun CriteriaSheet(
     fun <T> Set<T>.toggle(v: T) = if (v in this) this - v else this + v
 
     Column(Modifier.navigationBarsPadding()) {
-        Text("Выбор по критериям", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+        Text(t("Выбор по критериям"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
         Text(
-            "Люди должны подходить под все отмеченные условия",
+            t("Люди должны подходить под все отмеченные условия"),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
         LazyColumn(Modifier.weight(1f, fill = false), contentPadding = PaddingValues(bottom = 8.dp)) {
             if (groups.isNotEmpty()) item {
-                Block("Группы (любая из)") {
+                Block(t("Группы (любая из)")) {
                     groups.forEach { g ->
                         FilterChip(g.group.id in f.groupIds, { f = f.copy(groupIds = f.groupIds.toggle(g.group.id)) },
                             label = { Text("${g.group.emoji} ${g.group.name}".trim()) }, leadingIcon = { ColorDot(g.group.color) })
@@ -71,44 +73,44 @@ fun CriteriaSheet(
                 }
             }
             item {
-                Block("Пол") {
-                    DetailTemplates.genders.forEach { g -> FilterChip(g in f.genders, { f = f.copy(genders = f.genders.toggle(g)) }, label = { Text(g) }) }
+                Block(t("Пол")) {
+                    DetailTemplates.genders.forEach { g -> FilterChip(g in f.genders, { f = f.copy(genders = f.genders.toggle(g)) }, label = { Text(t(g)) }) }
                 }
             }
             if (relations.isNotEmpty()) item {
-                Block("Кем приходится") {
-                    relations.forEach { r -> FilterChip(r in f.relations, { f = f.copy(relations = f.relations.toggle(r)) }, label = { Text(r) }) }
+                Block(t("Кем приходится")) {
+                    relations.forEach { r -> FilterChip(r in f.relations, { f = f.copy(relations = f.relations.toggle(r)) }, label = { Text(t(r)) }) }
                 }
             }
             if (cities.isNotEmpty()) item {
-                Block("Город") {
+                Block(t("Город")) {
                     cities.forEach { c -> FilterChip(c in f.cities, { f = f.copy(cities = f.cities.toggle(c)) }, label = { Text(c) }) }
                 }
             }
             item {
-                Block("Возраст") {
+                Block(t("Возраст")) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OutlinedTextField(f.ageFrom?.toString().orEmpty(), { v -> f = f.copy(ageFrom = v.filter(Char::isDigit).take(3).toIntOrNull()) },
-                            label = { Text("от") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(100.dp))
+                            label = { Text(t("от")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(100.dp))
                         Spacer(Modifier.width(8.dp))
                         OutlinedTextField(f.ageTo?.toString().orEmpty(), { v -> f = f.copy(ageTo = v.filter(Char::isDigit).take(3).toIntOrNull()) },
-                            label = { Text("до") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(100.dp))
+                            label = { Text(t("до")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(100.dp))
                     }
                 }
             }
             item {
-                Block("Близость — не меньше") {
+                Block(t("Близость — не меньше")) {
                     ClosenessStars(f.minCloseness, onChange = { f = f.copy(minCloseness = it) }, size = 26.dp)
                 }
             }
             item {
-                Block("Ещё") {
-                    FilterChip(f.favoritesOnly, { f = f.copy(favoritesOnly = !f.favoritesOnly) }, label = { Text("Только избранные") })
+                Block(t("Ещё")) {
+                    FilterChip(f.favoritesOnly, { f = f.copy(favoritesOnly = !f.favoritesOnly) }, label = { Text(t("Только избранные")) })
                     listOf(7, 30).forEach { d ->
-                        FilterChip(f.birthdayWithinDays == d, { f = f.copy(birthdayWithinDays = if (f.birthdayWithinDays == d) null else d) }, label = { Text("ДР в ближайшие $d дн.") })
+                        FilterChip(f.birthdayWithinDays == d, { f = f.copy(birthdayWithinDays = if (f.birthdayWithinDays == d) null else d) }, label = { Text(t("ДР в ближайшие %1\$s дн.", d)) })
                     }
                     listOf(30, 90, 180).forEach { d ->
-                        FilterChip(f.noContactDays == d, { f = f.copy(noContactDays = if (f.noContactDays == d) null else d) }, label = { Text("Не общались $d+ дн.") })
+                        FilterChip(f.noContactDays == d, { f = f.copy(noContactDays = if (f.noContactDays == d) null else d) }, label = { Text(t("Не общались %1\$s+ дн.", d)) })
                     }
                 }
             }
@@ -116,16 +118,16 @@ fun CriteriaSheet(
         Surface(tonalElevation = 3.dp) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Подходит: ${matched.size}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    if (!f.isEmpty) TextButton(onClick = { f = RecipientFilter() }) { Text("Сбросить") }
+                    Text(t("Подходит: %1\$s", matched.size), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    if (!f.isEmpty) TextButton(onClick = { f = RecipientFilter() }) { Text(t("Сбросить")) }
                 }
                 Text(
-                    matched.take(6).joinToString(", ") { it.person.displayName } + if (matched.size > 6) " и ещё ${matched.size - 6}" else "",
+                    matched.take(6).joinToString(", ") { it.person.displayName } + if (matched.size > 6) t(" и ещё %1\$s", matched.size - 6) else "",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2,
                 )
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(enabled = matched.isNotEmpty(), onClick = { onApply(matched.map { it.person.id }, false) }, modifier = Modifier.weight(1f)) { Text("Добавить") }
-                    Button(enabled = matched.isNotEmpty(), onClick = { onApply(matched.map { it.person.id }, true) }, modifier = Modifier.weight(1f)) { Text("Выбрать только их") }
+                    FilledTonalButton(enabled = matched.isNotEmpty(), onClick = { onApply(matched.map { it.person.id }, false) }, modifier = Modifier.weight(1f)) { Text(t("Добавить")) }
+                    Button(enabled = matched.isNotEmpty(), onClick = { onApply(matched.map { it.person.id }, true) }, modifier = Modifier.weight(1f)) { Text(t("Выбрать только их")) }
                 }
             }
         }

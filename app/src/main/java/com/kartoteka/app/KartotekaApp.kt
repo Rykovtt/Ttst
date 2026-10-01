@@ -21,12 +21,14 @@ open class KartotekaApp : Application() {
     val repository by lazy { Repository(createDatabase(), PhotoStorage(this)) }
     val backup by lazy { BackupManager(this, repository) }
     val phoneContacts by lazy { PhoneContacts(this) }
+    val pinLock by lazy { com.kartoteka.app.data.PinLock(this) }
 
     /** Для фоновой работы, которая должна пережить экран (журнал после отправки и т.п.). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
+        com.kartoteka.app.i18n.I18n.init(this, com.kartoteka.app.i18n.UiLang.of(settings.uiLang.value.value))
         // Карта OpenStreetMap: кэш плиток во внутренней памяти приложения.
         Configuration.getInstance().apply {
             userAgentValue = packageName

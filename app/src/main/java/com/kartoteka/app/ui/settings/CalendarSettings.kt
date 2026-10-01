@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.settings
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,31 +57,31 @@ fun CalendarSettings(settings: Settings, onServices: () -> Unit = {}) {
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onServices).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Услуги и их шаблоны", style = MaterialTheme.typography.bodyLarge)
-                Text("Тату-сеанс, консультация… — свои тексты и напоминания", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(t("Услуги и их шаблоны"), style = MaterialTheme.typography.bodyLarge)
+                Text(t("Тату-сеанс, консультация… — свои тексты и напоминания"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
         }
-        Label("Как оповещать по умолчанию")
+        Label(t("Как оповещать по умолчанию"))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             NotifyChannel.entries.forEach { c -> FilterChip(channel == c.name, { settings.apptChannel.set(c.name) }, label = { Text(c.title) }) }
         }
         Row(Modifier.fillMaxWidth().clickable { settings.apptSendConfirm.set((confirm != "true").toString()) }, verticalAlignment = Alignment.CenterVertically) {
-            Text("Сразу отправлять подтверждение записи", modifier = Modifier.weight(1f))
+            Text(t("Сразу отправлять подтверждение записи"), modifier = Modifier.weight(1f))
             Switch(confirm == "true", { settings.apptSendConfirm.set(it.toString()) })
         }
-        Label("Длительность по умолчанию")
+        Label(t("Длительность по умолчанию"))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(15, 30, 45, 60, 90, 120).forEach { d ->
-                FilterChip(duration == "$d", { settings.apptDuration.set("$d") }, label = { Text(if (d < 60) "$d мин" else if (d % 60 == 0) "${d / 60} ч" else "1 ч 30") })
+                FilterChip(duration == "${d}", { settings.apptDuration.set("${d}") }, label = { Text(if (d < 60) t("%1\$s мин", d) else if (d % 60 == 0) t("%1\$s ч", d / 60) else t("1 ч 30")) })
             }
         }
-        Label("Напоминания человеку")
+        Label(t("Напоминания человеку"))
         OffsetPrefChips(client) { settings.apptClientOffsets.set(it) }
-        Label("Напоминания мне")
+        Label(t("Напоминания мне"))
         OffsetPrefChips(mine) { settings.apptMyOffsets.set(it) }
-        Label("Общие шаблоны сообщений — ${tplLang.title}")
-        Text("Для записей без услуги и для услуг без своего текста", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Label(t("Общие шаблоны сообщений — %1\$s", tplLang.title))
+        Text(t("Для записей без услуги и для услуг без своего текста"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MessageLang.entries.forEach { l -> FilterChip(tplLang == l, { tplLang = l }, label = { Text(l.title) }) }
         }
@@ -117,11 +119,11 @@ private fun TemplateDialog(title: String, pref: Settings.StringPref, lang: Messa
     var text by remember { mutableStateOf(TextFieldValue(pref.value.value)) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("$title · ${lang.title}") },
+        title = { Text("${title} · ${lang.title}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp))
-                Text("Подставить:", style = MaterialTheme.typography.labelMedium)
+                Text(t("Подставить:"), style = MaterialTheme.typography.labelMedium)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     placeholders.forEach { ph ->
                         AssistChip(onClick = {
@@ -130,15 +132,15 @@ private fun TemplateDialog(title: String, pref: Settings.StringPref, lang: Messa
                         }, label = { Text(ph) })
                     }
                 }
-                Text("Пустые строки (например, без места) убираются автоматически.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(t("Пустые строки (например, без места) убираются автоматически."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = { pref.set(text.text); onDismiss() }) { Text("Сохранить") } },
+        confirmButton = { TextButton(onClick = { pref.set(text.text); onDismiss() }) { Text(t("Сохранить")) } },
         dismissButton = {
             Row {
-                TextButton(onClick = { text = TextFieldValue(pref.default) }) { Text("По умолчанию") }
+                TextButton(onClick = { text = TextFieldValue(pref.default) }) { Text(t("По умолчанию")) }
                 Spacer(Modifier.width(4.dp))
-                TextButton(onClick = onDismiss) { Text("Отмена") }
+                TextButton(onClick = onDismiss) { Text(t("Отмена")) }
             }
         },
     )

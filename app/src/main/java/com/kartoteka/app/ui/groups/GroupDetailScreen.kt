@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.groups
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -73,10 +75,10 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
                         GroupBadge(g, 34); Spacer(Modifier.width(12.dp)); Text(g.name)
                     }
                 },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
                 actions = {
-                    IconButton(onClick = { editing = true }) { Icon(Icons.Default.Edit, "Изменить") }
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, "Удалить") }
+                    IconButton(onClick = { editing = true }) { Icon(Icons.Default.Edit, t("Изменить")) }
+                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, t("Удалить")) }
                 },
             )
         },
@@ -85,15 +87,15 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
             item {
                 Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onBroadcast, enabled = members.isNotEmpty(), modifier = Modifier.weight(1f)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp)); Text("Рассылка")
+                        Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp)); Text(t("Рассылка"))
                     }
                     FilledTonalButton(onClick = { adding = true }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.GroupAdd, null); Spacer(Modifier.width(8.dp)); Text("Добавить")
+                        Icon(Icons.Default.GroupAdd, null); Spacer(Modifier.width(8.dp)); Text(t("Добавить"))
                     }
                 }
             }
             if (members.isEmpty()) {
-                item { EmptyState(Icons.Default.GroupAdd, "В группе пока никого", "Добавьте людей кнопкой выше или в карточке человека.") }
+                item { EmptyState(Icons.Default.GroupAdd, t("В группе пока никого"), t("Добавьте людей кнопкой выше или в карточке человека.")) }
             }
             items(members, key = { it.person.id }) { pf ->
                 PersonRow(ArchiveLogic.SearchHit(pf, null), onClick = { onOpenPerson(pf.person.id) }) {
@@ -102,7 +104,7 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
                             val ids = pf.groups.map { it.id }.filter { it != groupId }
                             repo.savePerson(pf.person, pf.contacts, pf.details, ids)
                         }
-                    }) { Icon(Icons.Default.RemoveCircleOutline, "Убрать из группы", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }) { Icon(Icons.Default.RemoveCircleOutline, t("Убрать из группы"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
         }
@@ -114,10 +116,10 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить группу «${g.name}»?") },
-            text = { Text("Люди останутся в картотеке, удалится только группа.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; scope.launch { repo.deleteGroup(groupId); onBack() } }) { Text("Удалить") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            title = { Text(t("Удалить группу «%1\$s»?", g.name)) },
+            text = { Text(t("Люди останутся в картотеке, удалится только группа.")) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; scope.launch { repo.deleteGroup(groupId); onBack() } }) { Text(t("Удалить")) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
     }
     if (adding) {
@@ -136,10 +138,10 @@ fun PeoplePickerDialog(all: List<PersonFull>, onDismiss: () -> Unit, onPick: (Se
     val shown = ArchiveLogic.sort(ArchiveLogic.search(all, query), com.kartoteka.app.data.SortMode.NAME)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Выберите людей") },
+        title = { Text(t("Выберите людей")) },
         text = {
             Column {
-                OutlinedTextField(query, { query = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Поиск") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(query, { query = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(t("Поиск")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(shown, key = { it.person.person.id }) { hit ->
                         val id = hit.person.person.id
@@ -154,7 +156,7 @@ fun PeoplePickerDialog(all: List<PersonFull>, onDismiss: () -> Unit, onPick: (Se
                 }
             }
         },
-        confirmButton = { TextButton(enabled = selected.isNotEmpty(), onClick = { onPick(selected.toSet()) }) { Text("Готово (${selected.size})") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        confirmButton = { TextButton(enabled = selected.isNotEmpty(), onClick = { onPick(selected.toSet()) }) { Text(t("Готово (%1\$s)", selected.size)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }

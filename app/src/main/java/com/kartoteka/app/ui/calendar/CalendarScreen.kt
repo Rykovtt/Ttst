@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.calendar
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -114,7 +116,7 @@ class CalendarViewModel(app: KartotekaApp) : ViewModel() {
 
 private const val PAGES = 2400
 private const val MID = PAGES / 2
-private val ru = Locale("ru")
+private val ru: Locale get() = com.kartoteka.app.i18n.I18n.locale
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -153,7 +155,7 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(60.dp),
-            ) { Icon(Icons.Default.Add, "Записать", Modifier.size(28.dp)) }
+            ) { Icon(Icons.Default.Add, t("Записать"), Modifier.size(28.dp)) }
         },
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
@@ -165,10 +167,10 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Календарь", style = MaterialTheme.typography.headlineLarge)
+                        Text(t("Календарь"), style = MaterialTheme.typography.headlineLarge)
                         val todayCount = byDay[LocalDate.now()].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
                         Text(
-                            if (todayCount == 0) "Сегодня записей нет" else "Сегодня $todayCount ${com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")}",
+                            if (todayCount == 0) t("Сегодня записей нет") else t("Сегодня %1\$s %2\$s", todayCount, com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -176,10 +178,10 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                     IconButton(onClick = {
                         selectedEpoch = LocalDate.now().toEpochDay()
                         scope.launch { pager.animateScrollToPage(MID) }
-                    }) { Icon(Icons.Default.Today, "Сегодня") }
+                    }) { Icon(Icons.Default.Today, t("Сегодня")) }
                 }
                 com.kartoteka.app.ui.components.Segmented(
-                    options = listOf("Месяц", "Список"),
+                    options = listOf(t("Месяц"), t("Список")),
                     selected = if (listMode) 1 else 0,
                     onSelect = { vm.listMode.value = it == 1 },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
@@ -191,24 +193,24 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                 val grouped = upcoming.filter { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
                     .groupBy { AppointmentLogic.zoned(it.appointment.start).toLocalDate() }
                 if (grouped.isEmpty()) {
-                    item { EmptyState(Icons.Default.CalendarMonth, "Нет ближайших записей", "Нажмите «Записать», чтобы запланировать встречу с человеком.") }
+                    item { EmptyState(Icons.Default.CalendarMonth, t("Нет ближайших записей"), t("Нажмите «Записать», чтобы запланировать встречу с человеком.")) }
                 }
                 grouped.forEach { (date, list) ->
-                    item(key = "d_$date") { DayHeader(date) }
+                    item(key = "d_${date}") { DayHeader(date) }
                     items(list, key = { it.appointment.id }) { AppointmentCard(it, onClick = { onOpen(it.appointment.id) }) }
                 }
             } else {
                 item(key = "month") {
                     Column {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.Default.ChevronLeft, "Назад") }
+                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.Default.ChevronLeft, t("Назад")) }
                             Text(
                                 shownMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, ru).replaceFirstChar { it.uppercase() } + " " + shownMonth.year,
                                 style = MaterialTheme.typography.titleLarge,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.weight(1f),
                             )
-                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.Default.ChevronRight, "Вперёд") }
+                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.Default.ChevronRight, t("Вперёд")) }
                         }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                             DayOfWeek.entries.forEach { d ->
@@ -231,9 +233,9 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                 if (dayList.isEmpty()) {
                     item(key = "free") {
                         Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Свободный день", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(t("Свободный день"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(8.dp))
-                            FilledTonalButton(onClick = { onNew(selected) }) { Text("Записать на этот день") }
+                            FilledTonalButton(onClick = { onNew(selected) }) { Text(t("Записать на этот день")) }
                         }
                     }
                 }
@@ -295,12 +297,12 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
 private fun DayHeader(date: LocalDate) {
     val today = LocalDate.now()
     val prefix = when (date) {
-        today -> "Сегодня, "
-        today.plusDays(1) -> "Завтра, "
+        today -> t("Сегодня, ")
+        today.plusDays(1) -> t("Завтра, ")
         else -> ""
     }
     Text(
-        prefix + "${date.dayOfMonth} ${com.kartoteka.app.data.ArchiveLogic.MONTHS_GEN[date.monthValue - 1]}, " + AppointmentLogic.weekday(date),
+        prefix + com.kartoteka.app.i18n.I18n.dayMonth(date.dayOfMonth, date.monthValue) + ", " + AppointmentLogic.weekday(date),
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
     )
@@ -334,7 +336,7 @@ fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) {
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        a.title.ifBlank { "Встреча" },
+                        a.title.ifBlank { t("Встреча") },
                         style = MaterialTheme.typography.titleSmall,
                         textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -344,9 +346,9 @@ fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) {
                         p.displayName,
                         a.place.takeIf { it.isNotBlank() },
                         when (a.appointmentStatus) {
-                            AppointmentStatus.CANCELLED -> "отменено"
-                            AppointmentStatus.DONE -> "состоялось"
-                            AppointmentStatus.PLANNED -> if (pending > 0) "🔔 $pending" else null
+                            AppointmentStatus.CANCELLED -> t("отменено")
+                            AppointmentStatus.DONE -> t("состоялось")
+                            AppointmentStatus.PLANNED -> if (pending > 0) "🔔 ${pending}" else null
                         },
                     ).joinToString(" · ")
                     Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

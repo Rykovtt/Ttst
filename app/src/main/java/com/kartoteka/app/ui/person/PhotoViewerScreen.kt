@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -55,7 +57,7 @@ import java.io.File
 @Composable
 fun PhotoViewerScreen(personId: Long, startIndex: Int, onBack: () -> Unit) {
     val app = app()
-    val vm: PersonDetailViewModel = viewModel(key = "person_$personId") { PersonDetailViewModel(app, personId) }
+    val vm: PersonDetailViewModel = viewModel(key = "person_${personId}") { PersonDetailViewModel(app, personId) }
     val data by vm.person.collectAsState()
     val photos = data?.photos.orEmpty()
     val scope = rememberCoroutineScope()
@@ -76,19 +78,19 @@ fun PhotoViewerScreen(personId: Long, startIndex: Int, onBack: () -> Unit) {
         }
         TopAppBar(
             title = { Text("${pager.currentPage + 1} / ${photos.size}", color = Color.White) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад", tint = Color.White) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), tint = Color.White) } },
             actions = {
                 IconButton(onClick = { current?.let { scope.launch { app.repository.setAvatar(personId, it.path) } } }) {
-                    Icon(Icons.Default.AccountCircle, "Сделать главным", tint = Color.White)
+                    Icon(Icons.Default.AccountCircle, t("Сделать главным"), tint = Color.White)
                 }
-                IconButton(onClick = { captionDialog = true }) { Icon(Icons.Default.EditNote, "Подпись", tint = Color.White) }
-                IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, "Удалить", tint = Color.White) }
+                IconButton(onClick = { captionDialog = true }) { Icon(Icons.Default.EditNote, t("Подпись"), tint = Color.White) }
+                IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, t("Удалить"), tint = Color.White) }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black.copy(alpha = 0.4f)),
         )
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Color.Black.copy(alpha = 0.4f)).navigationBarsPadding()) {
             val isAvatar = current?.path == data?.person?.avatarPath
-            val text = listOfNotNull(if (isAvatar) "★ Главное фото" else null, current?.caption?.takeIf { it.isNotBlank() }).joinToString("\n")
+            val text = listOfNotNull(if (isAvatar) t("★ Главное фото") else null, current?.caption?.takeIf { it.isNotBlank() }).joinToString("\n")
             if (text.isNotBlank()) Text(text, color = Color.White, modifier = Modifier.padding(16.dp))
         }
     }
@@ -97,20 +99,20 @@ fun PhotoViewerScreen(personId: Long, startIndex: Int, onBack: () -> Unit) {
         var text by remember { mutableStateOf(current.caption) }
         AlertDialog(
             onDismissRequest = { captionDialog = false },
-            title = { Text("Подпись к фото") },
-            text = { OutlinedTextField(text, { text = it }, placeholder = { Text("Где, когда, с кем…") }) },
+            title = { Text(t("Подпись к фото")) },
+            text = { OutlinedTextField(text, { text = it }, placeholder = { Text(t("Где, когда, с кем…")) }) },
             confirmButton = {
-                TextButton(onClick = { scope.launch { app.repository.updatePhotoCaption(current, text.trim()) }; captionDialog = false }) { Text("Сохранить") }
+                TextButton(onClick = { scope.launch { app.repository.updatePhotoCaption(current, text.trim()) }; captionDialog = false }) { Text(t("Сохранить")) }
             },
-            dismissButton = { TextButton(onClick = { captionDialog = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { captionDialog = false }) { Text(t("Отмена")) } },
         )
     }
     if (confirmDelete && current != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить фото?") },
-            confirmButton = { TextButton(onClick = { scope.launch { app.repository.deletePhoto(current) }; confirmDelete = false }) { Text("Удалить") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            title = { Text(t("Удалить фото?")) },
+            confirmButton = { TextButton(onClick = { scope.launch { app.repository.deletePhoto(current) }; confirmDelete = false }) { Text(t("Удалить")) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
     }
 }

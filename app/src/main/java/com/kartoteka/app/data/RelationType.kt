@@ -1,5 +1,7 @@
 package com.kartoteka.app.data
 
+import com.kartoteka.app.i18n.t
+
 /**
  * Тип связи: «related — это X для person». У каждого типа есть обратный:
  * если Мария — мать Ивана (PARENT), то Иван — сын Марии (CHILD).
@@ -49,11 +51,14 @@ enum class RelationType(
             else -> this
         }
 
-    fun label(gender: String): String = when (gender) {
-        "Мужской" -> male
-        "Женский" -> female
-        else -> neutral
-    }
+    fun label(gender: String): String = t(
+        when (gender) {
+            "Мужской" -> male
+            "Женский" -> female
+            else -> neutral
+        }
+    )
+
 
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: OTHER

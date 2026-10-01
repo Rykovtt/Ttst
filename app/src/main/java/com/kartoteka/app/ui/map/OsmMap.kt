@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.map
 
+import com.kartoteka.app.i18n.t
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

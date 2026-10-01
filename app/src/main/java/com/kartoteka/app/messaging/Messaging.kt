@@ -1,5 +1,7 @@
 package com.kartoteka.app.messaging
 
+import com.kartoteka.app.i18n.t
+
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -44,7 +46,7 @@ object Messaging {
 
     fun whatsapp(context: Context, phone: String, text: String = "") {
         val digits = ArchiveLogic.normalizePhone(phone).removePrefix("+")
-        val url = "https://wa.me/$digits" + if (text.isNotEmpty()) "?text=" + Uri.encode(text) else ""
+        val url = "https://wa.me/${digits}" + if (text.isNotEmpty()) "?text=" + Uri.encode(text) else ""
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
@@ -87,7 +89,7 @@ object Messaging {
             if (pkg != null) setPackage(pkg)
         }
         if (pkg != null) start(context, intent)
-        else start(context, Intent.createChooser(intent, "Отправить через…"))
+        else start(context, Intent.createChooser(intent, t("Отправить через…")))
     }
 
     fun openLink(context: Context, item: ContactItem) {
@@ -100,8 +102,8 @@ object Messaging {
             ContactType.VIBER -> viber(context, v)
             ContactType.INSTAGRAM -> web(context, if (v.startsWith("http")) v else "https://instagram.com/" + v.removePrefix("@"))
             ContactType.VK -> web(context, if (v.startsWith("http")) v else "https://vk.com/" + v.removePrefix("@"))
-            ContactType.FACEBOOK -> web(context, if (v.startsWith("http")) v else "https://facebook.com/$v")
-            ContactType.WEBSITE -> web(context, if (v.startsWith("http")) v else "https://$v")
+            ContactType.FACEBOOK -> web(context, if (v.startsWith("http")) v else "https://facebook.com/${v}")
+            ContactType.WEBSITE -> web(context, if (v.startsWith("http")) v else "https://${v}")
             ContactType.OTHER -> copy(context, v)
         }
     }
@@ -110,7 +112,7 @@ object Messaging {
     fun navigate(context: Context, place: com.kartoteka.app.data.Place) {
         val q = Uri.encode(place.address)
         val uri = if (place.hasCoords) "geo:${place.lat},${place.lng}?q=${place.lat},${place.lng}(${Uri.encode(place.address.ifBlank { place.placeKind.title })})"
-        else "geo:0,0?q=$q"
+        else "geo:0,0?q=${q}"
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
     }
 
@@ -119,7 +121,7 @@ object Messaging {
     fun copy(context: Context, text: String) {
         val cm = context.getSystemService(ClipboardManager::class.java)
         cm.setPrimaryClip(ClipData.newPlainText("text", text))
-        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, "Скопировано", Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, t("Скопировано"), Toast.LENGTH_SHORT).show()
     }
 
     private fun start(context: Context, intent: Intent) {
@@ -127,7 +129,7 @@ object Messaging {
             if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
-            Toast.makeText(context, "Нет приложения для этого действия", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, t("Нет приложения для этого действия"), Toast.LENGTH_SHORT).show()
         }
     }
 }

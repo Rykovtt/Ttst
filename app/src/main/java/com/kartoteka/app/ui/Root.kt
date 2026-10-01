@@ -1,10 +1,20 @@
 package com.kartoteka.app.ui
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,13 +90,13 @@ object Routes {
     const val SERVICES = "services"
     const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
-    fun person(id: Long) = "person/$id"
-    fun edit(id: Long = 0) = "edit/$id"
-    fun photos(personId: Long, index: Int) = "photos/$personId/$index"
-    fun group(id: Long) = "group/$id"
-    fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0) = "appointment/$id?personId=$personId&date=$date"
+    fun person(id: Long) = "person/${id}"
+    fun edit(id: Long = 0) = "edit/${id}"
+    fun photos(personId: Long, index: Int) = "photos/${personId}/${index}"
+    fun group(id: Long) = "group/${id}"
+    fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0) = "appointment/${id}?personId=${personId}&date=${date}"
     fun broadcast(groupId: Long = 0, personIds: Collection<Long> = emptyList()) =
-        "broadcast?groupId=$groupId&personIds=${personIds.joinToString(",")}"
+        "broadcast?groupId=${groupId}&personIds=${personIds.joinToString(",")}"
 }
 
 private data class Tab(val route: String, val base: String, val title: String, val icon: ImageVector)
@@ -134,7 +144,7 @@ fun KartotekaRoot(
                             selected = route.startsWith(tab.base),
                             onClick = { nav.switchTab(tab.route) },
                             icon = { Icon(tab.icon, null) },
-                            label = { Text(tab.title, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
+                            label = { Text(t(tab.title), maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onSurface,
                                 selectedTextColor = MaterialTheme.colorScheme.onSurface,
@@ -279,30 +289,112 @@ private fun NavHostController.switchTab(route: String) {
     }
 }
 
+/**
+ * Экран блокировки. С собственным PIN-кодом — точки и цифровая клавиатура (+ отпечаток),
+ * без него (старая блокировка) — кнопка системного подтверждения.
+ */
 @Composable
-fun LockScreen(title: String, onUnlock: () -> Unit) {
-    Box(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(52.dp))
-            }
-            Text(title, style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Подтвердите личность, чтобы продолжить",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onUnlock) {
-                Icon(Icons.Default.Fingerprint, null)
-                Spacer(Modifier.size(8.dp))
-                Text("Разблокировать")
+fun LockScreen(
+    title: String,
+    pinLength: Int?,
+    biometric: Boolean,
+    onBiometric: () -> Unit,
+    onPin: (String) -> Boolean,
+    waitMillis: () -> Long,
+) {
+    var entered by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var wait by remember { mutableStateOf(waitMillis()) }
+    LaunchedEffect(wait > 0) {
+        while (wait > 0) {
+            kotlinx.coroutines.delay(500)
+            wait = waitMillis()
+        }
+    }
+
+    fun press(d: Char) {
+        if (pinLength == null || wait > 0 || entered.length >= pinLength) return
+        entered += d
+        error = null
+        if (entered.length == pinLength) {
+            if (!onPin(entered)) {
+                entered = ""
+                wait = waitMillis()
+                error = if (wait > 0) null else t("Неверный PIN-код")
             }
         }
+    }
+
+    Box(
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).systemBarsPadding(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(
+                Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.Lock, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(38.dp))
+            }
+            Text(title, style = MaterialTheme.typography.headlineSmall)
+            if (pinLength == null) {
+                Text(t("Подтвердите, что это вы"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onBiometric) {
+                    Icon(Icons.Default.Fingerprint, null)
+                    Spacer(Modifier.size(8.dp))
+                    Text(t("Разблокировать"))
+                }
+                return@Column
+            }
+            Text(
+                when {
+                    wait > 0 -> t("Слишком много попыток. Подождите %1\$s с", (wait + 999) / 1000)
+                    error != null -> error!!
+                    else -> t("Введите PIN-код")
+                },
+                color = if (error != null || wait > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(vertical = 10.dp)) {
+                repeat(pinLength) { i ->
+                    Box(
+                        Modifier.size(14.dp).clip(CircleShape).background(
+                            if (i < entered.length) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+                        )
+                    )
+                }
+            }
+            val rows = listOf("123", "456", "789")
+            rows.forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                    row.forEach { d -> PinKey(d.toString()) { press(d) } }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(76.dp), contentAlignment = Alignment.Center) {
+                    if (biometric) {
+                        IconButton(onClick = onBiometric, modifier = Modifier.size(64.dp)) {
+                            Icon(Icons.Default.Fingerprint, t("Отпечаток"), modifier = Modifier.size(34.dp))
+                        }
+                    }
+                }
+                PinKey("0") { press('0') }
+                Box(Modifier.size(76.dp), contentAlignment = Alignment.Center) {
+                    IconButton(onClick = { entered = entered.dropLast(1) }, modifier = Modifier.size(64.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.Backspace, t("Стереть"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PinKey(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(76.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.headlineSmall)
     }
 }

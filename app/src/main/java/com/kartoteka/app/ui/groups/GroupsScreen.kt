@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.groups
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -70,7 +72,7 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
             ExtendedFloatingActionButton(
                 onClick = { editing = Group(name = "", color = AccentPalette[(groups?.size ?: 0) % AccentPalette.size]) },
                 icon = { Icon(Icons.Default.Add, null) },
-                text = { Text("Группа") },
+                text = { Text(t("Группа")) },
             )
         },
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
@@ -78,10 +80,10 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
             item {
                 Column(Modifier.statusBarsPadding().padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 12.dp)) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") }
-                    Text("Группы", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 12.dp))
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
+                    Text(t("Группы"), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 12.dp))
                     Text(
-                        "Семья, работа, друзья — для быстрого поиска и рассылок",
+                        t("Семья, работа, друзья — для быстрого поиска и рассылок"),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 12.dp),
@@ -91,7 +93,7 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
             val list = groups
             if (list != null && list.isEmpty()) {
                 item {
-                    EmptyState(Icons.Default.Workspaces, "Пока нет групп", "Создайте группы вроде «Семья», «Работа», «Спортзал», чтобы делать рассылки в один тап.")
+                    EmptyState(Icons.Default.Workspaces, t("Пока нет групп"), t("Создайте группы вроде «Семья», «Работа», «Спортзал», чтобы делать рассылки в один тап."))
                 }
             }
             items(list.orEmpty(), key = { it.group.id }) { gc ->
@@ -148,11 +150,11 @@ fun GroupEditDialog(group: Group, onDismiss: () -> Unit, onSave: (Group) -> Unit
     var emoji by remember { mutableStateOf(group.emoji) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (group.id == 0L) "Новая группа" else "Группа") },
+        title = { Text(if (group.id == 0L) t("Новая группа") else t("Группа")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Название") }, singleLine = true)
-                Text("Цвет", style = MaterialTheme.typography.labelLarge)
+                OutlinedTextField(name, { name = it }, label = { Text(t("Название")) }, singleLine = true)
+                Text(t("Цвет"), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     AccentPalette.forEach { c ->
                         Box(
@@ -162,7 +164,7 @@ fun GroupEditDialog(group: Group, onDismiss: () -> Unit, onSave: (Group) -> Unit
                         ) { if (c == color) Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
                     }
                 }
-                Text("Значок", style = MaterialTheme.typography.labelLarge)
+                Text(t("Значок"), style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     emojis.forEach { e ->
                         Box(
@@ -176,8 +178,8 @@ fun GroupEditDialog(group: Group, onDismiss: () -> Unit, onSave: (Group) -> Unit
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(group.copy(name = name.trim(), color = color, emoji = emoji)) }) { Text("Сохранить") }
+            TextButton(enabled = name.isNotBlank(), onClick = { onSave(group.copy(name = name.trim(), color = color, emoji = emoji)) }) { Text(t("Сохранить")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }

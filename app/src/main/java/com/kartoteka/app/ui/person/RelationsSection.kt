@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -52,12 +54,12 @@ fun RelationsSection(
     onRemove: (RelationView) -> Unit,
 ) {
     SectionCard(
-        "Семья и связи", Icons.Default.FamilyRestroom,
-        action = { IconButton(onClick = onAdd) { Icon(Icons.Default.Add, "Добавить связь") } },
+        t("Семья и связи"), Icons.Default.FamilyRestroom,
+        action = { IconButton(onClick = onAdd) { Icon(Icons.Default.Add, t("Добавить связь")) } },
     ) {
         if (views.isEmpty()) {
             Text(
-                "Супруги, дети, родители, коллеги — связывайте карточки между собой",
+                t("Супруги, дети, родители, коллеги — связывайте карточки между собой"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
@@ -74,7 +76,7 @@ fun RelationsSection(
                     Text(v.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(v.other.displayName, style = MaterialTheme.typography.bodyLarge)
                 }
-                IconButton(onClick = { onRemove(v) }) { Icon(Icons.Default.Close, "Убрать связь", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                IconButton(onClick = { onRemove(v) }) { Icon(Icons.Default.Close, t("Убрать связь"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
     }
@@ -94,12 +96,12 @@ fun AddRelationDialog(
     var type by remember { mutableStateOf<RelationType?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (other == null) "С кем связан(а) ${me.firstName.ifBlank { me.displayName }}?" else "${other!!.displayName} — это…") },
+        title = { Text(if (other == null) t("С кем связан(а) %1\$s?", me.firstName.ifBlank { me.displayName }) else t("%1\$s — это…", other!!.displayName)) },
         text = {
             val o = other
             if (o == null) {
                 Column {
-                    OutlinedTextField(query, { query = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Поиск") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(query, { query = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(t("Поиск")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     val shown = ArchiveLogic.sort(ArchiveLogic.search(candidates, query), SortMode.NAME)
                     LazyColumn(Modifier.heightIn(max = 380.dp)) {
                         items(shown, key = { it.person.person.id }) { hit ->
@@ -116,13 +118,13 @@ fun AddRelationDialog(
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Семья", style = MaterialTheme.typography.labelLarge)
+                    Text(t("Семья"), style = MaterialTheme.typography.labelLarge)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         RelationType.entries.filter { it.family }.forEach { t ->
                             FilterChip(type == t, { type = t }, label = { Text(t.label(o.gender)) })
                         }
                     }
-                    Text("Другое", style = MaterialTheme.typography.labelLarge)
+                    Text(t("Другое"), style = MaterialTheme.typography.labelLarge)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         RelationType.entries.filter { !it.family }.forEach { t ->
                             FilterChip(type == t, { type = t }, label = { Text(t.label(o.gender)) })
@@ -130,8 +132,8 @@ fun AddRelationDialog(
                     }
                     type?.let { t ->
                         Text(
-                            "${o.displayName} — ${t.label(o.gender).lowercase()} для ${me.displayName}, " +
-                                "а ${me.displayName} — ${t.inverse.label(me.gender).lowercase()} для ${o.displayName}",
+                            t("%1\$s — %2\$s для %3\$s, ", o.displayName, t.label(o.gender).lowercase(), me.displayName) +
+                                t("а %1\$s — %2\$s для %3\$s", me.displayName, t.inverse.label(me.gender).lowercase(), o.displayName),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -140,10 +142,10 @@ fun AddRelationDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = other != null && type != null, onClick = { onSave(other!!.id, type!!) }) { Text("Связать") }
+            TextButton(enabled = other != null && type != null, onClick = { onSave(other!!.id, type!!) }) { Text(t("Связать")) }
         },
         dismissButton = {
-            TextButton(onClick = { if (other != null) { other = null; type = null } else onDismiss() }) { Text(if (other != null) "Назад" else "Отмена") }
+            TextButton(onClick = { if (other != null) { other = null; type = null } else onDismiss() }) { Text(if (other != null) t("Назад") else t("Отмена")) }
         },
     )
 }

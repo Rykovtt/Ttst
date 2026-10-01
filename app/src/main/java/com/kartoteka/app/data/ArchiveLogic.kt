@@ -1,5 +1,7 @@
 package com.kartoteka.app.data
 
+import com.kartoteka.app.i18n.t
+
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -25,19 +27,19 @@ object ArchiveLogic {
 
     private fun searchSources(pf: PersonFull): List<Pair<String, String>> = buildList {
         val p = pf.person
-        add("Имя" to "${p.lastName} ${p.firstName} ${p.middleName}")
-        add("Прозвище" to p.nickname)
-        add("Отношение" to p.relation)
-        add("Работа" to "${p.company} ${p.position}")
-        add("Город" to p.city)
+        add(t("Имя") to "${p.lastName} ${p.firstName} ${p.middleName}")
+        add(t("Прозвище") to p.nickname)
+        add(t("Отношение") to p.relation)
+        add(t("Работа") to "${p.company} ${p.position}")
+        add(t("Город") to p.city)
         pf.places.forEach { add(it.placeKind.title to it.address) }
-        add("Знакомство" to p.howMet)
-        add("Заметки" to p.notes)
+        add(t("Знакомство") to p.howMet)
+        add(t("Заметки") to p.notes)
         pf.contacts.forEach { add(it.contactType.title to it.value) }
         pf.details.forEach { add(it.name.ifBlank { it.category } to it.value) }
-        pf.groups.forEach { add("Группа" to it.name) }
+        pf.groups.forEach { add(t("Группа") to it.name) }
         pf.journal.forEach { add(it.kind to it.text) }
-        pf.photos.forEach { if (it.caption.isNotBlank()) add("Фото" to it.caption) }
+        pf.photos.forEach { if (it.caption.isNotBlank()) add(t("Фото") to it.caption) }
     }.filter { it.second.isNotBlank() }
 
     private fun snippet(text: String, words: List<String>): String {
@@ -93,8 +95,14 @@ object ArchiveLogic {
             .sortedBy { it.second }
 
     /** Подстановка в шаблон рассылки. */
-    fun fillTemplate(template: String, p: Person): String =
+    fun fillTemplate(
+        template: String,
+        p: Person,
+        lang: MessageLang = MessageLang.RU,
+        now: java.time.LocalTime = java.time.LocalTime.now(),
+    ): String =
         MessageLang.canonicalize(template)
+            .replace("{приветствие}", lang.timeGreeting(now))
             .replace("{имя}", p.firstName.ifBlank { p.displayName })
             .replace("{отчество}", p.middleName)
             .replace("{фамилия}", p.lastName)
@@ -104,26 +112,21 @@ object ArchiveLogic {
     fun formatBirthday(p: Person): String? {
         val d = p.birthDay ?: return null
         val m = p.birthMonth ?: return null
-        val month = MONTHS_GEN.getOrNull(m - 1) ?: return null
-        return if (p.birthYear != null) "$d $month ${p.birthYear}" else "$d $month"
+        if (m !in 1..12) return null
+        val dm = com.kartoteka.app.i18n.I18n.dayMonth(d, m)
+        return if (p.birthYear != null) "$dm ${p.birthYear}" else dm
     }
 
-    fun plural(n: Long, one: String, few: String, many: String): String {
-        val n10 = n % 10
-        val n100 = n % 100
-        return when {
-            n10 == 1L && n100 != 11L -> one
-            n10 in 2..4 && n100 !in 12..14 -> few
-            else -> many
-        }
-    }
+    /** Склонение по числу на языке интерфейса (формы передаются по-русски). */
+    fun plural(n: Long, one: String, few: String, many: String): String =
+        com.kartoteka.app.i18n.I18n.plural(n, one, few, many)
 
     fun ageString(age: Int): String = "$age ${plural(age.toLong(), "год", "года", "лет")}"
 
     fun daysString(days: Long): String = when (days) {
-        0L -> "сегодня"
-        1L -> "завтра"
-        else -> "через $days ${plural(days, "день", "дня", "дней")}"
+        0L -> t("сегодня")
+        1L -> t("завтра")
+        else -> t("через %1\$s %2\$s", days, plural(days, "день", "дня", "дней"))
     }
 
     fun normalizePhone(raw: String): String {

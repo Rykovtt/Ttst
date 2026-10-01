@@ -1,5 +1,7 @@
 package com.kartoteka.app.reminders
 
+import com.kartoteka.app.i18n.t
+
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -41,8 +43,8 @@ class BirthdayWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val nm = NotificationManagerCompat.from(app)
         (today + soon).forEach { (pf, days) ->
             val p = pf.person
-            val age = ArchiveLogic.turningAge(p)?.let { " — исполняется ${ArchiveLogic.ageString(it)}" }.orEmpty()
-            val title = if (days == 0L) "🎂 Сегодня день рождения: ${p.displayName}" else "Через 3 дня день рождения: ${p.displayName}"
+            val age = ArchiveLogic.turningAge(p)?.let { t(" — исполняется %1\$s", ArchiveLogic.ageString(it)) }.orEmpty()
+            val title = if (days == 0L) t("🎂 Сегодня день рождения: %1\$s", p.displayName) else t("Через 3 дня день рождения: %1\$s", p.displayName)
             val intent = Intent(app, MainActivity::class.java)
                 .putExtra(MainActivity.EXTRA_PERSON_ID, p.id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -50,7 +52,7 @@ class BirthdayWorker(context: Context, params: WorkerParameters) : CoroutineWork
             val n = NotificationCompat.Builder(app, CHANNEL)
                 .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(app))
                 .setContentTitle(title)
-                .setContentText("Не забудьте поздравить$age")
+                .setContentText(t("Не забудьте поздравить%1\$s", age))
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setContentIntent(pi)
                 .setAutoCancel(true)
@@ -80,7 +82,7 @@ class BirthdayWorker(context: Context, params: WorkerParameters) : CoroutineWork
 
         private fun ensureChannel(context: Context) {
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Дни рождения", NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, t("Дни рождения"), NotificationManager.IMPORTANCE_DEFAULT))
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.settings
 
+import com.kartoteka.app.i18n.t
+
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -106,49 +109,66 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
-            Text("Настройки", style = MaterialTheme.typography.headlineLarge)
+            Text(t("Настройки"), style = MaterialTheme.typography.headlineLarge)
         }
 
-        SectionCard("Значок и название", Icons.Default.Palette) {
+        SectionCard(t("Значок и название"), Icons.Default.Palette) {
             AppearanceSettings(settings)
         }
 
-        SectionCard("Приватность", Icons.Default.Shield) {
+        SectionCard(t("Приватность"), Icons.Default.Shield) {
+            LockSettings()
             ToggleRow(
-                Icons.Default.Fingerprint, "Блокировка приложения",
-                "Отпечаток, лицо или PIN-код телефона при входе", lock,
-            ) { v ->
-                if (!v) settings.setLockEnabled(false)
-                else if (MainActivity.canUseLock(context as FragmentActivity)) settings.setLockEnabled(true)
-                else message = "Сначала настройте блокировку экрана телефона (PIN, отпечаток или лицо)."
-            }
-            ToggleRow(
-                Icons.Default.VisibilityOff, "Скрывать содержимое",
-                "Запрет скриншотов и размытие в списке недавних приложений", secure, settings::setSecureScreen,
+                Icons.Default.VisibilityOff, t("Скрывать содержимое"),
+                t("Запрет скриншотов и размытие в списке недавних приложений"), secure, settings::setSecureScreen,
             )
-            InfoLine(Icons.Default.EnhancedEncryption, "База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено.")
+            InfoLine(Icons.Default.EnhancedEncryption, t("База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено."))
         }
 
-        SectionCard("Телефоны", Icons.Default.Phone) {
+        SectionCard(t("Телефоны"), Icons.Default.Phone) {
             val iso by settings.country.value.collectAsState()
             val country = com.kartoteka.app.data.PhoneFormat.byIso(iso)
-            ActionRow(Icons.Default.Public, "Страна по умолчанию: ${country.flag} ${country.name} (+${country.code})",
-                "Номер «${country.trunk}…» без кода сохранится как «+${country.code}…»") { countryPicker = true }
-            ActionRow(Icons.Default.AutoFixHigh, "Привести все номера к международному виду", "Для уже сохранённых контактов") {
+            ActionRow(Icons.Default.Public, t("Страна по умолчанию: %1\$s %2\$s (+%3\$s)", country.flag, t(country.name), country.code),
+                t("Номер «%1\$s…» без кода сохранится как «+%2\$s…»", country.trunk, country.code)) { countryPicker = true }
+            ActionRow(Icons.Default.AutoFixHigh, t("Привести все номера к международному виду"), t("Для уже сохранённых контактов")) {
                 scope.launch {
                     busy = true
                     val n = app.repository.normalizeAllPhones(country)
                     busy = false
-                    message = if (n == 0) "Все номера уже в международном формате" else "Исправлено номеров: $n"
+                    message = if (n == 0) t("Все номера уже в международном формате") else t("Исправлено номеров: %1\$s", n)
                 }
             }
         }
 
-        SectionCard("Язык сообщений", Icons.Default.Translate) {
+        SectionCard(t("Язык приложения"), Icons.Default.Language) {
+            val uiLang by settings.uiLang.value.collectAsState()
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.kartoteka.app.i18n.UiLang.entries.forEach { l ->
+                    com.kartoteka.app.ui.components.FilterChip(
+                        selected = uiLang == l.code,
+                        onClick = {
+                            if (uiLang != l.code) {
+                                settings.uiLang.set(l.code)
+                                com.kartoteka.app.i18n.I18n.init(context, l)
+                                (context as? android.app.Activity)?.recreate()
+                            }
+                        },
+                        label = { Text(if (l == com.kartoteka.app.i18n.UiLang.AUTO) t(l.title) else l.title) },
+                    )
+                }
+            }
+            Text(
+                t("Язык меню и кнопок. Тексты сообщений людям настраиваются отдельно — ниже."),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 18.dp),
+            )
+        }
+
+        SectionCard(t("Язык сообщений"), Icons.Default.Translate) {
             val lang by settings.messageLang.value.collectAsState()
             Text(
-                "На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. " +
-                    "Для отдельного человека язык можно поменять в его карточке.",
+                t("На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. ") +
+                    t("Для отдельного человека язык можно поменять в его карточке."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 18.dp),
             )
@@ -159,31 +179,31 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             }
         }
 
-        SectionCard("Записи и календарь", Icons.Default.CalendarMonth) {
+        SectionCard(t("Записи и календарь"), Icons.Default.CalendarMonth) {
             CalendarSettings(settings, onServices)
         }
 
-        SectionCard("Авто-отправка в мессенджерах", Icons.Default.AutoMode) {
+        SectionCard(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode) {
             val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
             val delay by settings.autoSendDelaySec.value.collectAsState()
             ActionRow(
                 Icons.Default.AutoMode,
-                if (on) "Включена ✓" else "Выключена — нажмите, чтобы включить",
-                "RVault сам нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. " +
-                    "Настройки → Спец. возможности → «RVault: авто-отправка». Если переключатель неактивен: Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».",
+                if (on) t("Включена ✓") else t("Выключена — нажмите, чтобы включить"),
+                t("RVault сам нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. ") +
+                    t("Настройки → Спец. возможности → «RVault: авто-отправка». Если переключатель неактивен: Приложения → RVault → ⋮ → «Разрешить ограниченные настройки»."),
             ) { com.kartoteka.app.messaging.AutoSend.openServiceSettings(context) }
-            Text("Пауза между сообщениями: ${delay} с", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
+            Text(t("Пауза между сообщениями: %1\$s с", delay), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
             androidx.compose.material3.Slider(
                 value = (delay.toIntOrNull() ?: 6).toFloat(),
                 onValueChange = { settings.autoSendDelaySec.set(it.toInt().toString()) },
                 valueRange = 3f..30f, steps = 26,
                 modifier = Modifier.padding(horizontal = 18.dp),
             )
-            InfoLine(Icons.Default.Info, "Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне.")
+            InfoLine(Icons.Default.Info, t("Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне."))
         }
 
-        SectionCard("Напоминания", Icons.Default.Cake) {
-            ToggleRow(Icons.Default.Cake, "Дни рождения", "Уведомление в день рождения и за 3 дня", birthdays) { v ->
+        SectionCard(t("Напоминания"), Icons.Default.Cake) {
+            ToggleRow(Icons.Default.Cake, t("Дни рождения"), t("Уведомление в день рождения и за 3 дня"), birthdays) { v ->
                 if (v && Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else {
                     settings.setBirthdayReminders(v)
@@ -192,19 +212,19 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             }
         }
 
-        SectionCard("Данные", Icons.Default.Backup) {
-            ActionRow(Icons.Default.Contacts, "Импорт из контактов телефона", "Перенести людей из телефонной книги", onImportContacts)
-            ActionRow(Icons.Default.Backup, "Создать резервную копию", "Зашифрованный файл с данными и фото") {
+        SectionCard(t("Данные"), Icons.Default.Backup) {
+            ActionRow(Icons.Default.Contacts, t("Импорт из контактов телефона"), t("Перенести людей из телефонной книги"), onImportContacts)
+            ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными и фото")) {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                exportLauncher.launch("rvault-$stamp.krtk")
+                exportLauncher.launch("rvault-${stamp}.krtk")
             }
-            ActionRow(Icons.Default.Restore, "Восстановить из копии", "Загрузить файл .krtk") {
+            ActionRow(Icons.Default.Restore, t("Восстановить из копии"), t("Загрузить файл .krtk")) {
                 importLauncher.launch(arrayOf("*/*"))
             }
         }
 
         Text(
-            "Все данные хранятся только на этом устройстве. Разработчик Rykov.",
+            t("Все данные хранятся только на этом устройстве. Разработчик Rykov."),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(20.dp),
@@ -213,30 +233,30 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
 
     when (val d = dialog) {
         is BackupDialog.Export -> PasswordDialog(
-            title = "Пароль для копии",
-            hint = "Без пароля файл сможет прочитать любой. Запомните пароль — восстановить его нельзя.",
-            confirm = "Сохранить",
+            title = t("Пароль для копии"),
+            hint = t("Без пароля файл сможет прочитать любой. Запомните пароль — восстановить его нельзя."),
+            confirm = t("Сохранить"),
             showReplace = false,
             onDismiss = { dialog = null },
         ) { pass, _ ->
             dialog = null; busy = true
             scope.launch {
                 message = runCatching { withContext(Dispatchers.IO) { app.backup.export(d.uri, pass) } }
-                    .fold({ "Сохранено людей: $it" }, { "Ошибка: ${it.message}" })
+                    .fold({ t("Сохранено людей: %1\$s", it) }, { t("Ошибка: %1\$s", it.message) })
                 busy = false
             }
         }
         is BackupDialog.Import -> PasswordDialog(
-            title = "Восстановление",
-            hint = "Введите пароль, указанный при создании копии (если был).",
-            confirm = "Восстановить",
+            title = t("Восстановление"),
+            hint = t("Введите пароль, указанный при создании копии (если был)."),
+            confirm = t("Восстановить"),
             showReplace = true,
             onDismiss = { dialog = null },
         ) { pass, replace ->
             dialog = null; busy = true
             scope.launch {
                 message = runCatching { withContext(Dispatchers.IO) { app.backup.import(d.uri, pass, replace) } }
-                    .fold({ "Восстановлено людей: $it" }, { if (it is BackupManager.WrongPasswordException) it.message else "Ошибка: ${it.message}" })
+                    .fold({ t("Восстановлено людей: %1\$s", it) }, { if (it is BackupManager.WrongPasswordException) it.message else t("Ошибка: %1\$s", it.message) })
                 busy = false
             }
         }
@@ -247,8 +267,8 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
         com.kartoteka.app.ui.components.CountryPickerDialog(onDismiss = { countryPicker = false }) { settings.country.set(it.iso); countryPicker = false }
     }
     if (busy) {
-        AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text("Подождите…") }, text = {
-            Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(28.dp)); Spacer(Modifier.width(16.dp)); Text("Работаем с данными") }
+        AlertDialog(onDismissRequest = {}, confirmButton = {}, title = { Text(t("Подождите…")) }, text = {
+            Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(28.dp)); Spacer(Modifier.width(16.dp)); Text(t("Работаем с данными")) }
         })
     }
     message?.let {
@@ -274,25 +294,25 @@ private fun PasswordDialog(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(hint, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
-                    pass, { pass = it }, label = { Text("Пароль") }, singleLine = true,
+                    pass, { pass = it }, label = { Text(t("Пароль")) }, singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 )
                 if (showReplace) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(replace, { replace = it })
-                        Text("Заменить текущую картотеку (иначе — добавить)")
+                        Text(t("Заменить текущую картотеку (иначе — добавить)"))
                     }
                 }
             }
         },
         confirmButton = { TextButton(onClick = { onConfirm(pass, replace) }) { Text(confirm) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }
 
 @Composable
-private fun ToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -308,7 +328,7 @@ private fun ToggleRow(icon: ImageVector, title: String, subtitle: String, checke
 }
 
 @Composable
-private fun ActionRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+internal fun ActionRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

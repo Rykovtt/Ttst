@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.settings
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,7 +53,7 @@ fun AppearanceSettings(settings: Settings) {
 
     Column(Modifier.padding(horizontal = 16.dp)) {
         Text(
-            "Значок и название на рабочем столе. Маскировка («Калькулятор», «Погода»…) скрывает, что это за приложение.",
+            t("Значок и название на рабочем столе. Маскировка («Калькулятор», «Погода»…) скрывает, что это за приложение."),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(
@@ -82,9 +84,9 @@ fun AppearanceSettings(settings: Settings) {
         OutlinedTextField(
             value = title,
             onValueChange = { settings.appTitle.set(it.take(30)) },
-            label = { Text("Название внутри приложения") },
+            label = { Text(t("Название внутри приложения")) },
             placeholder = { Text(stringResource(current.label)) },
-            supportingText = { Text("В шапке, на экране блокировки и в списке недавних приложений") },
+            supportingText = { Text(t("В шапке, на экране блокировки и в списке недавних приложений")) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -93,12 +95,12 @@ fun AppearanceSettings(settings: Settings) {
     pending?.let { icon ->
         AlertDialog(
             onDismissRequest = { pending = null },
-            title = { Text("Сменить на «${stringResource(icon.label)}»?") },
+            title = { Text(t("Сменить на «%1\$s»?", stringResource(icon.label))) },
             text = {
                 Text(
-                    "Значок на рабочем столе обновится через несколько секунд. Если он был вынесен на главный экран — " +
-                        "перетащите его заново из списка приложений. Данные не затрагиваются. " +
-                        "В системных настройках (Приложения) название останется «RVault».",
+                    t("Значок на рабочем столе обновится через несколько секунд. Если он был вынесен на главный экран — ") +
+                        t("перетащите его заново из списка приложений. Данные не затрагиваются. ") +
+                        t("В системных настройках (Приложения) название останется «RVault»."),
                 )
             },
             confirmButton = {
@@ -107,9 +109,9 @@ fun AppearanceSettings(settings: Settings) {
                     current = icon
                     (context as? com.kartoteka.app.MainActivity)?.updateTaskTitle()
                     pending = null
-                }) { Text("Сменить") }
+                }) { Text(t("Сменить")) }
             },
-            dismissButton = { TextButton(onClick = { pending = null }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { pending = null }) { Text(t("Отмена")) } },
         )
     }
 }

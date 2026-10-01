@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RVault</string>
+    <string name="alias_notes">Notes</string>
+    <string name="alias_calc">Calculator</string>
+    <string name="alias_weather">Weather</string>
+    <string name="alias_organizer">Organizer</string>
+    <string name="alias_files">Files</string>
+    <string name="alias_contacts">Contacts</string>
+    <string name="autosend_label">RVault: auto-send</string>
+    <string name="autosend_description">During a broadcast or reminder from RVault, it taps “Send” in WhatsApp and Telegram for you so you don\'t have to confirm every message. It works only with these two apps and only when you started sending in RVault. No data is read or transmitted.</string>
+</resources>

@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import com.kartoteka.app.i18n.t
+
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -162,9 +164,9 @@ class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewMod
         get() {
             val d = bdDay.toIntOrNull(); val m = bdMonth.toIntOrNull(); val y = bdYear.toIntOrNull()
             if (bdDay.isBlank() && bdMonth.isBlank() && bdYear.isBlank()) return null
-            if (d == null || d !in 1..31) return "День 1–31"
-            if (m == null || m !in 1..12) return "Месяц 1–12"
-            if (bdYear.isNotBlank() && (y == null || y !in 1900..2100)) return "Год, например 1990"
+            if (d == null || d !in 1..31) return t("День 1–31")
+            if (m == null || m !in 1..12) return t("Месяц 1–12")
+            if (bdYear.isNotBlank() && (y == null || y !in 1900..2100)) return t("Год, например 1990")
             return null
         }
 
@@ -210,7 +212,7 @@ class PersonEditViewModel(private val app: KartotekaApp, val id: Long) : ViewMod
 @Composable
 fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit) {
     val app = app()
-    val vm: PersonEditViewModel = viewModel(key = "edit_$personId") { PersonEditViewModel(app, personId) }
+    val vm: PersonEditViewModel = viewModel(key = "edit_${personId}") { PersonEditViewModel(app, personId) }
     val p = vm.person
     var avatarMenu by remember { mutableStateOf(false) }
     var templatesSheet by remember { mutableStateOf(false) }
@@ -224,8 +226,8 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (personId == 0L) "Новый человек" else "Редактирование") },
-                navigationIcon = { IconButton(onClick = tryExit) { Icon(Icons.Default.Close, "Закрыть") } },
+                title = { Text(if (personId == 0L) t("Новый человек") else t("Редактирование")) },
+                navigationIcon = { IconButton(onClick = tryExit) { Icon(Icons.Default.Close, t("Закрыть")) } },
                 actions = {
                     Button(
                         onClick = { vm.save(onSaved) },
@@ -234,7 +236,7 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                     ) {
                         Icon(Icons.Default.Check, null, Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Сохранить")
+                        Text(t("Сохранить"))
                     }
                 },
             )
@@ -255,51 +257,51 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                             Modifier.align(Alignment.BottomEnd).size(40.dp).clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary).clickable { avatarMenu = true },
                             contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.Default.AddAPhoto, "Фото", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp)) }
+                        ) { Icon(Icons.Default.AddAPhoto, t("Фото"), tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp)) }
                         PhotoSourceMenu(avatarMenu, { avatarMenu = false }, picker)
                     }
                 }
             }
 
             item(key = "names") {
-                SectionCard("Кто это", Icons.Default.Badge) {
+                SectionCard(t("Кто это"), Icons.Default.Badge) {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Field("Имя", p.firstName) { v -> vm.update { copy(firstName = v) } }
-                        Field("Фамилия", p.lastName) { v -> vm.update { copy(lastName = v) } }
-                        Field("Отчество", p.middleName) { v -> vm.update { copy(middleName = v) } }
-                        Field("Прозвище / как называю", p.nickname) { v -> vm.update { copy(nickname = v) } }
-                        Text("Пол", style = MaterialTheme.typography.labelLarge)
+                        Field(t("Имя"), p.firstName) { v -> vm.update { copy(firstName = v) } }
+                        Field(t("Фамилия"), p.lastName) { v -> vm.update { copy(lastName = v) } }
+                        Field(t("Отчество"), p.middleName) { v -> vm.update { copy(middleName = v) } }
+                        Field(t("Прозвище / как называю"), p.nickname) { v -> vm.update { copy(nickname = v) } }
+                        Text(t("Пол"), style = MaterialTheme.typography.labelLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             DetailTemplates.genders.forEach { g ->
-                                FilterChip(selected = p.gender == g, onClick = { vm.update { copy(gender = if (gender == g) "" else g) } }, label = { Text(g) })
+                                FilterChip(selected = p.gender == g, onClick = { vm.update { copy(gender = if (gender == g) "" else g) } }, label = { Text(t(g)) })
                             }
                         }
-                        Text("Кем приходится", style = MaterialTheme.typography.labelLarge)
+                        Text(t("Кем приходится"), style = MaterialTheme.typography.labelLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             DetailTemplates.relations.forEach { r ->
-                                FilterChip(selected = p.relation == r, onClick = { vm.update { copy(relation = if (relation == r) "" else r) } }, label = { Text(r) })
+                                FilterChip(selected = p.relation == r, onClick = { vm.update { copy(relation = if (relation == r) "" else r) } }, label = { Text(t(r)) })
                             }
                         }
-                        Field("Или своё", if (p.relation in DetailTemplates.relations) "" else p.relation) { v -> vm.update { copy(relation = v) } }
-                        Text("Язык сообщений", style = MaterialTheme.typography.labelLarge)
+                        Field(t("Или своё"), if (p.relation in DetailTemplates.relations) "" else p.relation) { v -> vm.update { copy(relation = v) } }
+                        Text(t("Язык сообщений"), style = MaterialTheme.typography.labelLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(selected = p.language.isBlank(), onClick = { vm.update { copy(language = "") } }, label = { Text("Как в настройках") })
+                            FilterChip(selected = p.language.isBlank(), onClick = { vm.update { copy(language = "") } }, label = { Text(t("Как в настройках")) })
                             com.kartoteka.app.data.MessageLang.entries.forEach { l ->
                                 FilterChip(selected = p.language == l.name, onClick = { vm.update { copy(language = l.name) } }, label = { Text(l.title) })
                             }
                         }
-                        Text("Близость", style = MaterialTheme.typography.labelLarge)
+                        Text(t("Близость"), style = MaterialTheme.typography.labelLarge)
                         ClosenessStars(p.closeness, onChange = { v -> vm.update { copy(closeness = v) } }, size = 28.dp)
                     }
                 }
             }
 
             item(key = "bd") {
-                SectionCard("День рождения", Icons.Default.Cake) {
+                SectionCard(t("День рождения"), Icons.Default.Cake) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        NumField("День", vm.bdDay, Modifier.weight(1f)) { vm.bdDay = it; vm.dirty = true }
-                        NumField("Месяц", vm.bdMonth, Modifier.weight(1f)) { vm.bdMonth = it; vm.dirty = true }
-                        NumField("Год", vm.bdYear, Modifier.weight(1.3f)) { vm.bdYear = it; vm.dirty = true }
+                        NumField(t("День"), vm.bdDay, Modifier.weight(1f)) { vm.bdDay = it; vm.dirty = true }
+                        NumField(t("Месяц"), vm.bdMonth, Modifier.weight(1f)) { vm.bdMonth = it; vm.dirty = true }
+                        NumField(t("Год"), vm.bdYear, Modifier.weight(1.3f)) { vm.bdYear = it; vm.dirty = true }
                     }
                     vm.birthdayError?.let {
                         Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
@@ -308,28 +310,28 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
             }
 
             item(key = "contacts") {
-                SectionCard("Контакты", Icons.Default.ContactPhone) {
+                SectionCard(t("Контакты"), Icons.Default.ContactPhone) {
                     vm.contacts.forEachIndexed { i, c -> ContactEditor(c, onChange = { vm.contacts[i] = it; vm.dirty = true }, onRemove = { vm.contacts.removeAt(i); vm.dirty = true }) }
                     AddContactButton { type -> vm.contacts.add(EditContact(ContactItem(type = type.name), vm.defaultCountry)); vm.dirty = true }
                 }
             }
 
             item(key = "work") {
-                SectionCard("Работа и место", Icons.Default.Workspaces) {
+                SectionCard(t("Работа и место"), Icons.Default.Workspaces) {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Field("Компания", p.company) { v -> vm.update { copy(company = v) } }
-                        Field("Должность", p.position) { v -> vm.update { copy(position = v) } }
-                        Field("Город", p.city) { v -> vm.update { copy(city = v) } }
-                        Field("Как и где познакомились", p.howMet, singleLine = false) { v -> vm.update { copy(howMet = v) } }
+                        Field(t("Компания"), p.company) { v -> vm.update { copy(company = v) } }
+                        Field(t("Должность"), p.position) { v -> vm.update { copy(position = v) } }
+                        Field(t("Город"), p.city) { v -> vm.update { copy(city = v) } }
+                        Field(t("Как и где познакомились"), p.howMet, singleLine = false) { v -> vm.update { copy(howMet = v) } }
                     }
                 }
             }
 
             item(key = "places") {
-                SectionCard("Адреса", Icons.Default.Place) {
+                SectionCard(t("Адреса"), Icons.Default.Place) {
                     if (vm.places.isEmpty()) {
                         Text(
-                            "Где живёт и где работает — появится на карте",
+                            t("Где живёт и где работает — появится на карте"),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 18.dp),
@@ -354,12 +356,12 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
 
             item(key = "details") {
                 SectionCard(
-                    "Детали до мелочей", Icons.Default.Checklist,
-                    action = { IconButton(onClick = { templatesSheet = true }) { Icon(Icons.Default.Add, "Добавить") } },
+                    t("Детали до мелочей"), Icons.Default.Checklist,
+                    action = { IconButton(onClick = { templatesSheet = true }) { Icon(Icons.Default.Add, t("Добавить")) } },
                 ) {
                     if (vm.details.isEmpty()) {
                         Text(
-                            "Хобби, дети, любимая еда, размеры, идеи подарков… Нажмите «+», чтобы выбрать из подсказок.",
+                            t("Хобби, дети, любимая еда, размеры, идеи подарков… Нажмите «+», чтобы выбрать из подсказок."),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 18.dp),
@@ -369,13 +371,13 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                         DetailEditor(d, onChange = { vm.details[i] = it; vm.dirty = true }, onRemove = { vm.details.removeAt(i); vm.dirty = true })
                     }
                     TextButton(onClick = { templatesSheet = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
-                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Добавить деталь")
+                        Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text(t("Добавить деталь"))
                     }
                 }
             }
 
             item(key = "groups") {
-                SectionCard("Группы", Icons.Default.Workspaces) {
+                SectionCard(t("Группы"), Icons.Default.Workspaces) {
                     FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         vm.allGroups.forEach { g ->
                             val sel = g.id in vm.groupIds
@@ -386,17 +388,17 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
                                 leadingIcon = { ColorDot(g.color) },
                             )
                         }
-                        SuggestionChip(onClick = { newGroupDialog = true }, label = { Text("+ Новая группа") })
+                        SuggestionChip(onClick = { newGroupDialog = true }, label = { Text(t("+ Новая группа")) })
                     }
                 }
             }
 
             item(key = "notes") {
-                SectionCard("Заметки", Icons.AutoMirrored.Filled.Notes) {
+                SectionCard(t("Заметки"), Icons.AutoMirrored.Filled.Notes) {
                     OutlinedTextField(
                         value = p.notes,
                         onValueChange = { v -> vm.update { copy(notes = v) } },
-                        placeholder = { Text("Всё остальное, что важно помнить") },
+                        placeholder = { Text(t("Всё остальное, что важно помнить")) },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp).padding(horizontal = 16.dp),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     )
@@ -419,18 +421,18 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
         var name by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { newGroupDialog = false },
-            title = { Text("Новая группа") },
-            text = { OutlinedTextField(name, { name = it }, label = { Text("Название") }, singleLine = true) },
-            confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.addGroup(name); newGroupDialog = false }) { Text("Создать") } },
-            dismissButton = { TextButton(onClick = { newGroupDialog = false }) { Text("Отмена") } },
+            title = { Text(t("Новая группа")) },
+            text = { OutlinedTextField(name, { name = it }, label = { Text(t("Название")) }, singleLine = true) },
+            confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.addGroup(name); newGroupDialog = false }) { Text(t("Создать")) } },
+            dismissButton = { TextButton(onClick = { newGroupDialog = false }) { Text(t("Отмена")) } },
         )
     }
     if (confirmExit) {
         AlertDialog(
             onDismissRequest = { confirmExit = false },
-            title = { Text("Не сохранять изменения?") },
-            confirmButton = { TextButton(onClick = { confirmExit = false; vm.discard(); onBack() }) { Text("Выйти") } },
-            dismissButton = { TextButton(onClick = { confirmExit = false; vm.save(onSaved) }) { Text("Сохранить") } },
+            title = { Text(t("Не сохранять изменения?")) },
+            confirmButton = { TextButton(onClick = { confirmExit = false; vm.discard(); onBack() }) { Text(t("Выйти")) } },
+            dismissButton = { TextButton(onClick = { confirmExit = false; vm.save(onSaved) }) { Text(t("Сохранить")) } },
         )
     }
 }
@@ -488,8 +490,8 @@ private fun ContactEditor(ec: EditContact, onChange: (EditContact) -> Unit, onRe
                 else -> KeyboardType.Text
             }
             val hint = when (c.contactType) {
-                ContactType.TELEGRAM -> "@username или номер"
-                ContactType.INSTAGRAM, ContactType.VK -> "ник или ссылка"
+                ContactType.TELEGRAM -> t("@username или номер")
+                ContactType.INSTAGRAM, ContactType.VK -> t("ник или ссылка")
                 else -> c.contactType.title
             }
             OutlinedTextField(
@@ -501,7 +503,7 @@ private fun ContactEditor(ec: EditContact, onChange: (EditContact) -> Unit, onRe
                 modifier = Modifier.weight(1f),
             )
         }
-        IconButton(onClick = onRemove, modifier = Modifier.padding(top = 4.dp)) { Icon(Icons.Default.Close, "Удалить") }
+        IconButton(onClick = onRemove, modifier = Modifier.padding(top = 4.dp)) { Icon(Icons.Default.Close, t("Удалить")) }
     }
 }
 
@@ -519,30 +521,30 @@ private fun PlaceEditor(pl: Place, person: Person, onChange: (Place) -> Unit, on
                 )
             }
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Удалить") }
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, t("Удалить")) }
         }
         OutlinedTextField(
             value = pl.address,
             // Адрес изменили — старая точка больше не верна.
             onValueChange = { onChange(pl.copy(address = it, lat = null, lng = null)) },
-            label = { Text("Адрес") },
-            placeholder = { Text("Город, улица, дом, квартира") },
+            label = { Text(t("Адрес")) },
+            placeholder = { Text(t("Город, улица, дом, квартира")) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             trailingIcon = {
                 IconButton(onClick = { picker = true }) {
-                    Icon(Icons.Default.Map, "Отметить на карте", tint = if (pl.hasCoords) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Default.Map, t("Отметить на карте"), tint = if (pl.hasCoords) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             modifier = Modifier.fillMaxWidth(),
         )
         Text(
-            if (pl.hasCoords) "📍 Отмечено на карте" else "Точка найдётся по адресу автоматически, или отметьте её вручную",
+            if (pl.hasCoords) t("📍 Отмечено на карте") else t("Точка найдётся по адресу автоматически, или отметьте её вручную"),
             style = MaterialTheme.typography.labelSmall,
             color = if (pl.hasCoords) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 12.dp, top = 2.dp),
         )
         if (pl.placeKind == PlaceKind.OTHER) {
-            OutlinedTextField(pl.label, { onChange(pl.copy(label = it)) }, label = { Text("Что это (дача, родители…)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(pl.label, { onChange(pl.copy(label = it)) }, label = { Text(t("Что это (дача, родители…)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
     }
     if (picker) {
@@ -564,7 +566,7 @@ private fun PlaceEditor(pl: Place, person: Person, onChange: (Place) -> Unit, on
 private fun AddContactButton(onAdd: (ContactType) -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Box(Modifier.padding(horizontal = 8.dp)) {
-        TextButton(onClick = { menu = true }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text("Добавить контакт") }
+        TextButton(onClick = { menu = true }) { Icon(Icons.Default.Add, null); Spacer(Modifier.width(6.dp)); Text(t("Добавить контакт")) }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             ContactType.entries.forEach { t ->
                 DropdownMenuItem(text = { Text(t.title) }, leadingIcon = { Icon(iconFor(t), null) }, onClick = { onAdd(t); menu = false })
@@ -577,21 +579,21 @@ private fun AddContactButton(onAdd: (ContactType) -> Unit) {
 private fun DetailEditor(d: DetailField, onChange: (DetailField) -> Unit, onRemove: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            InputChip(selected = false, onClick = {}, label = { Text(d.category.ifBlank { "Разное" }) })
+            InputChip(selected = false, onClick = {}, label = { Text(d.category.ifBlank { t("Разное") }) })
             Spacer(Modifier.width(8.dp))
             OutlinedTextField(
                 value = d.name,
                 onValueChange = { onChange(d.copy(name = it)) },
-                label = { Text("Что") },
+                label = { Text(t("Что")) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
-            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, "Удалить") }
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, t("Удалить")) }
         }
         OutlinedTextField(
             value = d.value,
             onValueChange = { onChange(d.copy(value = it)) },
-            label = { Text("Значение") },
+            label = { Text(t("Значение")) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -606,23 +608,23 @@ private fun TemplatesSheet(onPick: (String, String) -> Unit) {
     var customName by remember { mutableStateOf("") }
     LazyColumn(Modifier.navigationBarsPadding(), contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            Text("Что добавить?", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            Text(t("Что добавить?"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
         }
         items(DetailTemplates.categories) { (cat, names) ->
             Column(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
-                Text(cat, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                Text(t(cat), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    names.forEach { n -> SuggestionChip(onClick = { onPick(cat, n) }, label = { Text(n) }) }
+                    names.forEach { n -> SuggestionChip(onClick = { onPick(t(cat), t(n)) }, label = { Text(t(n)) }) }
                 }
             }
         }
         item {
             Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Своё поле", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                OutlinedTextField(customCat, { customCat = it }, label = { Text("Раздел (необязательно)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(customName, { customName = it }, label = { Text("Название поля") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Button(enabled = customName.isNotBlank(), onClick = { onPick(customCat.trim().ifBlank { "Разное" }, customName.trim()) }) { Text("Добавить") }
+                Text(t("Своё поле"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                OutlinedTextField(customCat, { customCat = it }, label = { Text(t("Раздел (необязательно)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(customName, { customName = it }, label = { Text(t("Название поля")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Button(enabled = customName.isNotBlank(), onClick = { onPick(customCat.trim().ifBlank { t("Разное") }, customName.trim()) }) { Text(t("Добавить")) }
             }
         }
     }

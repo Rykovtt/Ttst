@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -167,7 +169,7 @@ class PersonDetailViewModel(private val app: KartotekaApp, val id: Long) : ViewM
     }
 }
 
-private val dateFmt = SimpleDateFormat("d MMMM yyyy", Locale("ru"))
+private fun dateFmt() = SimpleDateFormat("d MMMM yyyy", com.kartoteka.app.i18n.I18n.locale)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -182,7 +184,7 @@ fun PersonDetailScreen(
     onOpenAppointment: (Long) -> Unit = {},
 ) {
     val app = app()
-    val vm: PersonDetailViewModel = viewModel(key = "person_$personId") { PersonDetailViewModel(app, personId) }
+    val vm: PersonDetailViewModel = viewModel(key = "person_${personId}") { PersonDetailViewModel(app, personId) }
     val data by vm.person.collectAsState()
     val context = LocalContext.current
     val listState = rememberLazyListState()
@@ -214,11 +216,11 @@ fun PersonDetailScreen(
                 item(key = "bd") {
                     val days = ArchiveLogic.daysUntilBirthday(p)
                     val turning = ArchiveLogic.turningAge(p)
-                    SectionCard("День рождения", Icons.Default.Cake) {
+                    SectionCard(t("День рождения"), Icons.Default.Cake) {
                         InfoRow(
                             label = listOfNotNull(
                                 days?.let { "🎂 " + ArchiveLogic.daysString(it) },
-                                turning?.let { "исполнится " + ArchiveLogic.ageString(it) },
+                                turning?.let { t("исполнится ") + ArchiveLogic.ageString(it) },
                             ).joinToString(" · "),
                             value = bdText,
                         )
@@ -228,7 +230,7 @@ fun PersonDetailScreen(
 
             if (pf.contacts.isNotEmpty()) {
                 item(key = "contacts") {
-                    SectionCard("Контакты", Icons.Default.ContactPhone) {
+                    SectionCard(t("Контакты"), Icons.Default.ContactPhone) {
                         pf.contacts.forEach { c ->
                             InfoRow(
                                 label = c.label.ifBlank { c.contactType.title },
@@ -244,14 +246,14 @@ fun PersonDetailScreen(
 
             item(key = "main") {
                 val rows = buildList {
-                    if (p.relation.isNotBlank()) add(Triple(Icons.Default.Handshake, "Кем приходится", p.relation))
-                    if (p.gender.isNotBlank()) add(Triple(Icons.Default.Person, "Пол", p.gender))
+                    if (p.relation.isNotBlank()) add(Triple(Icons.Default.Handshake, t("Кем приходится"), t(p.relation)))
+                    if (p.gender.isNotBlank()) add(Triple(Icons.Default.Person, t("Пол"), t(p.gender)))
                     if (p.company.isNotBlank() || p.position.isNotBlank())
-                        add(Triple(Icons.Default.Business, "Работа", listOf(p.position, p.company).filter { it.isNotBlank() }.joinToString(", ")))
-                    if (p.city.isNotBlank()) add(Triple(Icons.Default.LocationCity, "Город", p.city))
-                    if (p.howMet.isNotBlank()) add(Triple(Icons.Default.Info, "Как познакомились", p.howMet))
+                        add(Triple(Icons.Default.Business, t("Работа"), listOf(p.position, p.company).filter { it.isNotBlank() }.joinToString(", ")))
+                    if (p.city.isNotBlank()) add(Triple(Icons.Default.LocationCity, t("Город"), p.city))
+                    if (p.howMet.isNotBlank()) add(Triple(Icons.Default.Info, t("Как познакомились"), p.howMet))
                 }
-                SectionCard("Основное", Icons.Default.Badge) {
+                SectionCard(t("Основное"), Icons.Default.Badge) {
                     rows.forEach { (icon, label, value) ->
                         InfoRow(label, value, icon, onLongClick = { Messaging.copy(context, value) })
                     }
@@ -267,8 +269,8 @@ fun PersonDetailScreen(
                         }
                     }
                     val meta = buildList {
-                        add("Добавлен(а) " + dateFmt.format(Date(p.createdAt)))
-                        p.lastContactAt?.let { add("Последний контакт " + dateFmt.format(Date(it))) }
+                        add(t("Добавлен(а) ") + dateFmt().format(Date(p.createdAt)))
+                        p.lastContactAt?.let { add(t("Последний контакт ") + dateFmt().format(Date(it))) }
                     }
                     Text(
                         meta.joinToString("\n"),
@@ -281,7 +283,7 @@ fun PersonDetailScreen(
 
             if (pf.places.isNotEmpty()) {
                 item(key = "places") {
-                    SectionCard("Адреса", Icons.Default.Place) {
+                    SectionCard(t("Адреса"), Icons.Default.Place) {
                         val markers = pf.places.filter { it.hasCoords }.map { MapMarker("${it.id}", it.lat!!, it.lng!!, p, it.placeKind.title) }
                         if (markers.isNotEmpty()) {
                             OsmMap(
@@ -293,7 +295,7 @@ fun PersonDetailScreen(
                         pf.places.forEach { pl ->
                             InfoRow(
                                 label = pl.label.ifBlank { pl.placeKind.title },
-                                value = pl.address.ifBlank { "Точка на карте" },
+                                value = pl.address.ifBlank { t("Точка на карте") },
                                 icon = if (pl.placeKind == com.kartoteka.app.data.PlaceKind.WORK) Icons.Default.Business else Icons.Default.Home,
                                 onClick = { Messaging.navigate(context, pl) },
                                 onLongClick = { Messaging.copy(context, pl.address) },
@@ -311,9 +313,9 @@ fun PersonDetailScreen(
                 AppointmentsSection(appointments, onNew = onNewAppointment, onOpen = onOpenAppointment)
             }
 
-            val byCategory = pf.details.sortedBy { it.position }.groupBy { it.category.ifBlank { "Разное" } }
+            val byCategory = pf.details.sortedBy { it.position }.groupBy { it.category.ifBlank { t("Разное") } }
             byCategory.forEach { (cat, fields) ->
-                item(key = "cat_$cat") {
+                item(key = "cat_${cat}") {
                     SectionCard(cat, Icons.Default.Checklist) {
                         fields.forEach { f ->
                             InfoRow(f.name.ifBlank { "—" }, f.value, onLongClick = { Messaging.copy(context, f.value) })
@@ -324,17 +326,17 @@ fun PersonDetailScreen(
 
             item(key = "photos") {
                 SectionCard(
-                    "Фото (${pf.photos.size})", Icons.Default.PhotoLibrary,
+                    t("Фото (%1\$s)", pf.photos.size), Icons.Default.PhotoLibrary,
                     action = {
                         Box {
-                            IconButton(onClick = { photoMenu = true }) { Icon(Icons.Default.AddAPhoto, "Добавить фото") }
+                            IconButton(onClick = { photoMenu = true }) { Icon(Icons.Default.AddAPhoto, t("Добавить фото")) }
                             PhotoSourceMenu(photoMenu, { photoMenu = false }, picker)
                         }
                     },
                 ) {
                     if (pf.photos.isEmpty()) {
                         Text(
-                            "Добавьте фотографии — их увидите только вы",
+                            t("Добавьте фотографии — их увидите только вы"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
@@ -358,12 +360,12 @@ fun PersonDetailScreen(
 
             item(key = "journal") {
                 SectionCard(
-                    "Хроника", Icons.Default.History,
-                    action = { IconButton(onClick = { journalDialog = true }) { Icon(Icons.Default.Add, "Добавить запись") } },
+                    t("Хроника"), Icons.Default.History,
+                    action = { IconButton(onClick = { journalDialog = true }) { Icon(Icons.Default.Add, t("Добавить запись")) } },
                 ) {
                     if (pf.journal.isEmpty()) {
                         Text(
-                            "Встречи, звонки, важные события — всё, что хочется помнить",
+                            t("Встречи, звонки, важные события — всё, что хочется помнить"),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
@@ -377,7 +379,7 @@ fun PersonDetailScreen(
 
             if (p.notes.isNotBlank()) {
                 item(key = "notes") {
-                    SectionCard("Заметки", Icons.AutoMirrored.Filled.Notes) {
+                    SectionCard(t("Заметки"), Icons.AutoMirrored.Filled.Notes) {
                         Text(p.notes, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp))
                     }
                 }
@@ -388,23 +390,23 @@ fun PersonDetailScreen(
             title = { if (scrolled) Text(p.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 FilledTonalIconButton(onClick = onBack, colors = overlayButtonColors(scrolled)) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"))
                 }
             },
             actions = {
                 FilledTonalIconButton(onClick = vm::toggleFavorite, colors = overlayButtonColors(scrolled)) {
-                    Icon(if (p.favorite) Icons.Default.Star else Icons.Default.StarBorder, "Избранное")
+                    Icon(if (p.favorite) Icons.Default.Star else Icons.Default.StarBorder, t("Избранное"))
                 }
                 FilledTonalIconButton(onClick = onEdit, colors = overlayButtonColors(scrolled)) {
-                    Icon(Icons.Default.Edit, "Редактировать")
+                    Icon(Icons.Default.Edit, t("Редактировать"))
                 }
                 Box {
                     FilledTonalIconButton(onClick = { menu = true }, colors = overlayButtonColors(scrolled)) {
-                        Icon(Icons.Default.MoreVert, "Ещё")
+                        Icon(Icons.Default.MoreVert, t("Ещё"))
                     }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Удалить") },
+                            text = { Text(t("Удалить")) },
                             leadingIcon = { Icon(Icons.Default.Delete, null) },
                             onClick = { menu = false; confirmDelete = true },
                         )
@@ -420,10 +422,10 @@ fun PersonDetailScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить ${p.displayName}?") },
-            text = { Text("Карточка, фото и хроника будут удалены без возможности восстановления.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text("Удалить") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            title = { Text(t("Удалить %1\$s?", p.displayName)) },
+            text = { Text(t("Карточка, фото и хроника будут удалены без возможности восстановления.")) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text(t("Удалить")) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
     }
     if (relationDialog) {
@@ -474,7 +476,7 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
         )
         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 8.dp)) {
             Text(p.fullName, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
-            val sub = listOf(p.nickname.takeIf { it.isNotBlank() }?.let { "«$it»" }, p.relation.takeIf { it.isNotBlank() })
+            val sub = listOf(p.nickname.takeIf { it.isNotBlank() }?.let { "«${it}»" }, p.relation.takeIf { it.isNotBlank() }?.let { t(it) })
                 .filterNotNull().joinToString(" · ")
             if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (p.closeness > 0) {
@@ -489,13 +491,13 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
 private fun QuickActions(pf: PersonFull, onMessage: () -> Unit, onNewAppointment: () -> Unit) {
     val context = LocalContext.current
     val actions = buildList<Triple<ImageVector, String, () -> Unit>> {
-        pf.phone?.let { add(Triple(Icons.Default.Call, "Звонок") { Messaging.dial(context, it) }) }
+        pf.phone?.let { add(Triple(Icons.Default.Call, t("Звонок")) { Messaging.dial(context, it) }) }
         pf.phone?.let { add(Triple(Icons.Default.Sms, "SMS") { Messaging.sms(context, listOf(it)) }) }
         pf.whatsapp?.let { add(Triple(Icons.AutoMirrored.Filled.Chat, "WhatsApp") { Messaging.whatsapp(context, it) }) }
         pf.telegram?.let { add(Triple(Icons.AutoMirrored.Filled.Send, "Telegram") { Messaging.telegram(context, it) }) }
-        pf.email?.let { add(Triple(Icons.Default.Email, "Почта") { Messaging.email(context, listOf(it)) }) }
-        add(Triple(Icons.Default.EventAvailable, "Записать", onNewAppointment))
-        if (pf.phone != null || pf.telegram != null) add(Triple(Icons.Default.Edit, "Шаблон", onMessage))
+        pf.email?.let { add(Triple(Icons.Default.Email, t("Почта")) { Messaging.email(context, listOf(it)) }) }
+        add(Triple(Icons.Default.EventAvailable, t("Записать"), onNewAppointment))
+        if (pf.phone != null || pf.telegram != null) add(Triple(Icons.Default.Edit, t("Шаблон"), onMessage))
     }
     if (actions.isEmpty()) return
     Row(
@@ -521,10 +523,10 @@ private fun JournalRow(e: JournalEntry, onDelete: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text(e.kind, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                    Text(t(e.kind), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
                 }
                 Spacer(Modifier.width(8.dp))
-                Text(dateFmt.format(Date(e.date)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(dateFmt().format(Date(e.date)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(4.dp))
             Text(e.text, style = MaterialTheme.typography.bodyMedium)
@@ -532,7 +534,7 @@ private fun JournalRow(e: JournalEntry, onDelete: () -> Unit) {
         Box {
             IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.MoreVert, null, Modifier.size(18.dp)) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Удалить запись") }, onClick = { menu = false; onDelete() })
+                DropdownMenuItem(text = { Text(t("Удалить запись")) }, onClick = { menu = false; onDelete() })
             }
         }
     }
@@ -544,12 +546,12 @@ private fun AppointmentsSection(list: List<AppointmentFull>, onNew: () -> Unit, 
     val upcoming = list.filter { it.appointment.end >= now && it.appointment.appointmentStatus == AppointmentStatus.PLANNED }.sortedBy { it.appointment.start }
     val past = list.filter { it !in upcoming }.take(3)
     SectionCard(
-        "Записи", Icons.Default.Event,
-        action = { IconButton(onClick = onNew) { Icon(Icons.Default.Add, "Записать") } },
+        t("Записи"), Icons.Default.Event,
+        action = { IconButton(onClick = onNew) { Icon(Icons.Default.Add, t("Записать")) } },
     ) {
         if (list.isEmpty()) {
             Text(
-                "Запишите человека на встречу, приём или звонок — с напоминаниями ему и вам",
+                t("Запишите человека на встречу, приём или звонок — с напоминаниями ему и вам"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 4.dp),
@@ -559,14 +561,14 @@ private fun AppointmentsSection(list: List<AppointmentFull>, onNew: () -> Unit, 
             val a = af.appointment
             val dt = AppointmentLogic.zoned(a.start)
             val status = when {
-                a.appointmentStatus == AppointmentStatus.CANCELLED -> " · отменено"
-                a.appointmentStatus == AppointmentStatus.DONE -> " · состоялось"
-                a.end < now -> " · прошло"
+                a.appointmentStatus == AppointmentStatus.CANCELLED -> t(" · отменено")
+                a.appointmentStatus == AppointmentStatus.DONE -> t(" · состоялось")
+                a.end < now -> t(" · прошло")
                 else -> ""
             }
             InfoRow(
-                label = "${AppointmentLogic.dateText(dt)}, ${AppointmentLogic.weekday(dt.toLocalDate())} · ${AppointmentLogic.timeText(dt)}$status",
-                value = a.title.ifBlank { "Запись" },
+                label = "${AppointmentLogic.dateText(dt)}, ${AppointmentLogic.weekday(dt.toLocalDate())} · ${AppointmentLogic.timeText(dt)}${status}",
+                value = a.title.ifBlank { t("Запись") },
                 icon = Icons.Default.Event,
                 onClick = { onOpen(a.id) },
             )

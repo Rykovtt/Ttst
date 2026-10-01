@@ -1,5 +1,7 @@
 package com.kartoteka.app.reminders
 
+import com.kartoteka.app.i18n.t
+
 import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -72,7 +74,7 @@ object Reminders {
             notify(
                 app, (reminderId % Int.MAX_VALUE).toInt(),
                 "${AppointmentLogic.timeText(dt)} · ${p.displayName}",
-                listOf(AppointmentLogic.offsetTitle(r.offsetMin).replaceFirst("за ", "Через "), a.title, a.place)
+                listOf(AppointmentLogic.offsetTitle(r.offsetMin).replaceFirstChar { it.uppercase() }, a.title, a.place)
                     .filter { it.isNotBlank() }.joinToString(" · "),
                 openIntent(app, MainActivity.EXTRA_APPOINTMENT_ID, a.id),
             )
@@ -96,8 +98,8 @@ object Reminders {
             // Телефон заблокирован или авто-отправка выключена — просим одно нажатие.
             notify(
                 app, (reminderId % Int.MAX_VALUE).toInt(),
-                "Напомнить ${p.displayName} о записи",
-                "Нажмите, чтобы отправить в ${channel.title}: «${text.take(80)}…»",
+                t("Напомнить %1\$s о записи", p.displayName),
+                t("Нажмите, чтобы отправить в %1\$s: «%2\$s…»", channel.title, text.take(80)),
                 openIntent(app, MainActivity.EXTRA_SEND_REMINDER, reminderId),
             )
             return
@@ -107,11 +109,11 @@ object Reminders {
             val result = Sender.send(app, pf, channel, text, delay, interactive) { ok ->
                 if (ok) app.appScope.launch {
                     repo.markReminderSent(reminderId)
-                    repo.addJournal(JournalEntry(personId = p.id, kind = "Переписка", text = "Напоминание о записи (${channel.title}): $text"))
+                    repo.addJournal(JournalEntry(personId = p.id, kind = "Переписка", text = t("Напоминание о записи (%1\$s): %2\$s", channel.title, text)))
                 }
             }
             if (result == Sender.Result.SENT && !interactive) {
-                notify(app, (reminderId % Int.MAX_VALUE).toInt(), "Напоминание отправлено", "${p.displayName} · ${channel.title}", openIntent(app, MainActivity.EXTRA_APPOINTMENT_ID, a.id), quiet = true)
+                notify(app, (reminderId % Int.MAX_VALUE).toInt(), t("Напоминание отправлено"), "${p.displayName} · ${channel.title}", openIntent(app, MainActivity.EXTRA_APPOINTMENT_ID, a.id), quiet = true)
             }
         }
     }
@@ -132,7 +134,7 @@ object Reminders {
 
     private fun notify(context: Context, id: Int, title: String, text: String, intent: PendingIntent, quiet: Boolean = false) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Записи и напоминания", NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, t("Записи и напоминания"), NotificationManager.IMPORTANCE_HIGH))
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(context))
             .setContentTitle(title)

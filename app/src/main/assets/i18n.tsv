@@ -1,0 +1,648 @@
+# ru	uk	en — ключ: русская строка из кода; \n = перевод строки
+PIN-код	PIN-код	PIN code
+Подтвердите, что это вы	Підтвердіть, що це ви	Confirm it's you
+в момент начала	в момент початку	at start time
+за %1$s %2$s	за %1$s %2$s	%1$s %2$s before
+за сутки	за добу	1 day before
+за час	за годину	1 hour before
+за %1$s мин	за %1$s хв	%1$s min before
+неделю	тиждень	week
+недели	тижні	weeks
+недель	тижнів	weeks
+день	день	day
+дня	дні	days
+дней	днів	days
+час	годину	hour
+часа	години	hours
+часов	годин	hours
+Имя	Ім'я	Name
+Прозвище	Прізвисько	Nickname
+Отношение	Стосунки	Relation
+Работа	Робота	Work
+Город	Місто	City
+Знакомство	Знайомство	How we met
+Заметки	Нотатки	Notes
+Группа	Група	Group
+Фото	Фото	Photo
+сегодня	сьогодні	today
+завтра	завтра	tomorrow
+через %1$s %2$s	через %1$s %2$s	in %1$s %2$s
+год	рік	year
+года	роки	years
+лет	років	years
+Неверный пароль или повреждённый файл	Неправильний пароль або пошкоджений файл	Wrong password or damaged file
+Авто-рассылка	Авто-розсилка	Auto broadcast
+Рассылка: %1$s из %2$s	Розсилка: %1$s з %2$s	Broadcast: %1$s of %2$s
+Сейчас: %1$s	Зараз: %1$s	Now: %1$s
+Остановить	Зупинити	Stop
+Отправить через…	Надіслати через…	Send via…
+Скопировано	Скопійовано	Copied
+Нет приложения для этого действия	Немає застосунку для цієї дії	No app can handle this action
+ — исполняется %1$s	 — виповнюється %1$s	 — turns %1$s
+🎂 Сегодня день рождения: %1$s	🎂 Сьогодні день народження: %1$s	🎂 Birthday today: %1$s
+Через 3 дня день рождения: %1$s	Через 3 дні день народження: %1$s	Birthday in 3 days: %1$s
+Не забудьте поздравить%1$s	Не забудьте привітати%1$s	Don't forget to congratulate%1$s
+Дни рождения	Дні народження	Birthdays
+Напомнить %1$s о записи	Нагадати %1$s про запис	Remind %1$s about the appointment
+Нажмите, чтобы отправить в %1$s: «%2$s…»	Натисніть, щоб надіслати в %1$s: «%2$s…»	Tap to send via %1$s: “%2$s…”
+Напоминание о записи (%1$s): %2$s	Нагадування про запис (%1$s): %2$s	Appointment reminder (%1$s): %2$s
+Напоминание отправлено	Нагадування надіслано	Reminder sent
+Записи и напоминания	Записи та нагадування	Appointments and reminders
+Неверный PIN-код	Неправильний PIN-код	Wrong PIN code
+Разблокировать	Розблокувати	Unlock
+Слишком много попыток. Подождите %1$s с	Забагато спроб. Зачекайте %1$s с	Too many attempts. Wait %1$s s
+Введите PIN-код	Введіть PIN-код	Enter PIN code
+Отпечаток	Відбиток	Fingerprint
+Стереть	Стерти	Delete
+Рассылка (%1$s): %2$s	Розсилка (%1$s): %2$s	Broadcast (%1$s): %2$s
+Назад	Назад	Back
+Рассылка	Розсилка	Broadcast
+SMS и мессенджеры — персонально каждому или в группу	SMS і месенджери — особисто кожному або в групу	SMS and messengers — personal to each or to a group
+Кому	Кому	To
+Добавить группу целиком:	Додати групу цілком:	Add a whole group:
+Люди	Люди	People
+По критериям	За критеріями	By criteria
+Очистить	Очистити	Clear
+Выбрано: %1$s	Вибрано: %1$s	Selected: %1$s
+Убрать	Прибрати	Remove
+Сообщение	Повідомлення	Message
+Текст сообщения	Текст повідомлення	Message text
+Подставить:	Підставити:	Insert:
+Так увидит %1$s:	Так побачить %1$s:	%1$s will see:
+Как отправить	Як надіслати	How to send
+ Нет контакта у %1$s — пропустим	 Немає контакту в %1$s — пропустимо	 %1$s have no contact — will skip
+Записать в хронику каждого человека	Записати в хроніку кожної людини	Log in each person's timeline
+Начать рассылку (%1$s)	Почати розсилку (%1$s)	Start broadcast (%1$s)
+Отправить	Надіслати	Send
+Подсказка: в групповой чат уйдёт один общий текст, имя заменится на «%1$s».	Підказка: у груповий чат піде один спільний текст, ім'я заміниться на «%1$s».	Tip: one common text goes to the group chat, the name becomes “%1$s”.
+Отправляем автоматически: %1$s из %2$s	Надсилаємо автоматично: %1$s з %2$s	Sending automatically: %1$s of %2$s
+Готово: отправлено %1$s из %2$s	Готово: надіслано %1$s з %2$s	Done: sent %1$s of %2$s
+Не удалось: %1$s	Не вдалося: %1$s	Failed: %1$s
+Можно не трогать телефон — приложение само открывает чаты и нажимает «Отправить». Остановить можно здесь или из уведомления.	Можна не торкатися телефону — застосунок сам відкриває чати й натискає «Надіслати». Зупинити можна тут або зі сповіщення.	You can leave the phone alone — the app opens chats and taps “Send” itself. Stop here or from the notification.
+Рассылка завершена.	Розсилку завершено.	Broadcast finished.
+Скрыть	Сховати	Hide
+Новая рассылка	Нова розсилка	New broadcast
+Отправлено	Надіслано	Sent
+Не отправлено (нет в мессенджере или не удалось нажать)	Не надіслано (немає в месенджері або не вдалося натиснути)	Not sent (not in the messenger or couldn't tap)
+Отправляем…	Надсилаємо…	Sending…
+В очереди	У черзі	Queued
+Отправлено %1$s из %2$s	Надіслано %1$s з %2$s	Sent %1$s of %2$s
+Отправить: %1$s	Надіслати: %1$s	Send: %1$s
+Готово! Все сообщения отправлены 🎉	Готово! Усі повідомлення надіслано 🎉	Done! All messages sent 🎉
+Прервать	Перервати	Abort
+Ещё раз	Ще раз	Again
+Отправка SMS…	Надсилання SMS…	Sending SMS…
+SMS отправлены	SMS надіслано	SMS sent
+%1$s из %2$s	%1$s з %2$s	%1$s of %2$s
+Готово	Готово	Done
+Отправить %1$s SMS?	Надіслати %1$s SMS?	Send %1$s SMS?
+Каждый получит персональное сообщение. SMS оплачиваются по тарифу вашего оператора.	Кожен отримає особисте повідомлення. SMS оплачуються за тарифом вашого оператора.	Everyone gets a personal message. SMS are charged at your carrier's rates.
+Отмена	Скасувати	Cancel
+Отправить %1$s %2$s в %3$s?	Надіслати %1$s %2$s у %3$s?	Send %1$s %2$s via %3$s?
+сообщение	повідомлення	message
+сообщения	повідомлення	messages
+сообщений	повідомлень	messages
+Приложение по очереди откроет чаты и само нажмёт «Отправить», пауза между сообщениями — %1$s с и немного случайности. 	Застосунок по черзі відкриє чати й сам натисне «Надіслати», пауза між повідомленнями — %1$s с і трохи випадковості. 	The app will open chats one by one and tap “Send” itself, with a %1$s s pause plus a little randomness. 
+Не пользуйтесь телефоном во время рассылки. Большие рассылки незнакомым людям мессенджеры могут посчитать спамом.	Не користуйтеся телефоном під час розсилки. Великі розсилки незнайомим людям месенджери можуть вважати спамом.	Don't use the phone during the broadcast. Messengers may treat large broadcasts to strangers as spam.
+Начать	Почати	Start
+Отправлять автоматически	Надсилати автоматично	Send automatically
+Без нажатия «Отправить» на каждом контакте	Без натискання «Надіслати» на кожному контакті	Without tapping “Send” for each contact
+Пауза между сообщениями: %1$s с	Пауза між повідомленнями: %1$s с	Pause between messages: %1$s s
+Авто-отправка выключена	Авто-надсилання вимкнено	Auto-send is off
+Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «RVault: авто-отправка». 	Щоб повідомлення надсилалися самі, увімкніть у налаштуваннях телефону: Спец. можливості → «RVault: авто-відправка». 	To send messages automatically, enable in phone settings: Accessibility → “RVault: auto-send”. 
+Если переключатель неактивен: Настройки → Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».	Якщо перемикач неактивний: Налаштування → Застосунки → RVault → ⋮ → «Дозволити обмежені налаштування».	If the switch is greyed out: Settings → Apps → RVault → ⋮ → “Allow restricted settings”.
+Открыть настройки	Відкрити налаштування	Open settings
+Выбор по критериям	Вибір за критеріями	Select by criteria
+Люди должны подходить под все отмеченные условия	Люди мають відповідати всім позначеним умовам	People must match all selected conditions
+Группы (любая из)	Групи (будь-яка з)	Groups (any of)
+Пол	Стать	Gender
+Кем приходится	Ким доводиться	Relation
+Возраст	Вік	Age
+от	від	from
+до	до	to
+Близость — не меньше	Близькість — не менше	Closeness — at least
+Ещё	Ще	More
+Только избранные	Лише обрані	Favorites only
+ДР в ближайшие %1$s дн.	ДН у найближчі %1$s дн.	Birthday within %1$s days
+Не общались %1$s+ дн.	Не спілкувалися %1$s+ дн.	No contact for %1$s+ days
+Подходит: %1$s	Підходить: %1$s	Matching: %1$s
+Сбросить	Скинути	Reset
+ и ещё %1$s	 і ще %1$s	 and %1$s more
+Добавить	Додати	Add
+Выбрать только их	Вибрати лише їх	Select only them
+Запись на %1$s в %2$s	Запис на %1$s о %2$s	Appointment on %1$s at %2$s
+Новая запись	Новий запис	New appointment
+Запись	Запис	Appointment
+Закрыть	Закрити	Close
+Сохранить	Зберегти	Save
+Кто	Хто	Who
+нет контактов	немає контактів	no contacts
+Сменить	Змінити	Change
+Выбрать человека	Вибрати людину	Choose a person
+Когда	Коли	When
+Длительность	Тривалість	Duration
+%1$s мин	%1$s хв	%1$s min
+%1$s ч	%1$s год	%1$s h
+%1$s ч %2$s мин	%1$s год %2$s хв	%1$s h %2$s min
+Другая…	Інша…	Other…
+до %1$s	до %1$s	until %1$s
+Пересекается: %1$s в %2$s	Перетинається: %1$s о %2$s	Overlaps: %1$s at %2$s
+Что и где	Що і де	What and where
+Услуга	Послуга	Service
+Без услуги	Без послуги	No service
+Сообщения — по общим шаблонам (у «%1$s» своих нет)	Повідомлення — за спільними шаблонами (у «%1$s» своїх немає)	Messages use general templates (“%1$s” has none of its own)
+Сообщения — по шаблонам услуги «%1$s»	Повідомлення — за шаблонами послуги «%1$s»	Messages use the templates of “%1$s”
+Сообщения — по общим шаблонам	Повідомлення — за спільними шаблонами	Messages use general templates
+Услуга / тема	Послуга / тема	Service / topic
+Место	Місце	Place
+Заметка для себя	Нотатка для себе	Private note
+Оповестить человека	Сповістити людину	Notify the person
+Сразу отправить подтверждение	Одразу надіслати підтвердження	Send confirmation right away
+Покажем текст перед отправкой — его можно поправить	Покажемо текст перед надсиланням — його можна виправити	We'll show the text before sending — you can edit it
+Напоминания человеку	Нагадування людині	Reminders to the person
+Человек не получит ни подтверждения, ни напоминаний	Людина не отримає ні підтвердження, ні нагадувань	The person will get no confirmation or reminders
+Напомнить мне	Нагадати мені	Remind me
+Действия	Дії	Actions
+Статус: %1$s	Статус: %1$s	Status: %1$s
+Напомнить сейчас	Нагадати зараз	Remind now
+Состоялось	Відбулося	Done
+Отменить запись	Скасувати запис	Cancel appointment
+Вернуть в план	Повернути в план	Back to planned
+Удалить	Видалити	Delete
+Время	Час	Time
+Длительность, минут	Тривалість, хвилин	Duration, minutes
+Удалить запись?	Видалити запис?	Delete appointment?
+Запланированные напоминания тоже будут отменены.	Заплановані нагадування теж буде скасовано.	Scheduled reminders will be cancelled too.
+Своё…	Своє…	Custom…
+✓ отправлено	✓ надіслано	✓ sent
+время уже прошло — не будет отправлено	час уже минув — не буде надіслано	time has passed — won't be sent
+%1$s в %2$s	%1$s о %2$s	%1$s at %2$s
+Кого записать?	Кого записати?	Who to book?
+Имя, телефон, город…	Ім'я, телефон, місто…	Name, phone, city…
+минут	хвилин	minutes
+За сколько напомнить	За скільки нагадати	How early to remind
+Не отправлять	Не надсилати	Don't send
+Записать	Записати	Book
+Календарь	Календар	Calendar
+Сегодня записей нет	Сьогодні записів немає	No appointments today
+Сегодня %1$s %2$s	Сьогодні %1$s %2$s	Today %1$s %2$s
+запись	запис	appointment
+записи	записи	appointments
+записей	записів	appointments
+Сегодня	Сьогодні	Today
+Месяц	Місяць	Month
+Список	Список	List
+Нет ближайших записей	Немає найближчих записів	No upcoming appointments
+Нажмите «Записать», чтобы запланировать встречу с человеком.	Натисніть «Записати», щоб запланувати зустріч з людиною.	Tap “Book” to plan a meeting with a person.
+Вперёд	Вперед	Forward
+Свободный день	Вільний день	Free day
+Записать на этот день	Записати на цей день	Book on this day
+Сегодня, 	Сьогодні, 	Today, 
+Завтра, 	Завтра, 	Tomorrow, 
+Встреча	Зустріч	Meeting
+отменено	скасовано	cancelled
+состоялось	відбулося	done
+Сохранится: %1$s	Збережеться: %1$s	Will be saved as: %1$s
+Страна	Країна	Country
+Поиск	Пошук	Search
+Из галереи	З галереї	From gallery
+Сделать снимок	Зробити знімок	Take a photo
+Изменить	Змінити	Edit
+В группе пока никого	У групі поки нікого	No one in the group yet
+Добавьте людей кнопкой выше или в карточке человека.	Додайте людей кнопкою вище або в картці людини.	Add people with the button above or in a person's card.
+Убрать из группы	Прибрати з групи	Remove from group
+Удалить группу «%1$s»?	Видалити групу «%1$s»?	Delete group “%1$s”?
+Люди останутся в картотеке, удалится только группа.	Люди залишаться в картотеці, видалиться лише група.	People stay in the archive, only the group is deleted.
+Выберите людей	Виберіть людей	Select people
+Готово (%1$s)	Готово (%1$s)	Done (%1$s)
+Группы	Групи	Groups
+Семья, работа, друзья — для быстрого поиска и рассылок	Сім'я, робота, друзі — для швидкого пошуку й розсилок	Family, work, friends — for quick search and broadcasts
+Пока нет групп	Поки немає груп	No groups yet
+Создайте группы вроде «Семья», «Работа», «Спортзал», чтобы делать рассылки в один тап.	Створіть групи на кшталт «Сім'я», «Робота», «Спортзал», щоб робити розсилки в один дотик.	Create groups like “Family”, “Work”, “Gym” to broadcast in one tap.
+человек	людей	people
+человека	людини	people
+Новая группа	Нова група	New group
+Название	Назва	Name
+Цвет	Колір	Color
+Значок	Значок	Icon
+Добавить человека	Додати людину	Add person
+Пока никого нет	Поки нікого немає	No one here yet
+Добавьте первого человека вручную или импортируйте контакты из телефона.	Додайте першу людину вручну або імпортуйте контакти з телефона.	Add the first person manually or import contacts from your phone.
+Импорт контактов	Імпорт контактів	Import contacts
+Ничего не найдено	Нічого не знайдено	Nothing found
+Попробуйте изменить запрос или фильтр.	Спробуйте змінити запит або фільтр.	Try a different query or filter.
+Найдено: %1$s	Знайдено: %1$s	Found: %1$s
+%1$s %2$s в архиве	%1$s %2$s в архіві	%1$s %2$s in the archive
+Сортировка	Сортування	Sort
+Поиск: имя, хобби, город…	Пошук: ім'я, хобі, місто…	Search: name, hobby, city…
+Все	Усі	All
+Избранные	Обрані	Favorites
+Скоро дни рождения	Незабаром дні народження	Upcoming birthdays
+Снять все	Зняти всі	Deselect all
+Выбрать все	Вибрати всі	Select all
+Импортируем…	Імпортуємо…	Importing…
+Импортировать (%1$s)	Імпортувати (%1$s)	Import (%1$s)
+Доступ к контактам	Доступ до контактів	Contacts access
+Нужно разрешение, чтобы прочитать телефонную книгу. Данные никуда не отправляются.	Потрібен дозвіл, щоб прочитати телефонну книгу. Дані нікуди не надсилаються.	Permission is needed to read the phone book. Nothing is sent anywhere.
+Разрешить	Дозволити	Allow
+Готово!	Готово!	Done!
+Добавлено людей: %1$s. Теперь дополните их карточки деталями и фото.	Додано людей: %1$s. Тепер доповніть їхні картки деталями й фото.	People added: %1$s. Now fill in their cards with details and photos.
+К картотеке	До картотеки	To the archive
+уже в картотеке	вже в картотеці	already in the archive
+Ищем…	Шукаємо…	Searching…
+Адрес не найден — отметьте точку касанием	Адресу не знайдено — позначте точку дотиком	Address not found — tap to place a point
+Точка на карте	Точка на карті	Point on the map
+Город, улица, дом	Місто, вулиця, будинок	City, street, house
+Найти	Знайти	Find
+Коснитесь карты, чтобы поставить точку	Торкніться карти, щоб поставити точку	Tap the map to place a point
+Все адреса	Усі адреси	All addresses
+Где живут	Де живуть	Where they live
+Где работают	Де працюють	Where they work
+Пока нет адресов на карте	Поки немає адрес на карті	No addresses on the map yet
+Добавьте адрес «Дом» или «Работа» в карточке человека — точка появится здесь.	Додайте адресу «Дім» або «Робота» в картці людини — точка з'явиться тут.	Add a “Home” or “Work” address in a person's card — the point will appear here.
+Показать всех	Показати всіх	Show everyone
+Маршрут	Маршрут	Directions
+Запись в хронику	Запис у хроніку	Timeline entry
+Что произошло	Що сталося	What happened
+День рождения	День народження	Birthday
+исполнится 	виповниться 	turns 
+Контакты	Контакти	Contacts
+Как познакомились	Як познайомилися	How we met
+Основное	Основне	Main
+Добавлен(а) 	Додано 	Added 
+Последний контакт 	Останній контакт 	Last contact 
+Адреса	Адреси	Addresses
+Разное	Різне	Other
+Фото (%1$s)	Фото (%1$s)	Photos (%1$s)
+Добавить фото	Додати фото	Add photo
+Добавьте фотографии — их увидите только вы	Додайте фотографії — їх побачите лише ви	Add photos — only you will see them
+Хроника	Хроніка	Timeline
+Добавить запись	Додати запис	Add entry
+Встречи, звонки, важные события — всё, что хочется помнить	Зустрічі, дзвінки, важливі події — усе, що хочеться пам'ятати	Meetings, calls, important events — everything worth remembering
+Избранное	Обране	Favorite
+Редактировать	Редагувати	Edit
+Удалить %1$s?	Видалити %1$s?	Delete %1$s?
+Карточка, фото и хроника будут удалены без возможности восстановления.	Картку, фото й хроніку буде видалено без можливості відновлення.	The card, photos and timeline will be deleted permanently.
+Звонок	Дзвінок	Call
+Почта	Пошта	Email
+Шаблон	Шаблон	Template
+Удалить запись	Видалити запис	Delete entry
+Записи	Записи	Appointments
+Запишите человека на встречу, приём или звонок — с напоминаниями ему и вам	Запишіть людину на зустріч, прийом або дзвінок — з нагадуваннями їй і вам	Book a person for a meeting, visit or call — with reminders for both of you
+ · отменено	 · скасовано	 · cancelled
+ · состоялось	 · відбулося	 · done
+ · прошло	 · минуло	 · past
+День 1–31	День 1–31	Day 1–31
+Месяц 1–12	Місяць 1–12	Month 1–12
+Год, например 1990	Рік, наприклад 1990	Year, e.g. 1990
+Новый человек	Нова людина	New person
+Редактирование	Редагування	Editing
+Кто это	Хто це	Who is it
+Фамилия	Прізвище	Last name
+Отчество	По батькові	Middle name
+Прозвище / как называю	Прізвисько / як називаю	Nickname / what I call them
+Или своё	Або своє	Or custom
+Язык сообщений	Мова повідомлень	Message language
+Как в настройках	Як у налаштуваннях	As in settings
+Близость	Близькість	Closeness
+День	День	Day
+Год	Рік	Year
+Работа и место	Робота і місце	Work and place
+Компания	Компанія	Company
+Должность	Посада	Position
+Как и где познакомились	Як і де познайомилися	How and where we met
+Где живёт и где работает — появится на карте	Де живе і де працює — з'явиться на карті	Where they live and work — will appear on the map
+Детали до мелочей	Деталі до дрібниць	Every detail
+Хобби, дети, любимая еда, размеры, идеи подарков… Нажмите «+», чтобы выбрать из подсказок.	Хобі, діти, улюблена їжа, розміри, ідеї подарунків… Натисніть «+», щоб вибрати з підказок.	Hobbies, kids, favorite food, sizes, gift ideas… Tap “+” to pick from suggestions.
+Добавить деталь	Додати деталь	Add detail
++ Новая группа	+ Нова група	+ New group
+Всё остальное, что важно помнить	Усе інше, що важливо пам'ятати	Everything else worth remembering
+Создать	Створити	Create
+Не сохранять изменения?	Не зберігати зміни?	Discard changes?
+Выйти	Вийти	Leave
+@username или номер	@username або номер	@username or number
+ник или ссылка	нік або посилання	nickname or link
+Адрес	Адреса	Address
+Город, улица, дом, квартира	Місто, вулиця, будинок, квартира	City, street, house, apartment
+Отметить на карте	Позначити на карті	Mark on the map
+📍 Отмечено на карте	📍 Позначено на карті	📍 Marked on the map
+Точка найдётся по адресу автоматически, или отметьте её вручную	Точка знайдеться за адресою автоматично, або позначте її вручну	The point will be found by address automatically, or mark it manually
+Что это (дача, родители…)	Що це (дача, батьки…)	What is it (cottage, parents…)
+Добавить контакт	Додати контакт	Add contact
+Что	Що	What
+Значение	Значення	Value
+Что добавить?	Що додати?	What to add?
+Своё поле	Своє поле	Custom field
+Раздел (необязательно)	Розділ (необов'язково)	Section (optional)
+Название поля	Назва поля	Field name
+Сделать главным	Зробити головним	Make main
+Подпись	Підпис	Caption
+★ Главное фото	★ Головне фото	★ Main photo
+Подпись к фото	Підпис до фото	Photo caption
+Где, когда, с кем…	Де, коли, з ким…	Where, when, with whom…
+Удалить фото?	Видалити фото?	Delete photo?
+Семья и связи	Сім'я та зв'язки	Family and connections
+Добавить связь	Додати зв'язок	Add connection
+Супруги, дети, родители, коллеги — связывайте карточки между собой	Подружжя, діти, батьки, колеги — пов'язуйте картки між собою	Spouses, kids, parents, colleagues — link cards together
+Убрать связь	Прибрати зв'язок	Remove connection
+С кем связан(а) %1$s?	З ким пов'язаний(а) %1$s?	Who is %1$s connected to?
+%1$s — это…	%1$s — це…	%1$s is…
+Семья	Сім'я	Family
+Другое	Інше	Other
+%1$s — %2$s для %3$s, 	%1$s — %2$s для %3$s, 	%1$s is %3$s's %2$s, 
+а %1$s — %2$s для %3$s	а %1$s — %2$s для %3$s	and %1$s is %3$s's %2$s
+Связать	Пов'язати	Link
+Услуги	Послуги	Services
+Добавить услугу	Додати послугу	Add service
+Выберите услугу при записи — подтверждение, напоминания, перенос и отмена уйдут по её шаблонам. 	Виберіть послугу під час запису — підтвердження, нагадування, перенесення й скасування підуть за її шаблонами. 	Pick a service when booking — confirmation, reminders, rescheduling and cancellation will use its templates. 
+Пустой шаблон услуги — используется общий из настроек.	Порожній шаблон послуги — використовується спільний із налаштувань.	An empty service template uses the general one from settings.
+Пока нет услуг	Поки немає послуг	No services yet
+Например: «Тату-сеанс», «Консультация», «Коррекция».	Наприклад: «Тату-сеанс», «Консультація», «Корекція».	For example: “Tattoo session”, “Consultation”, “Touch-up”.
+общие шаблоны	спільні шаблони	general templates
+своих шаблонов: %1$s из 4	своїх шаблонів: %1$s з 4	own templates: %1$s of 4
+Новая услуга	Нова послуга	New service
+Например, Консультация	Наприклад, Консультація	For example, Consultation
+Своя длительность, минут	Своя тривалість, хвилин	Custom duration, minutes
+Место по умолчанию	Місце за замовчуванням	Default place
+Напоминания	Нагадування	Reminders
+Человеку	Людині	To the person
+Мне	Мені	To me
+Тексты сообщений	Тексти повідомлень	Message texts
+Пусто — уйдёт общий шаблон (%1$s). Нажмите «Скопировать общий», чтобы взять его за основу и поправить.	Порожньо — піде спільний шаблон (%1$s). Натисніть «Скопіювати спільний», щоб узяти його за основу й виправити.	Empty — the general template (%1$s) is used. Tap “Copy general” to start from it and edit.
+Скопировать общий	Скопіювати спільний	Copy general
+Общий шаблон	Спільний шаблон	General template
+Подставить в выбранное поле:	Підставити у вибране поле:	Insert into the selected field:
+Удалить услугу «%1$s»?	Видалити послугу «%1$s»?	Delete service “%1$s”?
+Записи останутся, но сообщения по ним будут идти по общим шаблонам.	Записи залишаться, але повідомлення за ними йтимуть за спільними шаблонами.	Appointments stay, but their messages will use the general templates.
+Значок и название на рабочем столе. Маскировка («Калькулятор», «Погода»…) скрывает, что это за приложение.	Значок і назва на робочому столі. Маскування («Калькулятор», «Погода»…) приховує, що це за застосунок.	Home screen icon and name. A disguise (“Calculator”, “Weather”…) hides what the app is.
+Название внутри приложения	Назва всередині застосунку	In-app name
+В шапке, на экране блокировки и в списке недавних приложений	У шапці, на екрані блокування та в списку нещодавніх застосунків	In the header, on the lock screen and in recent apps
+Сменить на «%1$s»?	Змінити на «%1$s»?	Switch to “%1$s”?
+Значок на рабочем столе обновится через несколько секунд. Если он был вынесен на главный экран — 	Значок на робочому столі оновиться за кілька секунд. Якщо його було винесено на головний екран — 	The home screen icon updates in a few seconds. If it was placed on the home screen, 
+перетащите его заново из списка приложений. Данные не затрагиваются. 	перетягніть його заново зі списку застосунків. Дані не зачіпаються. 	drag it again from the app list. Your data is not affected. 
+В системных настройках (Приложения) название останется «RVault».	У системних налаштуваннях (Застосунки) назва залишиться «RVault».	In system settings (Apps) the name stays “RVault”.
+Услуги и их шаблоны	Послуги та їхні шаблони	Services and their templates
+Тату-сеанс, консультация… — свои тексты и напоминания	Тату-сеанс, консультація… — свої тексти й нагадування	Tattoo session, consultation… — own texts and reminders
+Как оповещать по умолчанию	Як сповіщати за замовчуванням	Default notification method
+Сразу отправлять подтверждение записи	Одразу надсилати підтвердження запису	Send booking confirmation right away
+Длительность по умолчанию	Тривалість за замовчуванням	Default duration
+1 ч 30	1 год 30	1 h 30
+Напоминания мне	Нагадування мені	Reminders to me
+Общие шаблоны сообщений — %1$s	Спільні шаблони повідомлень — %1$s	General message templates — %1$s
+Для записей без услуги и для услуг без своего текста	Для записів без послуги й для послуг без свого тексту	For appointments without a service and services without their own text
+Пустые строки (например, без места) убираются автоматически.	Порожні рядки (наприклад, без місця) прибираються автоматично.	Empty lines (e.g. no place) are removed automatically.
+По умолчанию	За замовчуванням	Default
+Блокировка приложения	Блокування застосунку	App lock
+Свой PIN-код приложения (не телефона) и отпечаток	Свій PIN-код застосунку (не телефона) і відбиток	App's own PIN code (not the phone's) and fingerprint
+Сменить PIN-код	Змінити PIN-код	Change PIN code
+Сейчас %1$s цифры	Зараз %1$s цифр(и)	Currently %1$s digits
+Задать свой PIN-код	Задати свій PIN-код	Set your own PIN code
+Сейчас вход по PIN-коду телефона	Зараз вхід за PIN-кодом телефона	Currently unlocks with the phone's PIN
+Вход по отпечатку	Вхід за відбитком	Fingerprint unlock
+PIN-код остаётся запасным способом	PIN-код залишається запасним способом	The PIN code stays as a backup
+Текущий PIN-код	Поточний PIN-код	Current PIN code
+Выключить блокировку	Вимкнути блокування	Turn off lock
+Новый PIN-код	Новий PIN-код	New PIN code
+Повторите PIN-код	Повторіть PIN-код	Repeat PIN code
+От 4 до 6 цифр. Его не восстановить — запомните или включите вход по отпечатку.	Від 4 до 6 цифр. Його не відновити — запам'ятайте або ввімкніть вхід за відбитком.	4 to 6 digits. It can't be recovered — remember it or enable fingerprint unlock.
+Введите тот же PIN-код ещё раз	Введіть той самий PIN-код ще раз	Enter the same PIN code again
+PIN-коды не совпадают	PIN-коди не збігаються	PIN codes don't match
+Далее	Далі	Next
+Введите текущий PIN-код	Введіть поточний PIN-код	Enter the current PIN code
+Настройки	Налаштування	Settings
+Значок и название	Значок і назва	Icon and name
+Приватность	Приватність	Privacy
+Скрывать содержимое	Приховувати вміст	Hide content
+Запрет скриншотов и размытие в списке недавних приложений	Заборона скриншотів і розмиття в списку нещодавніх застосунків	Block screenshots and blur in recent apps
+База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено.	Базу даних зашифровано AES-256, ключ зберігається в захищеному сховищі Android. Фото лежать у внутрішній пам'яті застосунку й не видні в галереї. Хмарне резервування Google вимкнено.	The database is encrypted with AES-256; the key is kept in Android's secure storage. Photos are stored inside the app and don't appear in the gallery. Google cloud backup is off.
+Телефоны	Телефони	Phones
+Страна по умолчанию: %1$s %2$s (+%3$s)	Країна за замовчуванням: %1$s %2$s (+%3$s)	Default country: %1$s %2$s (+%3$s)
+Номер «%1$s…» без кода сохранится как «+%2$s…»	Номер «%1$s…» без коду збережеться як «+%2$s…»	A number “%1$s…” without a code is saved as “+%2$s…”
+Привести все номера к международному виду	Привести всі номери до міжнародного вигляду	Convert all numbers to international format
+Для уже сохранённых контактов	Для вже збережених контактів	For contacts already saved
+Все номера уже в международном формате	Усі номери вже в міжнародному форматі	All numbers are already international
+Исправлено номеров: %1$s	Виправлено номерів: %1$s	Numbers fixed: %1$s
+Язык приложения	Мова застосунку	App language
+Язык меню и кнопок. Тексты сообщений людям настраиваются отдельно — ниже.	Мова меню й кнопок. Тексти повідомлень людям налаштовуються окремо — нижче.	Language of menus and buttons. Message texts to people are set separately below.
+На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. 	Цією мовою будуть шаблони підтверджень і нагадувань, дати, дні тижня й привітання в розсилці. 	Confirmation and reminder templates, dates, weekdays and the broadcast greeting will be in this language. 
+Для отдельного человека язык можно поменять в его карточке.	Для окремої людини мову можна змінити в її картці.	You can change it for a specific person in their card.
+Записи и календарь	Записи й календар	Appointments and calendar
+Авто-отправка в мессенджерах	Авто-надсилання в месенджерах	Auto-send in messengers
+Включена ✓	Увімкнено ✓	On ✓
+Выключена — нажмите, чтобы включить	Вимкнено — натисніть, щоб увімкнути	Off — tap to turn on
+RVault сам нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. 	RVault сам натискає «Надіслати» у WhatsApp і Telegram під час розсилок і нагадувань. 	RVault taps “Send” in WhatsApp and Telegram itself during broadcasts and reminders. 
+Настройки → Спец. возможности → «RVault: авто-отправка». Если переключатель неактивен: Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».	Налаштування → Спец. можливості → «RVault: авто-відправка». Якщо перемикач неактивний: Застосунки → RVault → ⋮ → «Дозволити обмежені налаштування».	Settings → Accessibility → “RVault: auto-send”. If the switch is greyed out: Apps → RVault → ⋮ → “Allow restricted settings”.
+Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне.	Якщо телефон заблоковано в момент нагадування, прийде сповіщення — один дотик, і повідомлення піде. SMS надсилаються повністю у фоні.	If the phone is locked at reminder time, you'll get a notification — one tap and the message goes. SMS are sent fully in the background.
+Уведомление в день рождения и за 3 дня	Сповіщення в день народження і за 3 дні	Notification on the birthday and 3 days before
+Данные	Дані	Data
+Импорт из контактов телефона	Імпорт із контактів телефона	Import from phone contacts
+Перенести людей из телефонной книги	Перенести людей із телефонної книги	Bring people over from the phone book
+Создать резервную копию	Створити резервну копію	Create a backup
+Зашифрованный файл с данными и фото	Зашифрований файл із даними й фото	Encrypted file with data and photos
+Восстановить из копии	Відновити з копії	Restore from backup
+Загрузить файл .krtk	Завантажити файл .krtk	Load a .krtk file
+Все данные хранятся только на этом устройстве. Разработчик Rykov.	Усі дані зберігаються лише на цьому пристрої. Розробник Rykov.	All data is stored only on this device. Developer Rykov.
+Пароль для копии	Пароль для копії	Backup password
+Без пароля файл сможет прочитать любой. Запомните пароль — восстановить его нельзя.	Без пароля файл зможе прочитати будь-хто. Запам'ятайте пароль — відновити його неможливо.	Without a password anyone can read the file. Remember the password — it can't be recovered.
+Сохранено людей: %1$s	Збережено людей: %1$s	People saved: %1$s
+Ошибка: %1$s	Помилка: %1$s	Error: %1$s
+Восстановление	Відновлення	Restore
+Введите пароль, указанный при создании копии (если был).	Введіть пароль, указаний під час створення копії (якщо був).	Enter the password used when creating the backup (if any).
+Восстановить	Відновити	Restore
+Восстановлено людей: %1$s	Відновлено людей: %1$s	People restored: %1$s
+Подождите…	Зачекайте…	Please wait…
+Работаем с данными	Працюємо з даними	Working with your data
+Пароль	Пароль	Password
+Заменить текущую картотеку (иначе — добавить)	Замінити поточну картотеку (інакше — додати)	Replace the current archive (otherwise merge)
+Телефон	Телефон	Phone
+ВКонтакте	ВКонтакте	VK
+Сайт	Сайт	Website
+Дом	Дім	Home
+Запланировано	Заплановано	Planned
+Отменено	Скасовано	Cancelled
+Не оповещать	Не сповіщати	Don't notify
+По имени	За ім'ям	By name
+Недавно добавленные	Нещодавно додані	Recently added
+По близости	За близькістю	By closeness
+Давно не общались	Давно не спілкувалися	Haven't talked in a while
+Подтверждение	Підтвердження	Confirmation
+Напоминание	Нагадування	Reminder
+Перенос	Перенесення	Reschedule
+Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами	Кожному своє повідомлення. З авто-надсиланням іде саме, по черзі, з паузами	A personal message to each. With auto-send it goes by itself, one by one, with pauses
+SMS автоматически	SMS автоматично	SMS automatically
+Персональные SMS уходят сами, без открытия приложений. Оплачивается по тарифу оператора	Особисті SMS ідуть самі, без відкриття застосунків. Оплачується за тарифом оператора	Personal SMS are sent by themselves without opening apps. Charged by your carrier
+SMS одним сообщением	SMS одним повідомленням	SMS as one message
+Открыть SMS-приложение сразу со всеми номерами — один текст всем	Відкрити SMS-застосунок одразу з усіма номерами — один текст усім	Open the SMS app with all numbers at once — one text for all
+В группу / чат мессенджера	У групу / чат месенджера	To a messenger group / chat
+Отправить текст в существующий групповой чат WhatsApp, Telegram, Viber или любой другой	Надіслати текст в існуючий груповий чат WhatsApp, Telegram, Viber чи будь-який інший	Send the text to an existing group chat in WhatsApp, Telegram, Viber or any other
+Подтверждение записи	Підтвердження запису	Booking confirmation
+Перенос записи	Перенесення запису	Booking rescheduled
+Отмена записи	Скасування запису	Booking cancelled
+Отправляется автоматически…	Надсилається автоматично…	Sending automatically…
+Чат открыт — нажмите «Отправить»	Чат відкрито — натисніть «Надіслати»	Chat opened — tap “Send”
+Нет контакта для выбранного способа	Немає контакту для вибраного способу	No contact for the selected method
+Не удалось отправить	Не вдалося надіслати	Couldn't send
+Муж	Чоловік	Husband
+Жена	Дружина	Wife
+Супруг(а)	Чоловік/дружина	Spouse
+Партнёр	Партнер	Partner
+Партнёрша	Партнерка	Partner
+Отец	Батько	Father
+Мать	Мати	Mother
+Родитель	Один із батьків	Parent
+Сын	Син	Son
+Дочь	Донька	Daughter
+Ребёнок	Дитина	Child
+Брат	Брат	Brother
+Сестра	Сестра	Sister
+Брат/сестра	Брат/сестра	Sibling
+Дедушка	Дідусь	Grandfather
+Бабушка	Бабуся	Grandmother
+Бабушка/дедушка	Бабуся/дідусь	Grandparent
+Внук	Онук	Grandson
+Внучка	Онука	Granddaughter
+Внук/внучка	Онук/онука	Grandchild
+Дядя	Дядько	Uncle
+Тётя	Тітка	Aunt
+Дядя/тётя	Дядько/тітка	Uncle/aunt
+Племянник	Племінник	Nephew
+Племянница	Племінниця	Niece
+Племянник(ца)	Племінник(ця)	Nephew/niece
+Двоюродный брат	Двоюрідний брат	Cousin
+Двоюродная сестра	Двоюрідна сестра	Cousin
+Двоюродный брат/сестра	Двоюрідний брат/сестра	Cousin
+Тесть / свёкор	Тесть / свекор	Father-in-law
+Тёща / свекровь	Теща / свекруха	Mother-in-law
+Родитель супруга	Батько/мати подружжя	Parent-in-law
+Зять	Зять	Son-in-law
+Невестка	Невістка	Daughter-in-law
+Зять/невестка	Зять/невістка	Child-in-law
+Крёстный	Хрещений	Godfather
+Крёстная	Хрещена	Godmother
+Крёстный(ая)	Хрещений(а)	Godparent
+Крестник	Хрещеник	Godson
+Крестница	Хрещениця	Goddaughter
+Крестник(ца)	Хрещеник(ця)	Godchild
+Бывший	Колишній	Ex
+Бывшая	Колишня	Ex
+Бывший(ая)	Колишній(я)	Ex
+Друг	Друг	Friend
+Подруга	Подруга	Friend
+Коллега	Колега	Colleague
+Начальник	Начальник	Boss
+Начальница	Начальниця	Boss
+Руководитель	Керівник	Manager
+Подчинённый	Підлеглий	Subordinate
+Подчинённая	Підлегла	Subordinate
+Подчинённый(ая)	Підлеглий(а)	Subordinate
+Знакомый	Знайомий	Acquaintance
+Знакомая	Знайома	Acquaintance
+Связь	Зв'язок	Relation
+Дети	Діти	Children
+Родители	Батьки	Parents
+Братья и сёстры	Брати й сестри	Siblings
+Питомцы	Улюбленці	Pets
+Семейное положение	Сімейний стан	Marital status
+Интересы	Інтереси	Interests
+Хобби	Хобі	Hobbies
+Спорт	Спорт	Sports
+Любимая музыка	Улюблена музика	Favorite music
+Любимые фильмы	Улюблені фільми	Favorite movies
+Любимые книги	Улюблені книги	Favorite books
+Игры	Ігри	Games
+Путешествия	Подорожі	Travel
+Вкусы	Смаки	Tastes
+Любимая еда	Улюблена їжа	Favorite food
+Не ест	Не їсть	Doesn't eat
+Любимые напитки	Улюблені напої	Favorite drinks
+Кофе / чай — как пьёт	Кава / чай — як п'є	Coffee / tea — how they take it
+Любимый ресторан	Улюблений ресторан	Favorite restaurant
+Любимые цвета	Улюблені кольори	Favorite colors
+Любимые цветы	Улюблені квіти	Favorite flowers
+Подарки	Подарунки	Gifts
+Идеи подарков	Ідеї подарунків	Gift ideas
+Что уже дарил(а)	Що вже дарував(ла)	Already gifted
+Размер одежды	Розмір одягу	Clothing size
+Размер обуви	Розмір взуття	Shoe size
+Размер кольца	Розмір каблучки	Ring size
+Мечтает о	Мріє про	Dreams of
+Работа и учёба	Робота й навчання	Work and study
+Образование	Освіта	Education
+Профессия	Професія	Profession
+Навыки	Навички	Skills
+Карьера	Кар'єра	Career
+Бизнес / проекты	Бізнес / проєкти	Business / projects
+Доход / статус	Дохід / статус	Income / status
+Личность	Особистість	Personality
+Характер	Характер	Character
+Знак зодиака	Знак зодіаку	Zodiac sign
+Ценности / взгляды	Цінності / погляди	Values / views
+Цели и мечты	Цілі й мрії	Goals and dreams
+Страхи	Страхи	Fears
+Больные темы	Болючі теми	Sensitive topics
+Чувство юмора	Почуття гумору	Sense of humor
+Языки	Мови	Languages
+Здоровье	Здоров'я	Health
+Аллергии	Алергії	Allergies
+Особенности здоровья	Особливості здоров'я	Health notes
+Вредные привычки	Шкідливі звички	Bad habits
+Группа крови	Група крові	Blood type
+Быт	Побут	Lifestyle
+Автомобиль	Автомобіль	Car
+Где живёт	Де живе	Lives in
+Распорядок дня	Розпорядок дня	Daily routine
+Удобное время для звонка	Зручний час для дзвінка	Best time to call
+Связи	Зв'язки	Connections
+Общие знакомые	Спільні знайомі	Mutual acquaintances
+Кто познакомил	Хто познайомив	Introduced by
+Может помочь с	Може допомогти з	Can help with
+Я должен(а)	Я винен(на)	I owe
+Мне должны	Мені винні	Owes me
+Важные даты	Важливі дати	Important dates
+Годовщина свадьбы	Річниця весілля	Wedding anniversary
+День знакомства	День знайомства	Day we met
+Именины	Іменини	Name day
+Другая дата	Інша дата	Other date
+Близкий друг	Близький друг	Close friend
+Сосед	Сусід	Neighbor
+Клиент	Клієнт	Client
+Одноклассник	Однокласник	Classmate
+Однокурсник	Одногрупник	Fellow student
+Мужской	Чоловіча	Male
+Женский	Жіноча	Female
+Переписка	Листування	Messages
+Событие	Подія	Event
+Подарок	Подарунок	Gift
+Заметка	Нотатка	Note
+Украина	Україна	Ukraine
+Россия	Росія	Russia
+Беларусь	Білорусь	Belarus
+Казахстан	Казахстан	Kazakhstan
+Молдова	Молдова	Moldova
+Польша	Польща	Poland
+Германия	Німеччина	Germany
+Чехия	Чехія	Czechia
+Литва	Литва	Lithuania
+Латвия	Латвія	Latvia
+Эстония	Естонія	Estonia
+Грузия	Грузія	Georgia
+Армения	Вірменія	Armenia
+Азербайджан	Азербайджан	Azerbaijan
+Узбекистан	Узбекистан	Uzbekistan
+Кыргызстан	Киргизстан	Kyrgyzstan
+Израиль	Ізраїль	Israel
+Турция	Туреччина	Turkey
+Великобритания	Велика Британія	United Kingdom
+США / Канада	США / Канада	USA / Canada
+Италия	Італія	Italy
+Испания	Іспанія	Spain
+Франция	Франція	France
+Португалия	Португалія	Portugal
+Нидерланды	Нідерланди	Netherlands
+Австрия	Австрія	Austria
+Швейцария	Швейцарія	Switzerland
+Румыния	Румунія	Romania
+Болгария	Болгарія	Bulgaria
+ОАЭ	ОАЕ	UAE
+Таиланд	Таїланд	Thailand
+человек#one	людина	person

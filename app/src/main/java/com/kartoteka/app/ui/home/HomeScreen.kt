@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.home
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -144,7 +146,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
             ) {
                 Icon(Icons.Default.Add, null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (fabExpanded) "Добавить человека" else "Добавить", style = MaterialTheme.typography.titleMedium)
+                Text(if (fabExpanded) t("Добавить человека") else t("Добавить"), style = MaterialTheme.typography.titleMedium)
             }
         },
         floatingActionButtonPosition = FabPosition.Center,
@@ -172,18 +174,18 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
                 item(key = "empty") {
                     EmptyState(
                         Icons.Default.Contacts,
-                        "Пока никого нет",
-                        "Добавьте первого человека вручную или импортируйте контакты из телефона.",
+                        t("Пока никого нет"),
+                        t("Добавьте первого человека вручную или импортируйте контакты из телефона."),
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = onAdd) { Text("Добавить") }
-                            FilledTonalButton(onClick = onImport) { Text("Импорт контактов") }
+                            Button(onClick = onAdd) { Text(t("Добавить")) }
+                            FilledTonalButton(onClick = onImport) { Text(t("Импорт контактов")) }
                         }
                     }
                 }
             } else if (!state.loading && state.results.isEmpty()) {
                 item(key = "nothing") {
-                    EmptyState(Icons.Default.SearchOff, "Ничего не найдено", "Попробуйте изменить запрос или фильтр.")
+                    EmptyState(Icons.Default.SearchOff, t("Ничего не найдено"), t("Попробуйте изменить запрос или фильтр."))
                 }
             }
 
@@ -191,7 +193,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
             if (grouped) {
                 state.results.groupBy { it.person.person.sortKey.firstOrNull()?.uppercaseChar() ?: '#' }
                     .forEach { (letter, hits) ->
-                        stickyHeader(key = "h_$letter") { LetterHeader(letter) }
+                        stickyHeader(key = "h_${letter}") { LetterHeader(letter) }
                         items(hits, key = { it.person.person.id }) { hit ->
                             PersonRow(hit, onClick = { onOpen(hit.person.person.id) }, Modifier.animateItem())
                         }
@@ -200,7 +202,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
                 if (state.results.isNotEmpty()) {
                     item(key = "count") {
                         Text(
-                            "Найдено: ${state.results.size}",
+                            t("Найдено: %1\$s", state.results.size),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -227,14 +229,14 @@ private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGro
             val custom by com.kartoteka.app.ui.app().settings.appTitle.value.collectAsState()
             Text(com.kartoteka.app.AppIcons.title(context, custom).uppercase(), style = MaterialTheme.typography.headlineLarge)
             Text(
-                "$total ${ArchiveLogic.plural(total.toLong(), "человек", "человека", "человек")} в архиве",
+                t("%1\$s %2\$s в архиве", total, ArchiveLogic.plural(total.toLong(), "человек", "человека", "человек")),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        IconButton(onClick = onGroups) { Icon(Icons.Default.Workspaces, "Группы") }
+        IconButton(onClick = onGroups) { Icon(Icons.Default.Workspaces, t("Группы")) }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Сортировка") }
+            IconButton(onClick = { menu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, t("Сортировка")) }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 SortMode.entries.forEach { m ->
                     DropdownMenuItem(
@@ -253,10 +255,10 @@ private fun SearchField(query: String, onChange: (String) -> Unit) {
     TextField(
         value = query,
         onValueChange = onChange,
-        placeholder = { Text("Поиск: имя, хобби, город…") },
+        placeholder = { Text(t("Поиск: имя, хобби, город…")) },
         leadingIcon = { Icon(Icons.Default.Search, null) },
         trailingIcon = {
-            if (query.isNotEmpty()) IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, "Очистить") }
+            if (query.isNotEmpty()) IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, t("Очистить")) }
         },
         singleLine = true,
         shape = RoundedCornerShape(16.dp),
@@ -282,10 +284,10 @@ private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, total:
             val all = filter == PeopleFilter.All
             FilterChip(selected = all, onClick = { onChange(PeopleFilter.All) }, label = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Все")
+                    Text(t("Все"))
                     Spacer(Modifier.width(6.dp))
                     Surface(shape = CircleShape, color = if (all) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerLowest) {
-                        Text("$total", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp))
+                        Text("${total}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.dp))
                     }
                 }
             })
@@ -294,7 +296,7 @@ private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, total:
             FilterChip(
                 selected = filter == PeopleFilter.Favorites,
                 onClick = { onChange(PeopleFilter.Favorites) },
-                label = { Text("Избранные") },
+                label = { Text(t("Избранные")) },
                 leadingIcon = { Icon(Icons.Default.Star, null, Modifier.size(18.dp)) },
             )
         }
@@ -308,7 +310,7 @@ private fun FilterRow(filter: PeopleFilter, groups: List<GroupWithCount>, total:
             )
         }
         item {
-            FilledTonalIconButton(onClick = onGroups, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Add, "Группы", Modifier.size(18.dp)) }
+            FilledTonalIconButton(onClick = onGroups, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.Add, t("Группы"), Modifier.size(18.dp)) }
         }
     }
 }
@@ -319,7 +321,7 @@ private fun BirthdayStrip(list: List<Pair<PersonFull, Long>>, onOpen: (Long) -> 
         Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Cake, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Скоро дни рождения", style = MaterialTheme.typography.titleMedium)
+            Text(t("Скоро дни рождения"), style = MaterialTheme.typography.titleMedium)
         }
         LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(list, key = { it.first.person.id }) { (pf, days) ->
@@ -389,7 +391,7 @@ fun PersonRow(hit: ArchiveLogic.SearchHit, onClick: () -> Unit, modifier: Modifi
                     ColorDot(it.color, 8.dp)
                 }
             }
-            val sub = listOf(p.relation, p.company.ifBlank { p.position }, p.city).filter { it.isNotBlank() }.joinToString(" · ")
+            val sub = listOf(t(p.relation), p.company.ifBlank { p.position }, p.city).filter { it.isNotBlank() }.joinToString(" · ")
             if (hit.matchedIn != null) {
                 Text(hit.matchedIn, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else if (sub.isNotBlank()) {

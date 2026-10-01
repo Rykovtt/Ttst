@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.services
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -82,8 +84,8 @@ fun ServicesScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Услуги") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") } },
+                title = { Text(t("Услуги")) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
             )
         },
         floatingActionButton = {
@@ -93,7 +95,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                 contentPadding = PaddingValues(vertical = 16.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             ) {
-                Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text("Добавить услугу", style = MaterialTheme.typography.titleMedium)
+                Icon(Icons.Default.Add, null); Spacer(Modifier.width(8.dp)); Text(t("Добавить услугу"), style = MaterialTheme.typography.titleMedium)
             }
         },
         floatingActionButtonPosition = androidx.compose.material3.FabPosition.Center,
@@ -101,8 +103,8 @@ fun ServicesScreen(onBack: () -> Unit) {
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 112.dp)) {
             item {
                 Text(
-                    "Выберите услугу при записи — подтверждение, напоминания, перенос и отмена уйдут по её шаблонам. " +
-                        "Пустой шаблон услуги — используется общий из настроек.",
+                    t("Выберите услугу при записи — подтверждение, напоминания, перенос и отмена уйдут по её шаблонам. ") +
+                        t("Пустой шаблон услуги — используется общий из настроек."),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -110,7 +112,7 @@ fun ServicesScreen(onBack: () -> Unit) {
             }
             val list = services
             if (list != null && list.isEmpty()) {
-                item { EmptyState(Icons.Default.DesignServices, "Пока нет услуг", "Например: «Тату-сеанс», «Консультация», «Коррекция».") }
+                item { EmptyState(Icons.Default.DesignServices, t("Пока нет услуг"), t("Например: «Тату-сеанс», «Консультация», «Коррекция».")) }
             }
             items(list.orEmpty(), key = { it.id }) { s ->
                 Surface(
@@ -125,7 +127,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                             val info = listOfNotNull(
                                 durationText(s.durationMin),
                                 s.place.takeIf { it.isNotBlank() },
-                                if (s.ownTemplates == 0) "общие шаблоны" else "своих шаблонов: ${s.ownTemplates} из 4",
+                                if (s.ownTemplates == 0) t("общие шаблоны") else t("своих шаблонов: %1\$s из 4", s.ownTemplates),
                             ).joinToString(" · ")
                             Text(info, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -154,7 +156,7 @@ fun newService(settings: com.kartoteka.app.data.Settings, name: String = "", dur
     myOffsets = settings.apptMyOffsets.value.value,
 )
 
-fun durationText(d: Int) = if (d < 60) "$d мин" else if (d % 60 == 0) "${d / 60} ч" else "${d / 60} ч ${d % 60} мин"
+fun durationText(d: Int) = if (d < 60) t("%1\$s мин", d) else if (d % 60 == 0) t("%1\$s ч", d / 60) else t("%1\$s ч %2\$s мин", d / 60, d % 60)
 
 private val durations = listOf(15, 30, 45, 60, 90, 120, 180, 240)
 
@@ -180,12 +182,12 @@ fun ServiceEditor(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(if (service.id == 0L) "Новая услуга" else "Услуга") },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Закрыть") } },
+                    title = { Text(if (service.id == 0L) t("Новая услуга") else t("Услуга")) },
+                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, t("Закрыть")) } },
                     actions = {
-                        if (onDelete != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, "Удалить") }
+                        if (onDelete != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, t("Удалить")) }
                         Button(onClick = { onSave(result()) }, enabled = s.name.isNotBlank(), modifier = Modifier.padding(end = 8.dp)) {
-                            Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Сохранить")
+                            Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("Сохранить"))
                         }
                     },
                 )
@@ -193,44 +195,44 @@ fun ServiceEditor(
         ) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
-                    SectionCard("Услуга", Icons.Default.DesignServices) {
+                    SectionCard(t("Услуга"), Icons.Default.DesignServices) {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
-                                s.name, { s = s.copy(name = it) }, label = { Text("Название") }, placeholder = { Text("Например, Консультация") },
+                                s.name, { s = s.copy(name = it) }, label = { Text(t("Название")) }, placeholder = { Text(t("Например, Консультация")) },
                                 singleLine = true, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                 modifier = Modifier.fillMaxWidth(),
                             )
-                            Text("Длительность", style = MaterialTheme.typography.labelLarge)
+                            Text(t("Длительность"), style = MaterialTheme.typography.labelLarge)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 durations.forEach { d -> FilterChip(s.durationMin == d, { s = s.copy(durationMin = d) }, label = { Text(durationText(d)) }) }
                             }
                             OutlinedTextField(
                                 s.durationMin.toString(), { v -> v.filter(Char::isDigit).take(4).toIntOrNull()?.let { s = s.copy(durationMin = it) } },
-                                label = { Text("Своя длительность, минут") }, singleLine = true,
+                                label = { Text(t("Своя длительность, минут")) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                             )
                             OutlinedTextField(
-                                s.place, { s = s.copy(place = it) }, label = { Text("Место по умолчанию") }, singleLine = true,
+                                s.place, { s = s.copy(place = it) }, label = { Text(t("Место по умолчанию")) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences), modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
                 }
                 item {
-                    SectionCard("Напоминания", Icons.Default.NotificationsActive) {
+                    SectionCard(t("Напоминания"), Icons.Default.NotificationsActive) {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Человеку", style = MaterialTheme.typography.labelLarge)
+                            Text(t("Человеку"), style = MaterialTheme.typography.labelLarge)
                             OffsetChips(s.clientOffsets) { s = s.copy(clientOffsets = it) }
-                            Text("Мне", style = MaterialTheme.typography.labelLarge)
+                            Text(t("Мне"), style = MaterialTheme.typography.labelLarge)
                             OffsetChips(s.myOffsets) { s = s.copy(myOffsets = it) }
                         }
                     }
                 }
                 item {
-                    SectionCard("Тексты сообщений", Icons.AutoMirrored.Filled.Chat) {
+                    SectionCard(t("Тексты сообщений"), Icons.AutoMirrored.Filled.Chat) {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(
-                                "Пусто — уйдёт общий шаблон (${lang.title}). Нажмите «Скопировать общий», чтобы взять его за основу и поправить.",
+                                t("Пусто — уйдёт общий шаблон (%1\$s). Нажмите «Скопировать общий», чтобы взять его за основу и поправить.", lang.title),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             TemplateKind.entries.forEach { kind ->
@@ -242,20 +244,20 @@ fun ServiceEditor(
                                             TextButton(onClick = {
                                                 val general = app.settings.template(kind, lang).value.value
                                                 texts[kind] = TextFieldValue(general, TextRange(general.length))
-                                            }) { Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text("Скопировать общий") }
+                                            }) { Icon(Icons.Default.ContentCopy, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text(t("Скопировать общий")) }
                                         } else {
-                                            TextButton(onClick = { texts[kind] = TextFieldValue() }) { Text("Очистить") }
+                                            TextButton(onClick = { texts[kind] = TextFieldValue() }) { Text(t("Очистить")) }
                                         }
                                     }
                                     OutlinedTextField(
                                         value, { texts[kind] = it },
-                                        placeholder = { Text("Общий шаблон") },
+                                        placeholder = { Text(t("Общий шаблон")) },
                                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                         modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp).onFocusChanged { if (it.isFocused) focused = kind },
                                     )
                                 }
                             }
-                            Text("Подставить в выбранное поле:", style = MaterialTheme.typography.labelMedium)
+                            Text(t("Подставить в выбранное поле:"), style = MaterialTheme.typography.labelMedium)
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 lang.allTokens.forEach { ph ->
                                     AssistChip(onClick = {
@@ -278,10 +280,10 @@ fun ServiceEditor(
     if (confirmDelete && onDelete != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить услугу «${service.name}»?") },
-            text = { Text("Записи останутся, но сообщения по ним будут идти по общим шаблонам.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("Удалить") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            title = { Text(t("Удалить услугу «%1\$s»?", service.name)) },
+            text = { Text(t("Записи останутся, но сообщения по ним будут идти по общим шаблонам.")) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text(t("Удалить")) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
     }
 }

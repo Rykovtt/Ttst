@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.broadcast
 
+import com.kartoteka.app.i18n.t
+
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -101,12 +103,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Channel(val title: String, val description: String, val icon: ImageVector, val personal: Boolean) {
+enum class Channel(private val titleRu: String, private val descriptionRu: String, val icon: ImageVector, val personal: Boolean) {
     WHATSAPP("WhatsApp", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Chat, true),
     TELEGRAM("Telegram", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Send, true),
     SMS_AUTO("SMS автоматически", "Персональные SMS уходят сами, без открытия приложений. Оплачивается по тарифу оператора", Icons.Default.Sms, true),
     SMS_APP("SMS одним сообщением", "Открыть SMS-приложение сразу со всеми номерами — один текст всем", Icons.Default.Sms, false),
     SHARE("В группу / чат мессенджера", "Отправить текст в существующий групповой чат WhatsApp, Telegram, Viber или любой другой", Icons.Default.Share, false),
+    ;
+
+    val title: String get() = t(titleRu)
+    val description: String get() = t(descriptionRu)
 }
 
 class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, initialPersonIds: List<Long>) : ViewModel() {
@@ -158,7 +164,7 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
         Channel.SHARE -> true
     }
 
-    fun messageFor(pf: PersonFull) = ArchiveLogic.fillTemplate(text.text, pf.person).trim()
+    fun messageFor(pf: PersonFull) = ArchiveLogic.fillTemplate(text.text, pf.person, lang).trim()
 
     fun markSent(pf: PersonFull) {
         sent[pf.person.id] = true
@@ -166,7 +172,7 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
             app.repository.touchContact(pf.person.id)
             if (logToJournal) {
                 app.repository.addJournal(
-                    JournalEntry(personId = pf.person.id, kind = "Переписка", text = "Рассылка (${channel.title}): ${messageFor(pf)}")
+                    JournalEntry(personId = pf.person.id, kind = "Переписка", text = t("Рассылка (%1\$s): %2\$s", channel.title, messageFor(pf)))
                 )
             }
         }
@@ -218,21 +224,21 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
             Row(Modifier.statusBarsPadding().padding(start = if (onBack != null) 4.dp else 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Назад") }
+                if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
                 Column {
-                    Text("Рассылка", style = MaterialTheme.typography.headlineLarge)
-                    Text("SMS и мессенджеры — персонально каждому или в группу", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(t("Рассылка"), style = MaterialTheme.typography.headlineLarge)
+                    Text(t("SMS и мессенджеры — персонально каждому или в группу"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
 
         if (!vm.sending) {
             // --- 1. Получатели ---
-            item { StepTitle("1", "Кому") }
+            item { StepTitle("1", t("Кому")) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     if (groups.isNotEmpty()) {
-                        Text("Добавить группу целиком:", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
+                        Text(t("Добавить группу целиком:"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             groups.forEach { gc ->
                                 AssistChip(
@@ -245,15 +251,15 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = { picker = true }) {
-                            Icon(Icons.Default.PersonAdd, null); Spacer(Modifier.width(6.dp)); Text("Люди")
+                            Icon(Icons.Default.PersonAdd, null); Spacer(Modifier.width(6.dp)); Text(t("Люди"))
                         }
                         FilledTonalButton(onClick = { criteria = true }) {
-                            Icon(Icons.Default.FilterAlt, null); Spacer(Modifier.width(6.dp)); Text("По критериям")
+                            Icon(Icons.Default.FilterAlt, null); Spacer(Modifier.width(6.dp)); Text(t("По критериям"))
                         }
-                        if (vm.recipients.isNotEmpty()) IconButton(onClick = { vm.recipients.clear() }) { Icon(Icons.Default.Close, "Очистить") }
+                        if (vm.recipients.isNotEmpty()) IconButton(onClick = { vm.recipients.clear() }) { Icon(Icons.Default.Close, t("Очистить")) }
                     }
                     if (selected.isNotEmpty()) {
-                        Text("Выбрано: ${selected.size}", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
+                        Text(t("Выбрано: %1\$s", selected.size), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             selected.forEach { pf ->
                                 InputChip(
@@ -261,7 +267,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                     onClick = { vm.recipients.remove(pf.person.id) },
                                     label = { Text(pf.person.displayName) },
                                     avatar = { Avatar(pf.person, InputChipDefaults.AvatarSize) },
-                                    trailingIcon = { Icon(Icons.Default.Close, "Убрать", Modifier.size(16.dp)) },
+                                    trailingIcon = { Icon(Icons.Default.Close, t("Убрать"), Modifier.size(16.dp)) },
                                 )
                             }
                         }
@@ -270,16 +276,16 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             }
 
             // --- 2. Сообщение ---
-            item { StepTitle("2", "Сообщение") }
+            item { StepTitle("2", t("Сообщение")) }
             item {
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     OutlinedTextField(
                         value = vm.text,
                         onValueChange = { vm.text = it },
                         modifier = Modifier.fillMaxWidth().heightIn(min = 130.dp),
-                        placeholder = { Text("Текст сообщения") },
+                        placeholder = { Text(t("Текст сообщения")) },
                     )
-                    Text("Подставить:", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+                    Text(t("Подставить:"), style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         vm.lang.personTokens.forEach { ph ->
                             AssistChip(onClick = {
@@ -292,7 +298,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     selected.firstOrNull()?.let { first ->
                         Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                             Column(Modifier.padding(14.dp)) {
-                                Text("Так увидит ${first.person.displayName}:", style = MaterialTheme.typography.labelMedium)
+                                Text(t("Так увидит %1\$s:", first.person.displayName), style = MaterialTheme.typography.labelMedium)
                                 Text(vm.messageFor(first), style = MaterialTheme.typography.bodyLarge)
                             }
                         }
@@ -301,7 +307,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             }
 
             // --- 3. Канал ---
-            item { StepTitle("3", "Как отправить") }
+            item { StepTitle("3", t("Как отправить")) }
             items(Channel.entries) { ch ->
                 val missing = selected.count { !vm.canReceive(it, ch) }
                 val sel = vm.channel == ch
@@ -326,7 +332,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
                                     Text(
-                                        " Нет контакта у $missing — пропустим",
+                                        t(" Нет контакта у %1\$s — пропустим", missing),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.error,
                                     )
@@ -356,7 +362,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             item {
                 Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = vm.logToJournal, onCheckedChange = { vm.logToJournal = it })
-                    Text("Записать в хронику каждого человека")
+                    Text(t("Записать в хронику каждого человека"))
                 }
             }
             item {
@@ -368,7 +374,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         when (vm.channel) {
                             Channel.SHARE -> {
                                 Messaging.share(context, selected.firstOrNull()?.let { if (selected.size == 1) vm.messageFor(it) else null }
-                                    ?: ArchiveLogic.fillTemplate(vm.text.text, com.kartoteka.app.data.Person(firstName = friendsWord(vm.lang))).trim())
+                                    ?: ArchiveLogic.fillTemplate(vm.text.text, com.kartoteka.app.data.Person(firstName = friendsWord(vm.lang)), vm.lang).trim())
                                 selected.forEach(vm::markSent)
                             }
                             Channel.SMS_APP -> {
@@ -386,11 +392,11 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp))
-                    Text(if (vm.channel.personal) "Начать рассылку (${usable.size})" else "Отправить")
+                    Text(if (vm.channel.personal) t("Начать рассылку (%1\$s)", usable.size) else t("Отправить"))
                 }
                 if (vm.channel == Channel.SHARE && selected.size > 1) {
                     Text(
-                        "Подсказка: в групповой чат уйдёт один общий текст, имя заменится на «${friendsWord(vm.lang)}».",
+                        t("Подсказка: в групповой чат уйдёт один общий текст, имя заменится на «%1\$s».", friendsWord(vm.lang)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 20.dp),
@@ -403,21 +409,21 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             item {
                 Column(Modifier.padding(16.dp)) {
                     Text(
-                        if (p.running) "Отправляем автоматически: ${p.done} из ${p.jobs.size}" else "Готово: отправлено ${p.sent} из ${p.jobs.size}",
+                        if (p.running) t("Отправляем автоматически: %1\$s из %2\$s", p.done, p.jobs.size) else t("Готово: отправлено %1\$s из %2\$s", p.sent, p.jobs.size),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    if (p.failed > 0) Text("Не удалось: ${p.failed}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    if (p.failed > 0) Text(t("Не удалось: %1\$s", p.failed), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     Spacer(Modifier.size(8.dp))
                     LinearProgressIndicator(progress = { if (p.jobs.isEmpty()) 1f else p.done / p.jobs.size.toFloat() }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.size(8.dp))
                     Text(
-                        if (p.running) "Можно не трогать телефон — приложение само открывает чаты и нажимает «Отправить». Остановить можно здесь или из уведомления."
-                        else "Рассылка завершена.",
+                        if (p.running) t("Можно не трогать телефон — приложение само открывает чаты и нажимает «Отправить». Остановить можно здесь или из уведомления.")
+                        else t("Рассылка завершена."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                        if (p.running) OutlinedButton(onClick = { AutoSend.stop() }) { Text("Остановить") }
-                        TextButton(onClick = vm::reset) { Text(if (p.running) "Скрыть" else "Новая рассылка") }
+                        if (p.running) OutlinedButton(onClick = { AutoSend.stop() }) { Text(t("Остановить")) }
+                        TextButton(onClick = vm::reset) { Text(if (p.running) t("Скрыть") else t("Новая рассылка")) }
                     }
                 }
             }
@@ -439,10 +445,10 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         Text(job.name, style = MaterialTheme.typography.titleSmall)
                         Text(
                             when (st) {
-                                JobState.SENT -> "Отправлено"
-                                JobState.FAILED -> "Не отправлено (нет в мессенджере или не удалось нажать)"
-                                JobState.SENDING -> "Отправляем…"
-                                JobState.PENDING -> "В очереди"
+                                JobState.SENT -> t("Отправлено")
+                                JobState.FAILED -> t("Не отправлено (нет в мессенджере или не удалось нажать)")
+                                JobState.SENDING -> t("Отправляем…")
+                                JobState.PENDING -> t("В очереди")
                             },
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -456,19 +462,19 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             val next = queue.firstOrNull { vm.sent[it.person.id] != true }
             item {
                 Column(Modifier.padding(16.dp)) {
-                    Text("Отправлено $done из ${queue.size}", style = MaterialTheme.typography.titleMedium)
+                    Text(t("Отправлено %1\$s из %2\$s", done, queue.size), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.size(8.dp))
                     LinearProgressIndicator(progress = { if (queue.isEmpty()) 1f else done / queue.size.toFloat() }, modifier = Modifier.fillMaxWidth())
                     Spacer(Modifier.size(12.dp))
                     if (next != null) {
                         Button(onClick = { sendOne(context, vm, next) }, modifier = Modifier.fillMaxWidth()) {
                             Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp))
-                            Text("Отправить: ${next.person.displayName}")
+                            Text(t("Отправить: %1\$s", next.person.displayName))
                         }
                     } else {
-                        Text("Готово! Все сообщения отправлены 🎉", color = MaterialTheme.colorScheme.primary)
+                        Text(t("Готово! Все сообщения отправлены 🎉"), color = MaterialTheme.colorScheme.primary)
                     }
-                    TextButton(onClick = vm::reset) { Text(if (next == null) "Новая рассылка" else "Прервать") }
+                    TextButton(onClick = vm::reset) { Text(if (next == null) t("Новая рассылка") else t("Прервать")) }
                 }
             }
             items(queue, key = { it.person.id }) { pf ->
@@ -485,7 +491,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         Text(pf.person.displayName, style = MaterialTheme.typography.titleSmall)
                         Text(vm.messageFor(pf), style = MaterialTheme.typography.bodySmall, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    TextButton(onClick = { sendOne(context, vm, pf) }) { Text(if (isSent) "Ещё раз" else "Отправить") }
+                    TextButton(onClick = { sendOne(context, vm, pf) }) { Text(if (isSent) t("Ещё раз") else t("Отправить")) }
                 }
             }
         }
@@ -494,38 +500,38 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
     vm.autoProgress?.let { (done, total) ->
         AlertDialog(
             onDismissRequest = {},
-            title = { Text(if (done < total) "Отправка SMS…" else "SMS отправлены") },
+            title = { Text(if (done < total) t("Отправка SMS…") else t("SMS отправлены")) },
             text = {
                 Column {
-                    Text("$done из $total")
+                    Text(t("%1\$s из %2\$s", done, total))
                     Spacer(Modifier.size(8.dp))
                     LinearProgressIndicator(progress = { if (total == 0) 1f else done / total.toFloat() }, modifier = Modifier.fillMaxWidth())
                 }
             },
-            confirmButton = { if (done >= total) TextButton(onClick = vm::reset) { Text("Готово") } },
+            confirmButton = { if (done >= total) TextButton(onClick = vm::reset) { Text(t("Готово")) } },
         )
     }
     if (confirmAuto) {
         val count = selected.count { vm.canReceive(it, Channel.SMS_AUTO) }
         AlertDialog(
             onDismissRequest = { confirmAuto = false },
-            title = { Text("Отправить $count SMS?") },
-            text = { Text("Каждый получит персональное сообщение. SMS оплачиваются по тарифу вашего оператора.") },
-            confirmButton = { TextButton(onClick = { confirmAuto = false; vm.sendAutoSms(context) }) { Text("Отправить") } },
-            dismissButton = { TextButton(onClick = { confirmAuto = false }) { Text("Отмена") } },
+            title = { Text(t("Отправить %1\$s SMS?", count)) },
+            text = { Text(t("Каждый получит персональное сообщение. SMS оплачиваются по тарифу вашего оператора.")) },
+            confirmButton = { TextButton(onClick = { confirmAuto = false; vm.sendAutoSms(context) }) { Text(t("Отправить")) } },
+            dismissButton = { TextButton(onClick = { confirmAuto = false }) { Text(t("Отмена")) } },
         )
     }
     if (confirmMessenger) {
         val count = selected.count { vm.canReceive(it) }
         AlertDialog(
             onDismissRequest = { confirmMessenger = false },
-            title = { Text("Отправить $count ${ArchiveLogic.plural(count.toLong(), "сообщение", "сообщения", "сообщений")} в ${vm.channel.title}?") },
+            title = { Text(t("Отправить %1\$s %2\$s в %3\$s?", count, ArchiveLogic.plural(count.toLong(), "сообщение", "сообщения", "сообщений"), vm.channel.title)) },
             text = {
-                Text("Приложение по очереди откроет чаты и само нажмёт «Отправить», пауза между сообщениями — ${delay} с и немного случайности. " +
-                    "Не пользуйтесь телефоном во время рассылки. Большие рассылки незнакомым людям мессенджеры могут посчитать спамом.")
+                Text(t("Приложение по очереди откроет чаты и само нажмёт «Отправить», пауза между сообщениями — %1\$s с и немного случайности. ", delay) +
+                    t("Не пользуйтесь телефоном во время рассылки. Большие рассылки незнакомым людям мессенджеры могут посчитать спамом."))
             },
-            confirmButton = { TextButton(onClick = { confirmMessenger = false; vm.startAuto(context) }) { Text("Начать") } },
-            dismissButton = { TextButton(onClick = { confirmMessenger = false }) { Text("Отмена") } },
+            confirmButton = { TextButton(onClick = { confirmMessenger = false; vm.startAuto(context) }) { Text(t("Начать")) } },
+            dismissButton = { TextButton(onClick = { confirmMessenger = false }) { Text(t("Отмена")) } },
         )
     }
     if (criteria) {
@@ -596,23 +602,23 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
                     Icon(Icons.Default.AutoMode, null)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Отправлять автоматически", style = MaterialTheme.typography.titleSmall)
-                        Text("Без нажатия «Отправить» на каждом контакте", style = MaterialTheme.typography.bodySmall)
+                        Text(t("Отправлять автоматически"), style = MaterialTheme.typography.titleSmall)
+                        Text(t("Без нажатия «Отправить» на каждом контакте"), style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(auto, onAuto)
                 }
                 if (auto) {
-                    Text("Пауза между сообщениями: $delay с", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    Text(t("Пауза между сообщениями: %1\$s с", delay), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
                     Slider(value = delay.toFloat(), onValueChange = { onDelay(it.toInt()) }, valueRange = 3f..30f, steps = 26)
                 }
             } else {
-                Text("Авто-отправка выключена", style = MaterialTheme.typography.titleSmall)
+                Text(t("Авто-отправка выключена"), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «RVault: авто-отправка». " +
-                        "Если переключатель неактивен: Настройки → Приложения → RVault → ⋮ → «Разрешить ограниченные настройки».",
+                    t("Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «RVault: авто-отправка». ") +
+                        t("Если переключатель неактивен: Настройки → Приложения → RVault → ⋮ → «Разрешить ограниченные настройки»."),
                     style = MaterialTheme.typography.bodySmall,
                 )
-                FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text("Открыть настройки") }
+                FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text(t("Открыть настройки")) }
             }
         }
     }

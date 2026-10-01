@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -43,32 +45,32 @@ fun JournalDialog(onDismiss: () -> Unit, onSave: (JournalEntry) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Запись в хронику") },
+        title = { Text(t("Запись в хронику")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     DetailTemplates.journalKinds.forEach { k ->
-                        FilterChip(selected = k == kind, onClick = { kind = k }, label = { Text(k) })
+                        FilterChip(selected = k == kind, onClick = { kind = k }, label = { Text(t(k)) })
                     }
                 }
                 OutlinedButton(onClick = { pickDate = true }) {
                     Icon(Icons.Default.CalendarMonth, null)
-                    Text("  " + SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(Date(date)))
+                    Text("  " + SimpleDateFormat("d MMMM yyyy", com.kartoteka.app.i18n.I18n.locale).format(Date(date)))
                 }
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Что произошло") },
+                    label = { Text(t("Что произошло")) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp),
                 )
             }
         },
         confirmButton = {
             TextButton(enabled = text.isNotBlank(), onClick = { onSave(JournalEntry(personId = 0, date = date, kind = kind, text = text.trim())) }) {
-                Text("Сохранить")
+                Text(t("Сохранить"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 
     if (pickDate) {
@@ -78,7 +80,7 @@ fun JournalDialog(onDismiss: () -> Unit, onSave: (JournalEntry) -> Unit) {
             confirmButton = {
                 TextButton(onClick = { state.selectedDateMillis?.let { date = it }; pickDate = false }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(t("Отмена")) } },
         ) { DatePicker(state) }
     }
 }

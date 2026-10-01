@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.map
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -86,13 +88,13 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
         Column(Modifier.statusBarsPadding().padding(top = 8.dp)) {
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    FilterChip(kind == null, { kind = null }, label = { Text("Все адреса") }, leadingIcon = { Icon(Icons.Default.Map, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
+                    FilterChip(kind == null, { kind = null }, label = { Text(t("Все адреса")) }, leadingIcon = { Icon(Icons.Default.Map, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 item {
-                    FilterChip(kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, label = { Text("Где живут") }, leadingIcon = { Icon(Icons.Default.Home, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
+                    FilterChip(kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, label = { Text(t("Где живут")) }, leadingIcon = { Icon(Icons.Default.Home, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 item {
-                    FilterChip(kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, label = { Text("Где работают") }, leadingIcon = { Icon(Icons.Default.Work, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
+                    FilterChip(kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, label = { Text(t("Где работают")) }, leadingIcon = { Icon(Icons.Default.Work, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = FilterChipDefaults.filterChipElevation(elevation = 3.dp))
                 }
                 items(groups, key = { it.group.id }) { g ->
                     val sel = groupId == g.group.id
@@ -103,7 +105,7 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
 
         if (all != null && markers.isEmpty()) {
             Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.95f), modifier = Modifier.align(Alignment.Center).padding(24.dp)) {
-                EmptyState(Icons.Default.Map, "Пока нет адресов на карте", "Добавьте адрес «Дом» или «Работа» в карточке человека — точка появится здесь.")
+                EmptyState(Icons.Default.Map, t("Пока нет адресов на карте"), t("Добавьте адрес «Дом» или «Работа» в карточке человека — точка появится здесь."))
             }
         }
 
@@ -112,7 +114,7 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = if (selected != null) 150.dp else 16.dp),
-        ) { Icon(Icons.Default.CenterFocusStrong, "Показать всех") }
+        ) { Icon(Icons.Default.CenterFocusStrong, t("Показать всех")) }
 
         val sel = selected?.let { placeByKey[it.key] }
         if (sel != null) {
@@ -132,7 +134,7 @@ fun MapScreen(onOpenPerson: (Long) -> Unit) {
                         Text(pl.label.ifBlank { pl.placeKind.title }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                         Text(pl.address, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    FilledTonalIconButton(onClick = { Messaging.navigate(context, pl) }) { Icon(Icons.Default.Directions, "Маршрут") }
+                    FilledTonalIconButton(onClick = { Messaging.navigate(context, pl) }) { Icon(Icons.Default.Directions, t("Маршрут")) }
                 }
             }
         }

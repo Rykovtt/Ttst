@@ -1,5 +1,7 @@
 package com.kartoteka.app.data
 
+import com.kartoteka.app.i18n.t
+
 import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
@@ -48,7 +50,7 @@ data class Person(
         get() = (firstName.ifBlank { lastName.ifBlank { nickname } }).trim().lowercase()
 }
 
-enum class ContactType(val title: String) {
+enum class ContactType(private val titleRu: String) {
     PHONE("Телефон"),
     EMAIL("E-mail"),
     TELEGRAM("Telegram"),
@@ -59,6 +61,9 @@ enum class ContactType(val title: String) {
     FACEBOOK("Facebook"),
     WEBSITE("Сайт"),
     OTHER("Другое");
+
+    /** Название на языке интерфейса. */
+    val title: String get() = t(titleRu)
 
     companion object {
         fun of(name: String): ContactType = entries.firstOrNull { it.name == name } ?: OTHER
@@ -175,8 +180,11 @@ data class GroupWithCount(
     val count: Int,
 )
 
-enum class PlaceKind(val title: String) {
+enum class PlaceKind(private val titleRu: String) {
     HOME("Дом"), WORK("Работа"), OTHER("Другое");
+
+    /** Название на языке интерфейса. */
+    val title: String get() = t(titleRu)
 
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: OTHER
@@ -245,16 +253,22 @@ data class Appointment(
     val appointmentStatus: AppointmentStatus get() = AppointmentStatus.of(status)
 }
 
-enum class AppointmentStatus(val title: String) {
+enum class AppointmentStatus(private val titleRu: String) {
     PLANNED("Запланировано"), DONE("Состоялось"), CANCELLED("Отменено");
+
+    /** Название на языке интерфейса. */
+    val title: String get() = t(titleRu)
 
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: PLANNED
     }
 }
 
-enum class NotifyChannel(val title: String) {
+enum class NotifyChannel(private val titleRu: String) {
     WHATSAPP("WhatsApp"), TELEGRAM("Telegram"), SMS("SMS"), NONE("Не оповещать");
+
+    /** Название на языке интерфейса. */
+    val title: String get() = t(titleRu)
 
     companion object {
         fun of(name: String) = entries.firstOrNull { it.name == name } ?: NONE

@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.calendar
 
+import com.kartoteka.app.i18n.t
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -103,11 +105,14 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 
 /** Какое сообщение предложить отправить человеку. */
-enum class MessageKind(val title: String, val template: TemplateKind) {
+enum class MessageKind(private val titleRu: String, val template: TemplateKind) {
     CONFIRM("Подтверждение записи", TemplateKind.CONFIRM),
     RESCHEDULE("Перенос записи", TemplateKind.RESCHEDULE),
     REMINDER("Напоминание", TemplateKind.REMINDER),
     CANCEL("Отмена записи", TemplateKind.CANCEL),
+    ;
+
+    val title: String get() = t(titleRu)
 }
 
 class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, personId: Long, dateEpoch: Long) : ViewModel() {
@@ -231,7 +236,7 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
             val moved = original?.appointment?.let { it.start != a.start } == true
             if (isNew) {
                 repo.addJournal(JournalEntry(personId = pf.person.id, kind = "Событие",
-                    text = "Запись на ${AppointmentLogic.dateText(AppointmentLogic.zoned(a.start))} в ${AppointmentLogic.timeText(AppointmentLogic.zoned(a.start))}" +
+                    text = t("Запись на %1\$s в %2\$s", AppointmentLogic.dateText(AppointmentLogic.zoned(a.start)), AppointmentLogic.timeText(AppointmentLogic.zoned(a.start))) +
                         if (a.title.isNotBlank()) ": ${a.title}" else ""))
             }
             saving = false
@@ -270,7 +275,7 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
         val delay = settings.autoSendDelaySec.value.value.toIntOrNull() ?: 6
         val r = Sender.send(context, pf, ch, text, delay, interactive = true) { ok ->
             if (ok) app.appScope.launch {
-                repo.addJournal(JournalEntry(personId = pf.person.id, kind = "Переписка", text = "${kind.title} (${ch.title}): $text"))
+                repo.addJournal(JournalEntry(personId = pf.person.id, kind = "Переписка", text = "${kind.title} (${ch.title}): ${text}"))
                 repo.touchContact(pf.person.id)
             }
         }
@@ -290,7 +295,7 @@ private val durations = listOf(15, 30, 45, 60, 90, 120, 180)
 fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
     val app = app()
     val context = LocalContext.current
-    val vm: AppointmentEditViewModel = viewModel(key = "appt_${id}_${personId}_$dateEpoch") { AppointmentEditViewModel(app, id, personId, dateEpoch) }
+    val vm: AppointmentEditViewModel = viewModel(key = "appt_${id}_${personId}_${dateEpoch}") { AppointmentEditViewModel(app, id, personId, dateEpoch) }
     val everyone by vm.everyone.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
@@ -312,8 +317,8 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(if (vm.isNew) "Новая запись" else "Запись") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.Close, "Закрыть") } },
+                title = { Text(if (vm.isNew) t("Новая запись") else t("Запись")) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.Close, t("Закрыть")) } },
                 actions = {
                     Button(
                         enabled = vm.person != null && !vm.saving,
@@ -324,7 +329,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                         },
                         modifier = Modifier.padding(end = 8.dp),
                     ) {
-                        Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Сохранить")
+                        Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("Сохранить"))
                     }
                 },
             )
@@ -333,7 +338,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
         if (!vm.loaded) return@Scaffold
         LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(bottom = 40.dp)) {
             item(key = "who") {
-                SectionCard("Кто", Icons.Default.Person) {
+                SectionCard(t("Кто"), Icons.Default.Person) {
                     val pf = vm.person
                     Row(
                         Modifier.fillMaxWidth().clickable { if (vm.isNew) pickPerson = true else pf?.let { onOpenPerson(it.person.id) } }
@@ -346,40 +351,40 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                             Column(Modifier.weight(1f)) {
                                 Text(pf.person.displayName, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    listOfNotNull(pf.phone?.let { com.kartoteka.app.data.PhoneFormat.pretty(it) }, pf.telegram).joinToString(" · ").ifBlank { "нет контактов" },
+                                    listOfNotNull(pf.phone?.let { com.kartoteka.app.data.PhoneFormat.pretty(it) }, pf.telegram).joinToString(" · ").ifBlank { t("нет контактов") },
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
-                            if (vm.isNew) TextButton(onClick = { pickPerson = true }) { Text("Сменить") }
+                            if (vm.isNew) TextButton(onClick = { pickPerson = true }) { Text(t("Сменить")) }
                         } else {
-                            FilledTonalButton(onClick = { pickPerson = true }) { Icon(Icons.Default.Search, null); Spacer(Modifier.width(6.dp)); Text("Выбрать человека") }
+                            FilledTonalButton(onClick = { pickPerson = true }) { Icon(Icons.Default.Search, null); Spacer(Modifier.width(6.dp)); Text(t("Выбрать человека")) }
                         }
                     }
                 }
             }
 
             item(key = "when") {
-                SectionCard("Когда", Icons.Default.Event) {
+                SectionCard(t("Когда"), Icons.Default.Event) {
                     Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { pickDate = true }, modifier = Modifier.weight(1.4f)) {
                             Icon(Icons.Default.CalendarMonth, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
-                            Text("${vm.date.dayOfMonth} ${ArchiveLogic.MONTHS_GEN[vm.date.monthValue - 1].take(3)}, ${vm.date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale("ru"))}")
+                            Text(vm.date.format(java.time.format.DateTimeFormatter.ofPattern("d MMM, EE", com.kartoteka.app.i18n.I18n.locale)))
                         }
                         OutlinedButton(onClick = { pickTime = true }, modifier = Modifier.weight(1f)) {
                             Icon(Icons.Default.AccessTime, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                             Text(AppointmentLogic.timeText(LocalDateTime.of(vm.date, vm.time)))
                         }
                     }
-                    Text("Длительность", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 18.dp, top = 10.dp))
+                    Text(t("Длительность"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 18.dp, top = 10.dp))
                     FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         durations.forEach { d ->
-                            FilterChip(vm.duration == d, { vm.duration = d }, label = { Text(if (d < 60) "$d мин" else if (d % 60 == 0) "${d / 60} ч" else "${d / 60} ч ${d % 60} мин") })
+                            FilterChip(vm.duration == d, { vm.duration = d }, label = { Text(if (d < 60) t("%1\$s мин", d) else if (d % 60 == 0) t("%1\$s ч", d / 60) else t("%1\$s ч %2\$s мин", d / 60, d % 60)) })
                         }
-                        FilterChip(vm.duration !in durations, { customDuration = true }, label = { Text(if (vm.duration !in durations) "${vm.duration} мин" else "Другая…") })
+                        FilterChip(vm.duration !in durations, { customDuration = true }, label = { Text(if (vm.duration !in durations) t("%1\$s мин", vm.duration) else t("Другая…")) })
                     }
                     val end = LocalDateTime.of(vm.date, vm.time).plusMinutes(vm.duration.toLong())
                     Text(
-                        "до ${AppointmentLogic.timeText(end)}",
+                        t("до %1\$s", AppointmentLogic.timeText(end)),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 18.dp, top = 4.dp),
                     )
@@ -389,7 +394,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                             Spacer(Modifier.width(6.dp))
                             val t = AppointmentLogic.zoned(c.appointment.start)
                             Text(
-                                "Пересекается: ${c.person?.displayName.orEmpty()} в ${AppointmentLogic.timeText(t)}",
+                                t("Пересекается: %1\$s в %2\$s", c.person?.displayName.orEmpty(), AppointmentLogic.timeText(t)),
                                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -398,36 +403,36 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             }
 
             item(key = "what") {
-                SectionCard("Что и где", Icons.Default.Campaign) {
+                SectionCard(t("Что и где"), Icons.Default.Campaign) {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Услуга", style = MaterialTheme.typography.labelLarge)
+                        Text(t("Услуга"), style = MaterialTheme.typography.labelLarge)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            FilterChip(vm.serviceId == null, { vm.selectService(null) }, label = { Text("Без услуги") })
+                            FilterChip(vm.serviceId == null, { vm.selectService(null) }, label = { Text(t("Без услуги")) })
                             services.forEach { s ->
                                 FilterChip(vm.serviceId == s.id, { vm.selectService(s) }, label = { Text(s.name) })
                             }
-                            AssistChip(onClick = { newService = vm.draftService() }, label = { Text("Услуга") },
+                            AssistChip(onClick = { newService = vm.draftService() }, label = { Text(t("Услуга")) },
                                 leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
                         }
                         Text(
                             vm.service?.let { s ->
-                                if (s.ownTemplates == 0) "Сообщения — по общим шаблонам (у «${s.name}» своих нет)"
-                                else "Сообщения — по шаблонам услуги «${s.name}»"
-                            } ?: "Сообщения — по общим шаблонам",
+                                if (s.ownTemplates == 0) t("Сообщения — по общим шаблонам (у «%1\$s» своих нет)", s.name)
+                                else t("Сообщения — по шаблонам услуги «%1\$s»", s.name)
+                            } ?: t("Сообщения — по общим шаблонам"),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         OutlinedTextField(
-                            vm.title, { vm.title = it }, label = { Text("Услуга / тема") }, singleLine = true,
+                            vm.title, { vm.title = it }, label = { Text(t("Услуга / тема")) }, singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
-                            vm.place, { vm.place = it }, label = { Text("Место") }, singleLine = true,
+                            vm.place, { vm.place = it }, label = { Text(t("Место")) }, singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth(),
                         )
                         OutlinedTextField(
-                            vm.notes, { vm.notes = it }, label = { Text("Заметка для себя") },
+                            vm.notes, { vm.notes = it }, label = { Text(t("Заметка для себя")) },
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
                         )
@@ -436,7 +441,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             }
 
             item(key = "notify") {
-                SectionCard("Оповестить человека", Icons.Default.Send) {
+                SectionCard(t("Оповестить человека"), Icons.Default.Send) {
                     FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         NotifyChannel.entries.forEach { ch ->
                             val available = ch == NotifyChannel.NONE || vm.person?.let { Sender.targetFor(it, ch) } != null
@@ -453,18 +458,18 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                         if (vm.isNew) {
                             Row(Modifier.fillMaxWidth().clickable { vm.sendConfirm = !vm.sendConfirm }.padding(horizontal = 18.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("Сразу отправить подтверждение")
-                                    Text("Покажем текст перед отправкой — его можно поправить", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(t("Сразу отправить подтверждение"))
+                                    Text(t("Покажем текст перед отправкой — его можно поправить"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(vm.sendConfirm, { vm.sendConfirm = it })
                             }
                         }
-                        Text("Напоминания человеку", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 18.dp, top = 8.dp))
+                        Text(t("Напоминания человеку"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 18.dp, top = 8.dp))
                         OffsetChips(vm.clientOffsets, onCustom = { customFor = ReminderTarget.CLIENT })
                         ReminderSchedule(vm.startMillis, vm.clientOffsets, vm.original?.reminders.orEmpty().filter { it.target == ReminderTarget.CLIENT.name })
                     } else {
                         Text(
-                            "Человек не получит ни подтверждения, ни напоминаний",
+                            t("Человек не получит ни подтверждения, ни напоминаний"),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                         )
@@ -473,7 +478,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             }
 
             item(key = "me") {
-                SectionCard("Напомнить мне", Icons.Default.NotificationsActive) {
+                SectionCard(t("Напомнить мне"), Icons.Default.NotificationsActive) {
                     OffsetChips(vm.myOffsets, onCustom = { customFor = ReminderTarget.ME })
                     ReminderSchedule(vm.startMillis, vm.myOffsets, emptyList())
                 }
@@ -481,17 +486,17 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
 
             if (!vm.isNew) {
                 item(key = "actions") {
-                    SectionCard("Действия", Icons.Default.Check) {
+                    SectionCard(t("Действия"), Icons.Default.Check) {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Статус: ${status.title}", style = MaterialTheme.typography.bodyMedium)
+                            Text(t("Статус: %1\$s", status.title), style = MaterialTheme.typography.bodyMedium)
                             if (vm.channel != NotifyChannel.NONE && status == AppointmentStatus.PLANNED) {
                                 FilledTonalButton(onClick = { message = MessageKind.REMINDER; closeAfterMessage = false }, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Default.Send, null); Spacer(Modifier.width(8.dp)); Text("Напомнить сейчас")
+                                    Icon(Icons.Default.Send, null); Spacer(Modifier.width(8.dp)); Text(t("Напомнить сейчас"))
                                 }
                             }
                             if (status != AppointmentStatus.DONE) {
                                 OutlinedButton(onClick = { vm.setStatus(AppointmentStatus.DONE, onBack) }, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Default.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text("Состоялось")
+                                    Icon(Icons.Default.CheckCircle, null); Spacer(Modifier.width(8.dp)); Text(t("Состоялось"))
                                 }
                             }
                             if (status == AppointmentStatus.PLANNED) {
@@ -500,16 +505,16 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                                         if (vm.channel != NotifyChannel.NONE) { message = MessageKind.CANCEL; closeAfterMessage = true } else onBack()
                                     }
                                 }, modifier = Modifier.fillMaxWidth()) {
-                                    Icon(Icons.Default.Cancel, null); Spacer(Modifier.width(8.dp)); Text("Отменить запись")
+                                    Icon(Icons.Default.Cancel, null); Spacer(Modifier.width(8.dp)); Text(t("Отменить запись"))
                                 }
                             } else {
                                 OutlinedButton(onClick = { vm.restore(onBack) }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Вернуть в план")
+                                    Text(t("Вернуть в план"))
                                 }
                             }
                             TextButton(onClick = { confirmDelete = true }) {
                                 Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error); Spacer(Modifier.width(8.dp))
-                                Text("Удалить", color = MaterialTheme.colorScheme.error)
+                                Text(t("Удалить"), color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
@@ -531,21 +536,21 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                     pickDate = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(t("Отмена")) } },
         ) { DatePicker(state) }
     }
     if (pickTime) {
         val state = rememberTimePickerState(vm.time.hour, vm.time.minute, is24Hour = true)
         AlertDialog(
             onDismissRequest = { pickTime = false },
-            title = { Text("Время") },
+            title = { Text(t("Время")) },
             text = { TimePicker(state) },
             confirmButton = { TextButton(onClick = { vm.time = LocalTime.of(state.hour, state.minute); pickTime = false }) { Text("OK") } },
-            dismissButton = { TextButton(onClick = { pickTime = false }) { Text("Отмена") } },
+            dismissButton = { TextButton(onClick = { pickTime = false }) { Text(t("Отмена")) } },
         )
     }
     if (customDuration) {
-        NumberDialog("Длительность, минут", vm.duration, onDismiss = { customDuration = false }) { vm.duration = it.coerceIn(5, 24 * 60); customDuration = false }
+        NumberDialog(t("Длительность, минут"), vm.duration, onDismiss = { customDuration = false }) { vm.duration = it.coerceIn(5, 24 * 60); customDuration = false }
     }
     customFor?.let { target ->
         CustomOffsetDialog(onDismiss = { customFor = null }) { minutes ->
@@ -580,10 +585,10 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Удалить запись?") },
-            text = { Text("Запланированные напоминания тоже будут отменены.") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text("Удалить") } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Отмена") } },
+            title = { Text(t("Удалить запись?")) },
+            text = { Text(t("Запланированные напоминания тоже будут отменены.")) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text(t("Удалить")) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
     }
 }
@@ -596,7 +601,7 @@ private fun OffsetChips(list: MutableList<Int>, onCustom: () -> Unit) {
             val sel = off in list
             FilterChip(sel, { if (sel) list.remove(off) else { list.add(off); list.sort() } }, label = { Text(AppointmentLogic.offsetTitle(off)) })
         }
-        FilterChip(false, onCustom, label = { Text("Своё…") }, leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+        FilterChip(false, onCustom, label = { Text(t("Своё…")) }, leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
     }
 }
 
@@ -611,12 +616,12 @@ private fun ReminderSchedule(start: Long, offsets: List<Int>, existing: List<App
             val dt = AppointmentLogic.zoned(at)
             val sent = existing.any { it.offsetMin == off && it.sentAt != null }
             val text = when {
-                sent -> "✓ отправлено"
-                at <= now -> "время уже прошло — не будет отправлено"
-                else -> "${AppointmentLogic.dateText(dt)} в ${AppointmentLogic.timeText(dt)}"
+                sent -> t("✓ отправлено")
+                at <= now -> t("время уже прошло — не будет отправлено")
+                else -> t("%1\$s в %2\$s", AppointmentLogic.dateText(dt), AppointmentLogic.timeText(dt))
             }
             Text(
-                "• ${AppointmentLogic.offsetTitle(off)}: $text",
+                "• ${AppointmentLogic.offsetTitle(off)}: ${text}",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (at <= now && !sent) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -629,10 +634,10 @@ fun PersonPickerDialog(all: List<PersonFull>, onDismiss: () -> Unit, onPick: (Pe
     var q by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Кого записать?") },
+        title = { Text(t("Кого записать?")) },
         text = {
             Column {
-                OutlinedTextField(q, { q = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Имя, телефон, город…") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(q, { q = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(t("Имя, телефон, город…")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(ArchiveLogic.sort(ArchiveLogic.search(all, q), SortMode.NAME), key = { it.person.person.id }) { hit ->
                         Row(Modifier.fillMaxWidth().clickable { onPick(hit.person) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -648,7 +653,7 @@ fun PersonPickerDialog(all: List<PersonFull>, onDismiss: () -> Unit, onPick: (Pe
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }
 
@@ -656,11 +661,11 @@ fun PersonPickerDialog(all: List<PersonFull>, onDismiss: () -> Unit, onPick: (Pe
 @Composable
 private fun CustomOffsetDialog(onDismiss: () -> Unit, onSave: (Int) -> Unit) {
     var value by remember { mutableStateOf("2") }
-    val units = listOf("минут" to 1, "часов" to 60, "дней" to 24 * 60, "недель" to 7 * 24 * 60)
+    val units = listOf(t("минут") to 1, t("часов") to 60, t("дней") to 24 * 60, t("недель") to 7 * 24 * 60)
     var unit by remember { mutableStateOf(units[1]) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("За сколько напомнить") },
+        title = { Text(t("За сколько напомнить")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value, { v -> value = v.filter { it.isDigit() }.take(3) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
@@ -670,9 +675,9 @@ private fun CustomOffsetDialog(onDismiss: () -> Unit, onSave: (Int) -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(enabled = (value.toIntOrNull() ?: 0) > 0, onClick = { onSave(value.toInt() * unit.second) }) { Text("Добавить") }
+            TextButton(enabled = (value.toIntOrNull() ?: 0) > 0, onClick = { onSave(value.toInt() * unit.second) }) { Text(t("Добавить")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }
 
@@ -684,7 +689,7 @@ private fun NumberDialog(title: String, initial: Int, onDismiss: () -> Unit, onS
         title = { Text(title) },
         text = { OutlinedTextField(value, { v -> value = v.filter { it.isDigit() }.take(4) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)) },
         confirmButton = { TextButton(enabled = (value.toIntOrNull() ?: 0) > 0, onClick = { onSave(value.toInt()) }) { Text("OK") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }
 
@@ -723,9 +728,9 @@ fun SendMessageDialog(
         },
         confirmButton = {
             Button(enabled = text.isNotBlank() && person?.let { Sender.targetFor(it, ch) } != null, onClick = { onSend(ch, text.trim()) }) {
-                Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Отправить")
+                Icon(Icons.Default.Send, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("Отправить"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Не отправлять") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Не отправлять")) } },
     )
 }

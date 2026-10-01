@@ -1,5 +1,7 @@
 package com.kartoteka.app
 
+import com.kartoteka.app.i18n.t
+
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
@@ -54,7 +56,15 @@ class MainActivity : FragmentActivity() {
             KartotekaTheme {
                 if (locked) {
                     val custom by app.settings.appTitle.value.collectAsState()
-                    LockScreen(title = AppIcons.title(this, custom), onUnlock = ::authenticate)
+                    val pin = app.pinLock
+                    LockScreen(
+                        title = AppIcons.title(this, custom),
+                        pinLength = if (pin.hasPin) pin.length else null,
+                        biometric = app.settings.biometric.value && canUseBiometric(this),
+                        onBiometric = ::authenticate,
+                        onPin = { entered -> pin.verify(entered).also { if (it) unlock() } },
+                        waitMillis = { pin.waitMillis() },
+                    )
                 } else {
                     KartotekaRoot(
                         openPersonId = pendingPersonId,
@@ -116,31 +126,45 @@ class MainActivity : FragmentActivity() {
 
     fun authenticate() {
         if (authInProgress) return
-        val authenticators = BIOMETRIC_WEAK or DEVICE_CREDENTIAL
-        if (BiometricManager.from(this).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
-            // На устройстве нет ни отпечатка, ни PIN — блокировка невозможна.
-            locked = false
+        if (app.pinLock.hasPin) {
+            // Свой PIN-код приложения; отпечаток — по желанию. Без отпечатка просто показываем клавиатуру.
+            if (app.settings.biometric.value && canUseBiometric(this)) {
+                showPrompt(BIOMETRIC_WEAK, negativeText = t("PIN-код"))
+            }
             return
         }
+        // Блокировка из версий до 1.4: PIN или отпечаток самого телефона.
+        val authenticators = BIOMETRIC_WEAK or DEVICE_CREDENTIAL
+        if (BiometricManager.from(this).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
+            unlock()
+            return
+        }
+        showPrompt(authenticators, negativeText = null)
+    }
+
+    fun unlock() {
+        locked = false
+        runPendingReminder()
+    }
+
+    private fun showPrompt(authenticators: Int, negativeText: String?) {
         authInProgress = true
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this), object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 authInProgress = false
-                locked = false
-                runPendingReminder()
+                unlock()
             }
 
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 authInProgress = false
             }
         })
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle(AppIcons.title(this, app.settings.appTitle.value.value))
-                .setSubtitle("Подтвердите, что это вы")
-                .setAllowedAuthenticators(authenticators)
-                .build()
-        )
+        val info = BiometricPrompt.PromptInfo.Builder()
+            .setTitle(AppIcons.title(this, app.settings.appTitle.value.value))
+            .setSubtitle(t("Подтвердите, что это вы"))
+            .setAllowedAuthenticators(authenticators)
+        if (negativeText != null) info.setNegativeButtonText(negativeText)
+        prompt.authenticate(info.build())
     }
 
     /** Название в списке недавних приложений — под маскировку. */
@@ -158,6 +182,9 @@ class MainActivity : FragmentActivity() {
         const val EXTRA_STOP_AUTOSEND = "stop_autosend"
         private const val KEY_UNLOCKED = "unlocked"
         private const val LOCK_TIMEOUT_MS = 60_000L
+
+        fun canUseBiometric(context: android.content.Context): Boolean =
+            BiometricManager.from(context).canAuthenticate(BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS
 
         fun canUseLock(activity: FragmentActivity): Boolean =
             BiometricManager.from(activity).canAuthenticate(BIOMETRIC_WEAK or DEVICE_CREDENTIAL) == BiometricManager.BIOMETRIC_SUCCESS

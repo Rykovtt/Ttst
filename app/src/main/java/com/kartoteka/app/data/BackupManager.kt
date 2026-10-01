@@ -1,5 +1,7 @@
 package com.kartoteka.app.data
 
+import com.kartoteka.app.i18n.t
+
 import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
@@ -27,7 +29,7 @@ import javax.crypto.spec.SecretKeySpec
  */
 class BackupManager(private val context: Context, private val repo: Repository) {
 
-    class WrongPasswordException : Exception("Неверный пароль или повреждённый файл")
+    class WrongPasswordException : Exception(t("Неверный пароль или повреждённый файл"))
 
     suspend fun export(uri: Uri, password: String): Int {
         val all = repo.getAll()

@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.map
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -62,9 +64,9 @@ fun LocationPickerDialog(
 
     fun search() {
         scope.launch {
-            status = "Ищем…"
+            status = t("Ищем…")
             val found = Geo.locate(context, query)
-            if (found != null) { point = found; fitKey++; status = null } else status = "Адрес не найден — отметьте точку касанием"
+            if (found != null) { point = found; fitKey++; status = null } else status = t("Адрес не найден — отметьте точку касанием")
         }
     }
 
@@ -74,18 +76,18 @@ fun LocationPickerDialog(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Точка на карте") },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "Закрыть") } },
+                    title = { Text(t("Точка на карте")) },
+                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, t("Закрыть")) } },
                 )
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(
-                        query, { query = it }, singleLine = true, placeholder = { Text("Город, улица, дом") },
+                        query, { query = it }, singleLine = true, placeholder = { Text(t("Город, улица, дом")) },
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = ::search) { Icon(Icons.Default.Search, "Найти") }
+                    IconButton(onClick = ::search) { Icon(Icons.Default.Search, t("Найти")) }
                 }
                 Box(Modifier.weight(1f)) {
                     val p = point
@@ -102,7 +104,7 @@ fun LocationPickerDialog(
                     ) {
                         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.TouchApp, null, Modifier.padding(end = 6.dp))
-                            Text(status ?: "Коснитесь карты, чтобы поставить точку", style = MaterialTheme.typography.labelLarge)
+                            Text(status ?: t("Коснитесь карты, чтобы поставить точку"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -114,7 +116,7 @@ fun LocationPickerDialog(
                             val addr = if (query.isBlank()) Geo.addressOf(context, p.first, p.second) else null
                             onPick(p.first, p.second, addr)
                         }
-                    }) { Text("Готово") }
+                    }) { Text(t("Готово")) }
                     Spacer(Modifier.width(4.dp))
                 }
             }

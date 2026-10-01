@@ -1,5 +1,7 @@
 package com.kartoteka.app.messaging
 
+import com.kartoteka.app.i18n.t
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -9,12 +11,15 @@ import com.kartoteka.app.data.PersonFull
 
 /** Отправка одного сообщения человеку выбранным способом — максимально автоматически. */
 object Sender {
-    enum class Result(val message: String) {
+    enum class Result(private val messageRu: String) {
         SENT("Отправлено"),
         QUEUED("Отправляется автоматически…"),
         OPENED("Чат открыт — нажмите «Отправить»"),
         NO_CONTACT("Нет контакта для выбранного способа"),
         FAILED("Не удалось отправить"),
+        ;
+
+        val message: String get() = t(messageRu)
     }
 
     fun targetFor(pf: PersonFull, ch: NotifyChannel): String? = when (ch) {

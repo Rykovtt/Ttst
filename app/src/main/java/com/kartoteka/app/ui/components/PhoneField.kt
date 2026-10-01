@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.components
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,7 +63,7 @@ fun PhoneField(
         )
         if (value.isNotBlank() && normalized != value.trim()) {
             Text(
-                "Сохранится: ${PhoneFormat.pretty(normalized, country)}",
+                t("Сохранится: %1\$s", PhoneFormat.pretty(normalized, country)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 12.dp, top = 2.dp),
@@ -76,19 +78,19 @@ fun CountryPickerDialog(onDismiss: () -> Unit, onPick: (Country) -> Unit) {
     var q by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Страна") },
+        title = { Text(t("Страна")) },
         text = {
             Column {
-                OutlinedTextField(q, { q = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text("Поиск") }, singleLine = true)
+                OutlinedTextField(q, { q = it }, leadingIcon = { Icon(Icons.Default.Search, null) }, placeholder = { Text(t("Поиск")) }, singleLine = true)
                 LazyColumn(Modifier.heightIn(max = 400.dp)) {
-                    items(PhoneFormat.countries.filter { q.isBlank() || it.name.contains(q.trim(), true) || it.code.startsWith(q.trim().removePrefix("+")) }) { c ->
+                    items(PhoneFormat.countries.filter { q.isBlank() || t(it.name).contains(q.trim(), true) || it.code.startsWith(q.trim().removePrefix("+")) }) { c ->
                         Row(
                             Modifier.fillMaxWidth().clickable { onPick(c) }.padding(vertical = 10.dp, horizontal = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(c.flag, style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.width(12.dp))
-                            Text(c.name, modifier = Modifier.weight(1f))
+                            Text(t(c.name), modifier = Modifier.weight(1f))
                             Text("+${c.code}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -96,6 +98,6 @@ fun CountryPickerDialog(onDismiss: () -> Unit, onPick: (Country) -> Unit) {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Отмена")) } },
     )
 }

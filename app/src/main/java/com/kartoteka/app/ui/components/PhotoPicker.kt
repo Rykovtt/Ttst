@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.components
 
+import com.kartoteka.app.i18n.t
+
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -57,12 +59,12 @@ fun rememberPhotoPicker(multiple: Boolean, onPicked: (List<Uri>) -> Unit): Photo
 fun PhotoSourceMenu(expanded: Boolean, onDismiss: () -> Unit, picker: PhotoPicker) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
-            text = { Text("Из галереи") },
+            text = { Text(t("Из галереи")) },
             leadingIcon = { Icon(Icons.Default.PhotoLibrary, null) },
             onClick = { onDismiss(); picker.gallery() },
         )
         DropdownMenuItem(
-            text = { Text("Сделать снимок") },
+            text = { Text(t("Сделать снимок")) },
             leadingIcon = { Icon(Icons.Default.PhotoCamera, null) },
             onClick = { onDismiss(); picker.camera() },
         )

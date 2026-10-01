@@ -94,16 +94,27 @@ class AppointmentLogicTest {
         val now = LocalDateTime.of(2026, 10, 1, 9, 0)
         val tpl = MessageLang.UK.template(TemplateKind.REMINDER)
         assertEquals(
-            "Анна, нагадую про запис: завтра о 14:30.\nСтрижка\nЯкщо плани змінилися — будь ласка, повідомте.",
+            "Доброго ранку, Анна! Нагадую про запис: завтра о 14:30.\nСтрижка\nЯкщо плани змінилися — будь ласка, повідомте.",
             AppointmentLogic.fill(tpl, appt, anna, MessageLang.UK, now),
         )
         val confirm = AppointmentLogic.fill(MessageLang.UK.template(TemplateKind.CONFIRM), appt, anna, MessageLang.UK, now)
-        assertEquals("Анна, добрий день! Підтверджую ваш запис: 2 жовтня (пʼятниця) о 14:30.\nСтрижка", confirm)
+        assertEquals("Доброго ранку, Анна! Підтверджую ваш запис: 2 жовтня (пʼятниця) о 14:30.\nСтрижка", confirm)
     }
 
     @Test fun englishDates() {
-        val text = AppointmentLogic.fill(MessageLang.EN.template(TemplateKind.CONFIRM), appt, anna, MessageLang.EN)
-        assertEquals("Hi Анна! Your appointment is confirmed: Friday, October 2 at 14:30.\nСтрижка", text)
+        val evening = LocalDateTime.of(2026, 10, 1, 19, 0)
+        val text = AppointmentLogic.fill(MessageLang.EN.template(TemplateKind.CONFIRM), appt, anna, MessageLang.EN, evening)
+        assertEquals("Good evening, Анна! Your appointment is confirmed: Friday, October 2 at 14:30.\nСтрижка", text)
+    }
+
+    @Test fun greetingDependsOnTimeOfSending() {
+        fun at(h: Int) = ArchiveLogic.fillTemplate("{приветствие}, {имя}!", anna, MessageLang.RU, java.time.LocalTime.of(h, 0))
+        assertEquals("Доброе утро, Анна!", at(8))
+        assertEquals("Добрый день, Анна!", at(13))
+        assertEquals("Добрый вечер, Анна!", at(19))
+        assertEquals("Доброй ночи, Анна!", at(2))
+        // Токен на другом языке тоже понимается
+        assertEquals("Добрий вечір, Анна!", ArchiveLogic.fillTemplate("{привітання}, {імʼя}!", anna, MessageLang.UK, java.time.LocalTime.of(18, 30)))
     }
 
     @Test fun placeholdersInAnyLanguage() {

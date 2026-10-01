@@ -1,5 +1,7 @@
 package com.kartoteka.app.messaging
 
+import com.kartoteka.app.i18n.t
+
 import android.accessibilityservice.AccessibilityService
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
@@ -58,7 +60,7 @@ class AutoSendService : AccessibilityService() {
 
     private fun findSend(root: AccessibilityNodeInfo, pkg: String): AccessibilityNodeInfo? {
         if (pkg.startsWith("com.whatsapp")) {
-            root.findAccessibilityNodeInfosByViewId("$pkg:id/send").firstOrNull { it.isVisibleToUser }?.let { return it }
+            root.findAccessibilityNodeInfosByViewId("${pkg}:id/send").firstOrNull { it.isVisibleToUser }?.let { return it }
         }
         return find(root) { n ->
             val d = n.contentDescription?.toString()?.trim()?.lowercase() ?: return@find false

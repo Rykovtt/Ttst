@@ -1,5 +1,7 @@
 package com.kartoteka.app.messaging
 
+import com.kartoteka.app.i18n.t
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -169,7 +171,7 @@ object AutoSend {
             NotifyChannel.WHATSAPP -> {
                 val digits = ArchiveLogic.normalizePhone(job.target).removePrefix("+")
                 val pkg = if (Messaging.isInstalled(context, Messaging.WHATSAPP)) Messaging.WHATSAPP else "com.whatsapp.w4b"
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=$digits&text=" + Uri.encode(job.text)))
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=${digits}&text=" + Uri.encode(job.text)))
                     .setPackage(pkg)
             }
             NotifyChannel.TELEGRAM -> {
@@ -189,7 +191,7 @@ object AutoSend {
 
     private fun notify(p: AutoSendProgress) {
         val nm = appContext.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Авто-рассылка", NotificationManager.IMPORTANCE_LOW))
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, t("Авто-рассылка"), NotificationManager.IMPORTANCE_LOW))
         val stop = PendingIntent.getActivity(
             appContext, 1,
             Intent(appContext, MainActivity::class.java).putExtra(MainActivity.EXTRA_STOP_AUTOSEND, true)
@@ -199,12 +201,12 @@ object AutoSend {
         val current = p.jobs.getOrNull(index)?.name.orEmpty()
         val n = NotificationCompat.Builder(appContext, CHANNEL)
             .setSmallIcon(com.kartoteka.app.AppIcons.notificationIcon(appContext))
-            .setContentTitle("Рассылка: ${p.done} из ${p.jobs.size}")
-            .setContentText(if (current.isNotBlank()) "Сейчас: $current" else "")
+            .setContentTitle(t("Рассылка: %1\$s из %2\$s", p.done, p.jobs.size))
+            .setContentText(if (current.isNotBlank()) t("Сейчас: %1\$s", current) else "")
             .setProgress(p.jobs.size, p.done, false)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(0, "Остановить", stop)
+            .addAction(0, t("Остановить"), stop)
             .build()
         runCatching { nm.notify(NOTIFICATION_ID, n) }
     }

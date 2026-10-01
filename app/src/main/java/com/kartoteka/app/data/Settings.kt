@@ -1,5 +1,7 @@
 package com.kartoteka.app.data
 
+import com.kartoteka.app.i18n.t
+
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,6 +12,11 @@ class Settings(context: Context) {
 
     private val _lockEnabled = MutableStateFlow(prefs.getBoolean(LOCK, false))
     val lockEnabled: StateFlow<Boolean> = _lockEnabled.asStateFlow()
+
+    private val _biometric = MutableStateFlow(prefs.getBoolean(BIOMETRIC, false))
+    /** Вход по отпечатку вместо PIN-кода. */
+    val biometric: StateFlow<Boolean> = _biometric.asStateFlow()
+    fun setBiometric(v: Boolean) { prefs.edit().putBoolean(BIOMETRIC, v).apply(); _biometric.value = v }
 
     private val _secureScreen = MutableStateFlow(prefs.getBoolean(SECURE, true))
     val secureScreen: StateFlow<Boolean> = _secureScreen.asStateFlow()
@@ -24,6 +31,9 @@ class Settings(context: Context) {
     fun setSecureScreen(v: Boolean) { prefs.edit().putBoolean(SECURE, v).apply(); _secureScreen.value = v }
     fun setBirthdayReminders(v: Boolean) { prefs.edit().putBoolean(BIRTHDAYS, v).apply(); _birthdayReminders.value = v }
     fun setSortMode(v: SortMode) { prefs.edit().putString(SORT, v.name).apply(); _sortMode.value = v }
+
+    /** Язык интерфейса: auto (как в системе), ru, uk, en. */
+    val uiLang = StringPref("ui_lang", "auto")
 
     /** Своё название внутри приложения; пусто — как у значка. */
     val appTitle = StringPref("app_title", "")
@@ -68,17 +78,21 @@ class Settings(context: Context) {
 
     private companion object {
         const val LOCK = "lock"
+        const val BIOMETRIC = "biometric"
         const val SECURE = "secure_screen"
         const val BIRTHDAYS = "birthdays"
         const val SORT = "sort"
     }
 }
 
-enum class SortMode(val title: String) {
+enum class SortMode(private val titleRu: String) {
     NAME("По имени"),
     RECENT("Недавно добавленные"),
     CLOSENESS("По близости"),
     LONG_AGO("Давно не общались");
+
+    /** Название на языке интерфейса. */
+    val title: String get() = t(titleRu)
 
     companion object {
         fun of(name: String?) = entries.firstOrNull { it.name == name } ?: NAME

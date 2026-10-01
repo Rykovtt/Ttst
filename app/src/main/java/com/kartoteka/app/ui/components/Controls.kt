@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.components
 
+import com.kartoteka.app.i18n.t
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
