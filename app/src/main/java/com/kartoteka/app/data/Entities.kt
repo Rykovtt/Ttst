@@ -237,6 +237,8 @@ data class Appointment(
     val channel: String = NotifyChannel.NONE.name,
     val status: String = AppointmentStatus.PLANNED.name,
     val createdAt: Long = System.currentTimeMillis(),
+    /** Услуга, по шаблонам которой пишем человеку; null — общие шаблоны. */
+    val serviceId: Long? = null,
 ) {
     val end: Long get() = start + durationMin * 60_000L
     val notifyChannel: NotifyChannel get() = NotifyChannel.of(channel)
@@ -283,3 +285,40 @@ data class AppointmentFull(
     @Relation(parentColumn = "id", entityColumn = "appointmentId")
     val reminders: List<AppointmentReminder>,
 )
+
+/**
+ * Услуга (шаблон записи): «Тату-сеанс», «Консультация»…
+ * Свои длительность, место, напоминания и тексты сообщений.
+ * Пустой текст — используется общий шаблон из настроек.
+ */
+@Entity(tableName = "services")
+data class ServiceTemplate(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val durationMin: Int = 60,
+    val place: String = "",
+    /** За сколько минут напомнить человеку / мне, через запятую. */
+    val clientOffsets: String = "",
+    val myOffsets: String = "",
+    val tplConfirm: String = "",
+    val tplReminder: String = "",
+    val tplReschedule: String = "",
+    val tplCancel: String = "",
+    val position: Int = 0,
+) {
+    fun template(kind: TemplateKind): String = when (kind) {
+        TemplateKind.CONFIRM -> tplConfirm
+        TemplateKind.REMINDER -> tplReminder
+        TemplateKind.RESCHEDULE -> tplReschedule
+        TemplateKind.CANCEL -> tplCancel
+    }
+
+    fun withTemplate(kind: TemplateKind, text: String): ServiceTemplate = when (kind) {
+        TemplateKind.CONFIRM -> copy(tplConfirm = text)
+        TemplateKind.REMINDER -> copy(tplReminder = text)
+        TemplateKind.RESCHEDULE -> copy(tplReschedule = text)
+        TemplateKind.CANCEL -> copy(tplCancel = text)
+    }
+
+    val ownTemplates: Int get() = TemplateKind.entries.count { template(it).isNotBlank() }
+}

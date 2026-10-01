@@ -142,6 +142,20 @@ class Repository(
     suspend fun markReminderSent(id: Long) = dao.markReminderSent(id, System.currentTimeMillis())
     suspend fun upcomingReminders(since: Long) = dao.upcomingReminders(since)
 
+    // --- услуги ---
+    fun observeServices() = dao.observeServices()
+    suspend fun getServices() = dao.getServices()
+    suspend fun getService(id: Long?) = id?.let { dao.getService(it) }
+
+    suspend fun saveService(s: ServiceTemplate): Long =
+        if (s.id == 0L) dao.insertService(s.copy(name = s.name.trim())) else s.id.also { dao.updateService(s.copy(name = s.name.trim())) }
+
+    /** Записи остаются, но дальше пишут по общим шаблонам. */
+    suspend fun deleteService(id: Long) = db.withTransaction {
+        dao.detachService(id)
+        dao.deleteService(id)
+    }
+
     internal val rawDao get() = dao
     internal val database get() = db
 }

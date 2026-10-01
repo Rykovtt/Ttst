@@ -192,6 +192,28 @@ interface ArchiveDao {
     @Query("SELECT * FROM appointment_reminders WHERE sentAt IS NULL AND fireAt > :since")
     suspend fun upcomingReminders(since: Long): List<AppointmentReminder>
 
+    // --- услуги ---
+    @Query("SELECT * FROM services ORDER BY position, name COLLATE NOCASE")
+    fun observeServices(): Flow<List<ServiceTemplate>>
+
+    @Query("SELECT * FROM services ORDER BY position, name COLLATE NOCASE")
+    suspend fun getServices(): List<ServiceTemplate>
+
+    @Query("SELECT * FROM services WHERE id = :id")
+    suspend fun getService(id: Long): ServiceTemplate?
+
+    @Insert
+    suspend fun insertService(s: ServiceTemplate): Long
+
+    @Update
+    suspend fun updateService(s: ServiceTemplate)
+
+    @Query("DELETE FROM services WHERE id = :id")
+    suspend fun deleteService(id: Long)
+
+    @Query("UPDATE appointments SET serviceId = NULL WHERE serviceId = :id")
+    suspend fun detachService(id: Long)
+
     @Transaction
     suspend fun savePerson(
         person: Person,

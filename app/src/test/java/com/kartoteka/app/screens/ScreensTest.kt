@@ -108,9 +108,14 @@ class ScreensTest {
         repo.addRelation(anna, dima, RelationType.SPOUSE)
         repo.addRelation(anna, ivan, RelationType.COLLEAGUE)
 
+        val tattooId = repo.saveService(com.kartoteka.app.data.ServiceTemplate(name = "Тату-сеанс", durationMin = 180, place = "Студия на Подоле",
+            clientOffsets = "1440,120", myOffsets = "60",
+            tplReminder = "{имя}, завтра тату-сеанс в {время}. Выспитесь и хорошо поешьте!"))
+        repo.saveService(com.kartoteka.app.data.ServiceTemplate(name = "Консультация", durationMin = 30, clientOffsets = "120", myOffsets = "30",
+            tplConfirm = "{имя}, жду вас на консультацию {дата} в {время}.", tplReminder = "{имя}, напоминаю: консультация {когда} в {время}. Возьмите референсы."))
         val today = LocalDate.now()
         fun at(d: LocalDate, h: Int, m: Int) = AppointmentLogic.millis(d.atTime(h, m))
-        repo.saveAppointment(Appointment(personId = anna, start = at(today, 14, 30), durationMin = 60, title = "Стрижка и укладка", place = "Салон на Саксаганского", channel = "WHATSAPP"), listOf(24 * 60, 120), listOf(30))
+        repo.saveAppointment(Appointment(personId = anna, start = at(today, 14, 30), durationMin = 60, title = "Стрижка и укладка", place = "Салон на Саксаганского", channel = "WHATSAPP", serviceId = tattooId), listOf(24 * 60, 120), listOf(30))
         repo.saveAppointment(Appointment(personId = ivan, start = at(today, 17, 0), durationMin = 45, title = "Обсудить проект", channel = "TELEGRAM"), listOf(60), listOf(15))
         repo.saveAppointment(Appointment(personId = mama, start = at(today.plusDays(2), 11, 0), durationMin = 90, title = "Врач", channel = "SMS"), listOf(24 * 60), listOf(60))
         repo.saveAppointment(Appointment(personId = dima, start = at(today.plusDays(5), 19, 0), durationMin = 120, title = "Ужин", channel = "NONE"), emptyList(), listOf(120))
@@ -162,6 +167,20 @@ class ScreensTest {
         settle()
         shot("13_appointment_reminders")
         compose.onNodeWithContentDescription("Закрыть").performClick()
+        settle()
+
+        compose.onNodeWithText("Настройки").performClick()
+        settle()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Услуги и их шаблоны"))
+        compose.onNodeWithText("Услуги и их шаблоны").performClick()
+        settle()
+        shot("17_services")
+        compose.onNodeWithText("Консультация").performClick()
+        settle()
+        screenShot("18_service_editor")
+        compose.onNodeWithContentDescription("Закрыть").performClick()
+        settle()
+        compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
         compose.onNodeWithText("Карта").performClick()

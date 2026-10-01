@@ -41,6 +41,7 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import com.kartoteka.app.ui.components.AssistChip
 import com.kartoteka.app.ui.components.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,7 +51,6 @@ import com.kartoteka.app.ui.components.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import com.kartoteka.app.ui.components.SuggestionChip
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,6 +86,7 @@ import com.kartoteka.app.data.JournalEntry
 import com.kartoteka.app.data.NotifyChannel
 import com.kartoteka.app.data.PersonFull
 import com.kartoteka.app.data.ReminderTarget
+import com.kartoteka.app.data.ServiceTemplate
 import com.kartoteka.app.data.SortMode
 import com.kartoteka.app.data.TemplateKind
 import com.kartoteka.app.messaging.Sender
@@ -129,13 +130,13 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
     var dayOthers by mutableStateOf<List<AppointmentFull>>(emptyList())
     var saving by mutableStateOf(false)
     val everyone = repo.observeAll().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    var recentTitles by mutableStateOf<List<String>>(emptyList())
+    val services = repo.observeServices().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    var serviceId by mutableStateOf<Long?>(null)
+    val service: ServiceTemplate? get() = services.value.firstOrNull { it.id == serviceId }
 
     init {
         viewModelScope.launch {
             val all = repo.getAll()
-            recentTitles = repo.appointmentsBetween(0, Long.MAX_VALUE / 2).sortedByDescending { it.appointment.start }
-                .map { it.appointment.title.trim() }.filter { it.isNotBlank() }.distinct().take(8)
             if (!isNew) {
                 repo.getAppointment(id)?.let { af ->
                     val a = af.appointment
@@ -143,6 +144,7 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
                     val dt = AppointmentLogic.zoned(a.start)
                     date = dt.toLocalDate(); time = dt.toLocalTime(); duration = a.durationMin
                     title = a.title; place = a.place; notes = a.notes
+                    serviceId = a.serviceId
                     channel = a.notifyChannel
                     sendConfirm = false
                     clientOffsets.clear(); clientOffsets.addAll(af.reminders.filter { it.target == ReminderTarget.CLIENT.name }.map { it.offsetMin }.distinct().sorted())
@@ -155,6 +157,31 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
             loadDay()
             loaded = true
         }
+    }
+
+    /** Выбор услуги подставляет её название, длительность, место и напоминания. */
+    fun selectService(s: ServiceTemplate?) {
+        serviceId = s?.id
+        if (s == null) return
+        title = s.name
+        duration = s.durationMin
+        if (s.place.isNotBlank()) place = s.place
+        clientOffsets.clear(); clientOffsets.addAll(AppointmentLogic.offsetsFromString(s.clientOffsets))
+        myOffsets.clear(); myOffsets.addAll(AppointmentLogic.offsetsFromString(s.myOffsets))
+    }
+
+    /** Новая услуга из того, что уже введено в записи. */
+    fun draftService(): ServiceTemplate = com.kartoteka.app.ui.services.newService(settings, title.trim(), duration).copy(
+        place = place.trim(),
+        clientOffsets = AppointmentLogic.offsetsToString(clientOffsets),
+        myOffsets = AppointmentLogic.offsetsToString(myOffsets),
+    )
+
+    fun createService(s: ServiceTemplate) = viewModelScope.launch {
+        val id = repo.saveService(s)
+        serviceId = id
+        title = s.name
+        duration = s.durationMin
     }
 
     fun selectPerson(pf: PersonFull) {
@@ -177,6 +204,7 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
         title = title.trim(), place = place.trim(), notes = notes.trim(), channel = channel.name,
         status = original?.appointment?.status ?: AppointmentStatus.PLANNED.name,
         createdAt = original?.appointment?.createdAt ?: System.currentTimeMillis(),
+        serviceId = serviceId,
     )
 
     val conflicts get() = AppointmentLogic.conflicts(draft(), dayOthers)
@@ -185,7 +213,8 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
 
     fun previewText(kind: MessageKind, lang: com.kartoteka.app.data.MessageLang = langOf()): String {
         val p = person?.person ?: return ""
-        return AppointmentLogic.fill(settings.template(kind.template, lang).value.value, draft(), p, lang)
+        val template = AppointmentLogic.messageTemplate(service, kind.template, settings.template(kind.template, lang).value.value)
+        return AppointmentLogic.fill(template, draft(), p, lang)
     }
 
     /** Сохраняет и возвращает, какое сообщение предложить отправить (или null). */
@@ -273,6 +302,8 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
     var closeAfterMessage by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var customDuration by remember { mutableStateOf(false) }
+    var newService by remember { mutableStateOf<ServiceTemplate?>(null) }
+    val services by vm.services.collectAsState()
 
     BackHandler(onBack = onBack)
     val status = vm.original?.appointment?.appointmentStatus ?: AppointmentStatus.PLANNED
@@ -369,16 +400,27 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             item(key = "what") {
                 SectionCard("Что и где", Icons.Default.Campaign) {
                     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Услуга", style = MaterialTheme.typography.labelLarge)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(vm.serviceId == null, { vm.selectService(null) }, label = { Text("Без услуги") })
+                            services.forEach { s ->
+                                FilterChip(vm.serviceId == s.id, { vm.selectService(s) }, label = { Text(s.name) })
+                            }
+                            AssistChip(onClick = { newService = vm.draftService() }, label = { Text("Услуга") },
+                                leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
+                        }
+                        Text(
+                            vm.service?.let { s ->
+                                if (s.ownTemplates == 0) "Сообщения — по общим шаблонам (у «${s.name}» своих нет)"
+                                else "Сообщения — по шаблонам услуги «${s.name}»"
+                            } ?: "Сообщения — по общим шаблонам",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         OutlinedTextField(
                             vm.title, { vm.title = it }, label = { Text("Услуга / тема") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        if (vm.recentTitles.isNotEmpty()) {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                vm.recentTitles.forEach { t -> SuggestionChip(onClick = { vm.title = t }, label = { Text(t) }) }
-                            }
-                        }
                         OutlinedTextField(
                             vm.place, { vm.place = it }, label = { Text("Место") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -525,6 +567,14 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
                 message = null
                 if (closeAfterMessage) onBack()
             },
+        )
+    }
+    newService?.let { s ->
+        com.kartoteka.app.ui.services.ServiceEditor(
+            service = s,
+            onDismiss = { newService = null },
+            onSave = { vm.createService(it); newService = null },
+            onDelete = null,
         )
     }
     if (confirmDelete) {

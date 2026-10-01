@@ -34,12 +34,13 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         val groups = repo.getGroups()
         val relations = repo.rawDao.getRelations()
         val appointments = repo.rawDao.allAppointments()
+        val services = repo.getServices()
         val out = context.contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
         out.use { raw ->
             val stream = wrapOutput(raw, password)
             ZipOutputStream(stream).use { zip ->
                 zip.putNextEntry(ZipEntry("data.json"))
-                zip.write(toJson(all, groups, relations, appointments).toString().toByteArray())
+                zip.write(toJson(all, groups, relations, appointments, services).toString().toByteArray())
                 zip.closeEntry()
                 val files = all.flatMap { pf -> pf.photos.map { it.path } + listOfNotNull(pf.person.avatarPath) }.toSet()
                 files.map(::File).filter { it.exists() }.forEach { f ->
@@ -157,6 +158,22 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                 val b = personMap[r.getLong("relatedId")] ?: return@forEach
                 if (dao.relationCount(a, b) == 0) dao.insertRelation(Relation(personId = a, relatedId = b, type = r.optString("type")))
             }
+            // Услуги: совпадающие по названию не дублируем.
+            val existingServices = dao.getServices().associateBy { it.name }
+            val serviceMap = HashMap<Long, Long>()
+            data.optJSONArray("services")?.objects()?.forEach { j ->
+                val name = j.optString("name").trim()
+                if (name.isEmpty()) return@forEach
+                serviceMap[j.getLong("id")] = existingServices[name]?.id ?: dao.insertService(
+                    ServiceTemplate(
+                        name = name, durationMin = j.optInt("durationMin", 60), place = j.optString("place"),
+                        clientOffsets = j.optString("clientOffsets"), myOffsets = j.optString("myOffsets"),
+                        tplConfirm = j.optString("tplConfirm"), tplReminder = j.optString("tplReminder"),
+                        tplReschedule = j.optString("tplReschedule"), tplCancel = j.optString("tplCancel"),
+                        position = j.optInt("position"),
+                    )
+                )
+            }
             data.optJSONArray("appointments")?.objects()?.forEach { j ->
                 val pid = personMap[j.getLong("personId")] ?: return@forEach
                 val a = Appointment(
@@ -164,6 +181,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     title = j.optString("title"), place = j.optString("place"), notes = j.optString("notes"),
                     channel = j.optString("channel", NotifyChannel.NONE.name), status = j.optString("status", AppointmentStatus.PLANNED.name),
                     createdAt = j.optLong("createdAt", System.currentTimeMillis()),
+                    serviceId = j.optLongOrNull("serviceId")?.let { serviceMap[it] },
                 )
                 val aid = dao.insertAppointment(a)
                 val reminders = if (a.appointmentStatus == AppointmentStatus.PLANNED) AppointmentLogic.buildReminders(
@@ -179,15 +197,27 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         return count
     }
 
-    private fun toJson(all: List<PersonFull>, groups: List<Group>, relations: List<Relation>, appointments: List<AppointmentFull>): JSONObject = JSONObject().apply {
+    private fun toJson(
+        all: List<PersonFull>,
+        groups: List<Group>,
+        relations: List<Relation>,
+        appointments: List<AppointmentFull>,
+        services: List<ServiceTemplate>,
+    ): JSONObject = JSONObject().apply {
         put("format", "kartoteka")
-        put("version", 2)
+        put("version", 3)
+        put("services", JSONArray(services.map { s ->
+            JSONObject().put("id", s.id).put("name", s.name).put("durationMin", s.durationMin).put("place", s.place)
+                .put("clientOffsets", s.clientOffsets).put("myOffsets", s.myOffsets)
+                .put("tplConfirm", s.tplConfirm).put("tplReminder", s.tplReminder)
+                .put("tplReschedule", s.tplReschedule).put("tplCancel", s.tplCancel).put("position", s.position)
+        }))
         put("relations", JSONArray(relations.map { JSONObject().put("personId", it.personId).put("relatedId", it.relatedId).put("type", it.type) }))
         put("appointments", JSONArray(appointments.map { af ->
             val a = af.appointment
             JSONObject().put("personId", a.personId).put("start", a.start).put("durationMin", a.durationMin)
                 .put("title", a.title).put("place", a.place).put("notes", a.notes).put("channel", a.channel)
-                .put("status", a.status).put("createdAt", a.createdAt)
+                .put("status", a.status).put("createdAt", a.createdAt).put("serviceId", a.serviceId)
                 .put("clientOffsets", AppointmentLogic.offsetsToString(af.reminders.filter { it.target == ReminderTarget.CLIENT.name }.map { it.offsetMin }))
                 .put("myOffsets", AppointmentLogic.offsetsToString(af.reminders.filter { it.target == ReminderTarget.ME.name }.map { it.offsetMin }))
         }))

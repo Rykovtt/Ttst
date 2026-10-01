@@ -77,6 +77,7 @@ object Routes {
     const val IMPORT = "import"
     const val CALENDAR = "calendar"
     const val MAP = "map"
+    const val SERVICES = "services"
     const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
     fun person(id: Long) = "person/$id"
@@ -210,7 +211,7 @@ fun KartotekaRoot(
                 )
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(onImportContacts = { nav.navigate(Routes.IMPORT) })
+                SettingsScreen(onImportContacts = { nav.navigate(Routes.IMPORT) }, onServices = { nav.navigate(Routes.SERVICES) })
             }
             composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
                 val id = e.arguments!!.getLong("id")
@@ -259,6 +260,9 @@ fun KartotekaRoot(
                     onOpenPerson = { nav.navigate(Routes.person(it)) },
                     onBroadcast = { nav.navigate(Routes.broadcast(groupId = id)) },
                 )
+            }
+            composable(Routes.SERVICES) {
+                com.kartoteka.app.ui.services.ServicesScreen(onBack = { nav.popBackStack() })
             }
             composable(Routes.IMPORT) {
                 ImportContactsScreen(onBack = { nav.popBackStack() })

@@ -78,7 +78,7 @@ private sealed interface BackupDialog {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onImportContacts: () -> Unit) {
+fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
     val app = app()
     val context = LocalContext.current
     val settings = app.settings
@@ -160,7 +160,7 @@ fun SettingsScreen(onImportContacts: () -> Unit) {
         }
 
         SectionCard("Записи и календарь", Icons.Default.CalendarMonth) {
-            CalendarSettings(settings)
+            CalendarSettings(settings, onServices)
         }
 
         SectionCard("Авто-отправка в мессенджерах", Icons.Default.AutoMode) {

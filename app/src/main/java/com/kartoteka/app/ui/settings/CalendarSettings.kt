@@ -42,7 +42,7 @@ import com.kartoteka.app.data.Settings
 /** Настройки записей: способ оповещения, напоминания по умолчанию, шаблоны сообщений. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CalendarSettings(settings: Settings) {
+fun CalendarSettings(settings: Settings, onServices: () -> Unit = {}) {
     val channel by settings.apptChannel.value.collectAsState()
     val duration by settings.apptDuration.value.collectAsState()
     val client by settings.apptClientOffsets.value.collectAsState()
@@ -53,6 +53,13 @@ fun CalendarSettings(settings: Settings) {
     var tplLang by remember(defaultLang) { mutableStateOf(MessageLang.of(defaultLang) ?: MessageLang.RU) }
 
     Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().clickable(onClick = onServices).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Услуги и их шаблоны", style = MaterialTheme.typography.bodyLarge)
+                Text("Тату-сеанс, консультация… — свои тексты и напоминания", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+        }
         Label("Как оповещать по умолчанию")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             NotifyChannel.entries.forEach { c -> FilterChip(channel == c.name, { settings.apptChannel.set(c.name) }, label = { Text(c.title) }) }
@@ -71,7 +78,8 @@ fun CalendarSettings(settings: Settings) {
         OffsetPrefChips(client) { settings.apptClientOffsets.set(it) }
         Label("Напоминания мне")
         OffsetPrefChips(mine) { settings.apptMyOffsets.set(it) }
-        Label("Шаблоны сообщений — ${tplLang.title}")
+        Label("Общие шаблоны сообщений — ${tplLang.title}")
+        Text("Для записей без услуги и для услуг без своего текста", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MessageLang.entries.forEach { l -> FilterChip(tplLang == l, { tplLang = l }, label = { Text(l.title) }) }
         }

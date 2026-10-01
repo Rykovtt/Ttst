@@ -85,7 +85,9 @@ object Reminders {
             repo.markReminderSent(reminderId); return
         }
         val lang = app.settings.langFor(p)
-        val text = AppointmentLogic.fill(app.settings.template(TemplateKind.REMINDER, lang).value.value, a, p, lang)
+        val service = repo.getService(a.serviceId)
+        val template = AppointmentLogic.messageTemplate(service, TemplateKind.REMINDER, app.settings.template(TemplateKind.REMINDER, lang).value.value)
+        val text = AppointmentLogic.fill(template, a, p, lang)
         val channel = a.notifyChannel
         val canAutoMessenger = channel != NotifyChannel.SMS && AutoSend.isServiceEnabled(app) && deviceUnlocked(app)
         val automatic = interactive || channel == NotifyChannel.SMS && Sender.canSmsDirect(app) || canAutoMessenger

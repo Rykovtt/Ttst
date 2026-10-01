@@ -67,6 +67,13 @@ object AppointmentLogic {
         return text.lines().map { it.trimEnd() }.filter { it.isNotBlank() }.joinToString("\n").trim()
     }
 
+    /**
+     * Текст сообщения: свой шаблон услуги, если он заполнен, иначе общий.
+     * Так консультация и тату-сеанс получают каждый свои напоминания.
+     */
+    fun messageTemplate(service: ServiceTemplate?, kind: TemplateKind, general: String): String =
+        service?.template(kind)?.takeIf { it.isNotBlank() } ?: general
+
     /** Список напоминаний для записи; прошедшие не создаются. */
     fun buildReminders(a: Appointment, clientOffsets: List<Int>, myOffsets: List<Int>, now: Long = System.currentTimeMillis()): List<AppointmentReminder> {
         val client = if (a.notifyChannel == NotifyChannel.NONE) emptyList() else clientOffsets
