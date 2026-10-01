@@ -112,6 +112,7 @@ import com.kartoteka.app.ui.components.accentFor
 import com.kartoteka.app.ui.components.iconFor
 import com.kartoteka.app.ui.components.initials
 import com.kartoteka.app.ui.components.rememberPhotoPicker
+import com.kartoteka.app.ui.components.rememberGalleryMover
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -153,11 +154,14 @@ class PersonDetailViewModel(private val app: KartotekaApp, val id: Long) : ViewM
 
     fun delete(done: () -> Unit) = viewModelScope.launch { repo.deletePerson(id); done() }
 
-    fun addPhotos(uris: List<android.net.Uri>) = viewModelScope.launch {
-        uris.forEach { uri ->
-            val path = withContext(Dispatchers.IO) { repo.photos.import(uri) } ?: return@forEach
+    /** [onDone] получает исходные адреса фото, которые удалось сохранить в архив. */
+    fun addPhotos(uris: List<android.net.Uri>, onDone: (List<android.net.Uri>) -> Unit = {}) = viewModelScope.launch {
+        val saved = uris.filter { uri ->
+            val path = withContext(Dispatchers.IO) { repo.photos.import(uri) } ?: return@filter false
             repo.addPhoto(id, path)
+            true
         }
+        onDone(saved)
     }
 
     fun addJournal(entry: JournalEntry) = viewModelScope.launch { repo.addJournal(entry.copy(personId = id)) }
@@ -197,6 +201,19 @@ fun PersonDetailScreen(
     val appointments by vm.appointments.collectAsState()
     val everyone by vm.everyone.collectAsState()
     val picker = rememberPhotoPicker(multiple = true) { vm.addPhotos(it) }
+    // «Перенести из галереи»: сначала сохраняем в архив, потом удаляем оригиналы.
+    var deleteOriginals by remember { mutableStateOf<List<android.net.Uri>?>(null) }
+    val mover = rememberGalleryMover(
+        onPicked = { uris -> vm.addPhotos(uris) { saved -> if (saved.isNotEmpty()) deleteOriginals = saved } },
+        onDeleted = { r ->
+            val msg = if (r.kept == 0) t("Фото перенесены в архив. Оригиналы удалены с телефона")
+            else t("Фото добавлены в архив, но %1\$s не удалось удалить с телефона — удалите их вручную", r.kept)
+            android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+        },
+    )
+    androidx.compose.runtime.LaunchedEffect(deleteOriginals) {
+        deleteOriginals?.let { mover.deleteOriginals(it); deleteOriginals = null }
+    }
 
     val pf = data ?: return
     if (pf === PersonDetailViewModel.DELETED) {
@@ -329,7 +346,7 @@ fun PersonDetailScreen(
                     action = {
                         Box {
                             IconButton(onClick = { photoMenu = true }) { Icon(Icons.Default.AddAPhoto, t("Добавить фото")) }
-                            PhotoSourceMenu(photoMenu, { photoMenu = false }, picker)
+                            PhotoSourceMenu(photoMenu, { photoMenu = false }, picker, onMove = mover.pick)
                         }
                     },
                 ) {

@@ -693,3 +693,9 @@ SMS одним сообщением	SMS одним повідомленням	SM
 Текст заметки	Текст нотатки	Note text
 Удалить голосовую заметку?	Видалити голосову нотатку?	Delete voice note?
 Фронтальная камера тихо фотографирует того, кто подбирает PIN-код	Фронтальна камера тихо фотографує того, хто підбирає PIN-код	The front camera silently photographs whoever is guessing the PIN
+Голосовая заметка	Голосова нотатка	Voice note
+Оригиналы удалятся с телефона, минуя корзину	Оригінали видаляться з телефона, оминаючи кошик	Originals are deleted from the phone, bypassing the trash
+Перенести из галереи	Перенести з галереї	Move from gallery
+Скопировано. Через 30 секунд исчезнет из буфера обмена	Скопійовано. Через 30 секунд зникне з буфера обміну	Copied. It will be cleared from the clipboard in 30 seconds
+Фото добавлены в архив, но %1$s не удалось удалить с телефона — удалите их вручную	Фото додано до архіву, але %1$s не вдалося видалити з телефона — видаліть їх вручну	Photos were added to the vault, but %1$s couldn't be deleted from the phone — delete them manually
+Фото перенесены в архив. Оригиналы удалены с телефона	Фото перенесено до архіву. Оригінали видалено з телефона	Photos moved to the vault. Originals deleted from the phone

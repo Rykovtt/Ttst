@@ -150,6 +150,11 @@ class ScreensTest {
             .performScrollToNode(hasText("Голосовые заметки"))
         settle()
         shot("19_person_voice")
+        compose.onNodeWithContentDescription("Добавить фото").performClick()
+        settle()
+        screenShot("23_photo_menu")
+        androidx.test.espresso.Espresso.pressBack()
+        settle()
 
         compose.onNodeWithContentDescription("Редактировать").performClick()
         settle()

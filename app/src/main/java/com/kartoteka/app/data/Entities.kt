@@ -164,6 +164,8 @@ data class PersonFull(
     val journal: List<JournalEntry>,
     @Relation(parentColumn = "id", entityColumn = "personId")
     val places: List<Place> = emptyList(),
+    @Relation(parentColumn = "id", entityColumn = "personId")
+    val voiceNotes: List<VoiceNote> = emptyList(),
 ) {
     fun firstOf(type: ContactType): String? =
         contacts.firstOrNull { it.contactType == type && it.value.isNotBlank() }?.value

@@ -35,6 +35,14 @@ class ArchiveLogicTest {
         assertTrue(hits[0].matchedIn!!.startsWith("Хобби:"))
     }
 
+    @Test fun searchFindsVoiceNoteTranscripts() {
+        val voice = anna.copy(voiceNotes = listOf(VoiceNote(personId = 2, file = "x", durationMs = 1000,
+            text = "Говорила, что летом переезжает во Львов")))
+        val hits = ArchiveLogic.search(listOf(ivan, voice), "львов")
+        assertEquals(listOf(2L), hits.map { it.person.person.id })
+        assertTrue(hits[0].matchedIn!!.startsWith("Голосовая заметка:"))
+    }
+
     @Test fun searchRequiresAllWords() {
         assertEquals(1, ArchiveLogic.search(listOf(ivan, anna), "петров казань").size)
         assertEquals(0, ArchiveLogic.search(listOf(ivan, anna), "петров москва").size)

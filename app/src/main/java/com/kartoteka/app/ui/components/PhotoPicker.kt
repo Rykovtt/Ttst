@@ -7,7 +7,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,12 +59,26 @@ fun rememberPhotoPicker(multiple: Boolean, onPicked: (List<Uri>) -> Unit): Photo
 }
 
 @Composable
-fun PhotoSourceMenu(expanded: Boolean, onDismiss: () -> Unit, picker: PhotoPicker) {
+fun PhotoSourceMenu(expanded: Boolean, onDismiss: () -> Unit, picker: PhotoPicker, onMove: (() -> Unit)? = null) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
             text = { Text(t("Из галереи")) },
             leadingIcon = { Icon(Icons.Default.PhotoLibrary, null) },
             onClick = { onDismiss(); picker.gallery() },
+        )
+        if (onMove != null) DropdownMenuItem(
+            text = {
+                Column {
+                    Text(t("Перенести из галереи"))
+                    Text(
+                        t("Оригиналы удалятся с телефона, минуя корзину"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            leadingIcon = { Icon(Icons.Default.DriveFileMove, null) },
+            onClick = { onDismiss(); onMove() },
         )
         DropdownMenuItem(
             text = { Text(t("Сделать снимок")) },

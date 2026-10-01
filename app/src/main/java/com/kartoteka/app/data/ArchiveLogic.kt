@@ -10,7 +10,7 @@ object ArchiveLogic {
 
     data class SearchHit(val person: PersonFull, val matchedIn: String?)
 
-    /** Поиск по всем полям: имена, контакты, детали, заметки, хроника, группы. Все слова запроса должны найтись. */
+    /** Поиск по всем полям: имена, контакты, детали, заметки, хроника, группы, расшифровки голосовых заметок. Все слова запроса должны найтись. */
     fun search(all: List<PersonFull>, query: String): List<SearchHit> {
         val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
         if (words.isEmpty()) return all.map { SearchHit(it, null) }
@@ -40,6 +40,7 @@ object ArchiveLogic {
         pf.groups.forEach { add(t("Группа") to it.name) }
         pf.journal.forEach { add(it.kind to it.text) }
         pf.photos.forEach { if (it.caption.isNotBlank()) add(t("Фото") to it.caption) }
+        pf.voiceNotes.forEach { add(t("Голосовая заметка") to it.text) }
     }.filter { it.second.isNotBlank() }
 
     private fun snippet(text: String, words: List<String>): String {

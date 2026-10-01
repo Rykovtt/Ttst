@@ -3,8 +3,6 @@ package com.kartoteka.app.messaging
 import com.kartoteka.app.i18n.t
 
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -118,11 +116,8 @@ object Messaging {
 
     fun web(context: Context, url: String) = start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
-    fun copy(context: Context, text: String) {
-        val cm = context.getSystemService(ClipboardManager::class.java)
-        cm.setPrimaryClip(ClipData.newPlainText("text", text))
-        if (Build.VERSION.SDK_INT < 33) Toast.makeText(context, t("Скопировано"), Toast.LENGTH_SHORT).show()
-    }
+    /** Копирование с пометкой «секретно» и автоочисткой буфера через 30 секунд. */
+    fun copy(context: Context, text: String) = com.kartoteka.app.security.SecureClipboard.copy(context, text)
 
     private fun start(context: Context, intent: Intent) {
         try {
