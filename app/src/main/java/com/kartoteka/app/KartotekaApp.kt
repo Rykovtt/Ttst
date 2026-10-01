@@ -18,7 +18,9 @@ import java.io.File
 
 open class KartotekaApp : Application() {
     val settings by lazy { Settings(this) }
-    val repository by lazy { Repository(createDatabase(), PhotoStorage(this)) }
+    val repository by lazy { Repository(createDatabase(), PhotoStorage(this), com.kartoteka.app.data.VoiceStorage(this, fileVault)) }
+    val fileVault by lazy { createFileVault() }
+    val intruders by lazy { com.kartoteka.app.data.IntruderLog(this, fileVault) }
     val backup by lazy { BackupManager(this, repository) }
     val phoneContacts by lazy { PhoneContacts(this) }
     val pinLock by lazy { com.kartoteka.app.data.PinLock(this) }
@@ -39,6 +41,7 @@ open class KartotekaApp : Application() {
         appScope.launch(Dispatchers.IO) { runCatching { rescheduleAppointmentReminders() } }
     }
 
+    protected open fun createFileVault() = com.kartoteka.app.data.FileVault()
     protected open fun createDatabase(): AppDatabase = AppDatabase.create(this)
     protected open fun scheduleReminders() = BirthdayWorker.schedule(this)
     protected open suspend fun rescheduleAppointmentReminders() = ReminderScheduler.rescheduleAll(this, repository)

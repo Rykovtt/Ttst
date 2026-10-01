@@ -30,7 +30,10 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -397,4 +400,17 @@ private fun PinKey(label: String, onClick: () -> Unit) {
     ) {
         Text(label, style = MaterialTheme.typography.headlineSmall)
     }
+}
+
+/** После входа: «пока вас не было, кто-то пытался войти». */
+@Composable
+fun IntruderAlert(count: Int, onShow: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Warning, null) },
+        title = { Text(t("Кто-то пытался войти")) },
+        text = { Text(t("С прошлого входа неверный PIN-код вводили %1\$s %2\$s.", count, com.kartoteka.app.data.ArchiveLogic.plural(count.toLong(), "раз", "раза", "раз"))) },
+        confirmButton = { TextButton(onClick = onShow) { Text(t("Посмотреть")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Позже")) } },
+    )
 }

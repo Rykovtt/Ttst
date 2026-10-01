@@ -24,7 +24,7 @@ import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
 /**
- * Резервная копия: ZIP (data.json + фото), зашифрованный паролем (PBKDF2 + AES-256).
+ * Резервная копия: ZIP (data.json + фото + голосовые заметки), зашифрованный паролем (PBKDF2 + AES-256).
  * Файл можно хранить где угодно — без пароля его не прочитать.
  */
 class BackupManager(private val context: Context, private val repo: Repository) {
@@ -37,13 +37,22 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         val relations = repo.rawDao.getRelations()
         val appointments = repo.rawDao.allAppointments()
         val services = repo.getServices()
+        val voices = repo.allVoiceNotes().filter { repo.voices.exists(it.file) }
         val out = context.contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
         out.use { raw ->
             val stream = wrapOutput(raw, password)
             ZipOutputStream(stream).use { zip ->
                 zip.putNextEntry(ZipEntry("data.json"))
-                zip.write(toJson(all, groups, relations, appointments, services).toString().toByteArray())
+                zip.write(toJson(all, groups, relations, appointments, services, voices).toString().toByteArray())
                 zip.closeEntry()
+                // Голосовые заметки: на устройстве они зашифрованы ключом телефона, в копию кладём звук —
+                // его защищает пароль копии, и восстановить можно на любом телефоне.
+                voices.forEach { v ->
+                    val pcm = runCatching { repo.voices.pcm(v.file) }.getOrNull() ?: return@forEach
+                    zip.putNextEntry(ZipEntry("voice/${v.file}"))
+                    zip.write(pcm)
+                    zip.closeEntry()
+                }
                 val files = all.flatMap { pf -> pf.photos.map { it.path } + listOfNotNull(pf.person.avatarPath) }.toSet()
                 files.map(::File).filter { it.exists() }.forEach { f ->
                     zip.putNextEntry(ZipEntry("photos/${f.name}"))
@@ -60,6 +69,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         val input = context.contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
         val photoDir = repo.photos.dir
         val tmpDir = File(context.cacheDir, "restore").apply { deleteRecursively(); mkdirs() }
+        val voiceTmp = File(tmpDir, "voice").apply { mkdirs() }
         var json: String? = null
         try {
             input.use { raw ->
@@ -71,6 +81,10 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                             e.name.startsWith("photos/") && !e.isDirectory -> {
                                 val name = File(e.name).name
                                 File(tmpDir, name).outputStream().use { zip.copyTo(it) }
+                            }
+                            e.name.startsWith("voice/") && !e.isDirectory -> {
+                                val name = File(e.name).name
+                                File(voiceTmp, name).outputStream().use { zip.copyTo(it) }
                             }
                         }
                     }
@@ -101,6 +115,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                 dao.getAll().forEach { pf ->
                     repo.photos.delete(pf.person.avatarPath); pf.photos.forEach { repo.photos.delete(it.path) }
                 }
+                dao.allVoiceNotes().forEach { repo.voices.delete(it.file) }
                 dao.wipePersons()
                 dao.wipeGroups()
             }
@@ -149,6 +164,14 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     restoredPath(ph.optString("path"))?.let { path ->
                         dao.insertPhoto(Photo(personId = id, path = path, caption = ph.optString("caption"), addedAt = ph.optLong("addedAt")))
                     }
+                }
+                o.optJSONArray("voiceNotes")?.objects()?.forEach { v ->
+                    val src = File(voiceTmp, File(v.optString("file")).name)
+                    if (!src.exists()) return@forEach
+                    val name = repo.voices.newName()
+                    repo.voices.save(name, src.readBytes())
+                    dao.insertVoiceNote(VoiceNote(personId = id, file = name, durationMs = v.optLong("durationMs"),
+                        createdAt = v.optLong("createdAt"), text = v.optString("text")))
                 }
                 o.optJSONArray("journal")?.objects()?.forEach { j ->
                     dao.insertJournal(JournalEntry(personId = id, date = j.optLong("date"), kind = j.optString("kind"), text = j.optString("text")))
@@ -205,6 +228,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         relations: List<Relation>,
         appointments: List<AppointmentFull>,
         services: List<ServiceTemplate>,
+        voices: List<VoiceNote>,
     ): JSONObject = JSONObject().apply {
         put("format", "kartoteka")
         put("version", 3)
@@ -227,6 +251,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         put("groups", JSONArray(groups.map { g ->
             JSONObject().put("id", g.id).put("name", g.name).put("color", g.color).put("emoji", g.emoji)
         }))
+        val voicesBy = voices.groupBy { it.personId }
         put("persons", JSONArray(all.map { pf ->
             val p = pf.person
             JSONObject()
@@ -253,6 +278,9 @@ class BackupManager(private val context: Context, private val repo: Repository) 
                     JSONObject().put("path", it.path).put("caption", it.caption).put("addedAt", it.addedAt)
                 }))
                 .put("groups", JSONArray(pf.groups.map { it.id }))
+                .put("voiceNotes", JSONArray(voicesBy[p.id].orEmpty().map {
+                    JSONObject().put("file", it.file).put("durationMs", it.durationMs).put("createdAt", it.createdAt).put("text", it.text)
+                }))
                 .put("journal", JSONArray(pf.journal.map {
                     JSONObject().put("date", it.date).put("kind", it.kind).put("text", it.text)
                 }))

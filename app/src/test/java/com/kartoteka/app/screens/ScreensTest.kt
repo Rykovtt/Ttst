@@ -90,6 +90,11 @@ class ScreensTest {
         repo.addPhoto(anna, annaPhoto, makeAvatarIfEmpty = false)
         repo.addPhoto(anna, portrait(0xFF5B4BD6.toInt(), 0xFFFFD8B5.toInt()))
         repo.addPhoto(anna, portrait(0xFF0E8A7E.toInt(), 0xFFF1C27D.toInt()))
+        val voice = repo.voices.newName()
+        repo.voices.save(voice, ByteArray(com.kartoteka.app.data.VoiceStorage.BYTES_PER_SECOND * 2))
+        repo.addVoiceNote(com.kartoteka.app.data.VoiceNote(personId = anna, file = voice, durationMs = 83_000,
+            createdAt = System.currentTimeMillis() - 86_400_000L * 2,
+            text = "Рассказала, что летом переезжает во Львов. Соня пошла в садик, Бублик снова болеет — спросить в следующий раз."))
         repo.addJournal(JournalEntry(personId = anna, kind = "Встреча", text = "Обедали в «Пушкине», рассказала про новую работу", date = System.currentTimeMillis() - 86_400_000L * 12))
         repo.addJournal(JournalEntry(personId = anna, kind = "Подарок", text = "Подарил(а) книгу про типографику", date = System.currentTimeMillis() - 86_400_000L * 90))
 
@@ -139,6 +144,10 @@ class ScreensTest {
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Семья и связи"))
         settle()
         shot("09_person_relations")
+        compose.onNode(hasScrollToIndexAction() and androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
+            .performScrollToNode(hasText("Голосовые заметки"))
+        settle()
+        shot("19_person_voice")
 
         compose.onNodeWithContentDescription("Редактировать").performClick()
         settle()
@@ -206,6 +215,29 @@ class ScreensTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Язык сообщений"))
         settle()
         shot("16_settings_language")
+    }
+
+    @Test
+    fun lockScreenAndIntruderLog() {
+        app.pinLock.set("4821")
+        app.settings.setLockEnabled(true)
+        val now = System.currentTimeMillis()
+        app.intruders.record(now - 3_600_000L * 5, File(portrait(0xFF3A3A3A.toInt(), 0xFFE0AC69.toInt())).readBytes())
+        app.intruders.record(now - 3_600_000L * 5 + 9_000, null)
+        app.intruders.record(now - 60_000, File(portrait(0xFF6B5B4B.toInt(), 0xFFFFC7A8.toInt())).readBytes())
+
+        compose.setContent { KartotekaTheme { KartotekaRoot(openPersonId = null, onPersonOpened = {}) } }
+        settle()
+        compose.onNodeWithText("Настройки").performClick()
+        settle()
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Встряхнуть — закрыть"))
+        settle()
+        shot("20_settings_privacy")
+        compose.onNodeWithText("Попытки входа").performClick()
+        settle()
+        screenShot("21_intruder_log")
+        app.pinLock.clear()
+        app.intruders.clear()
     }
 
     @Test

@@ -646,3 +646,50 @@ SMS одним сообщением	SMS одним повідомленням	SM
 ОАЭ	ОАЕ	UAE
 Таиланд	Таїланд	Thailand
 человек#one	людина	person
+раз	разів	times
+раз#one	раз	time
+раза	рази	times
+Без расшифровки	Без розшифровки	No transcript
+Без снимка	Без знімка	No photo
+Все записи и снимки будут удалены.	Усі записи та знімки буде видалено.	All entries and photos will be deleted.
+Всего: %1$s	Усього: %1$s	Total: %1$s
+Встряхнуть — закрыть	Струснути — закрити	Shake to close
+Голосовые заметки	Голосові нотатки	Voice notes
+Запись и расшифровка будут удалены без возможности восстановления.	Запис і розшифровку буде видалено без можливості відновлення.	The recording and transcript will be permanently deleted.
+Запись шифруется прямо во время разговора. Максимум — 15 минут.	Запис шифрується прямо під час розмови. Максимум — 15 хвилин.	The recording is encrypted as you speak. Up to 15 minutes.
+Идёт запись	Іде запис	Recording
+Изменить текст	Змінити текст	Edit text
+Карточка, фото, голосовые заметки и хроника будут удалены без возможности восстановления.	Картку, фото, голосові нотатки й хроніку буде видалено без можливості відновлення.	The card, photos, voice notes and timeline will be permanently deleted.
+Кто-то пытался войти	Хтось намагався увійти	Someone tried to get in
+Микрофон недоступен	Мікрофон недоступний	Microphone unavailable
+На телефоне нет распознавания речи без интернета	На телефоні немає розпізнавання мовлення без інтернету	This phone has no offline speech recognition
+Наговорите после встречи — запись зашифрована и расшифровывается в текст прямо на телефоне	Надиктуйте після зустрічі — запис зашифрований і розшифровується в текст просто на телефоні	Dictate after a meeting — the recording is encrypted and transcribed right on the phone
+Не удалось включить микрофон. Возможно, он занят другим приложением.	Не вдалося увімкнути мікрофон. Можливо, його використовує інший застосунок.	Couldn't turn on the microphone. Another app may be using it.
+Не удалось прочитать запись	Не вдалося прочитати запис	Couldn't read the recording
+Не удалось распознать (код %1$s)	Не вдалося розпізнати (код %1$s)	Recognition failed (code %1$s)
+Неверный PIN-код вводили %1$s %2$s. Снимок делается фронтальной камерой без звука.	Неправильний PIN-код вводили %1$s %2$s. Знімок робиться фронтальною камерою без звуку.	A wrong PIN was entered %1$s %2$s. Photos are taken silently with the front camera.
+Нет доступа к микрофону — разрешите его в настройках телефона	Немає доступу до мікрофона — дозвольте його в налаштуваннях телефона	No microphone access — allow it in the phone settings
+Неудачных попыток входа не было	Невдалих спроб входу не було	No failed sign-in attempts
+Неудачных попыток не было	Невдалих спроб не було	No failed attempts
+Новых: %1$s, всего: %2$s	Нових: %1$s, усього: %2$s	New: %1$s, total: %2$s
+Офлайн-распознавание этого языка не поддерживается на телефоне	Офлайн-розпізнавання цієї мови не підтримується на телефоні	Offline recognition for this language isn't supported on this phone
+Очистить журнал	Очистити журнал	Clear log
+Очистить журнал?	Очистити журнал?	Clear the log?
+Позже	Пізніше	Later
+Попытки входа	Спроби входу	Sign-in attempts
+Посмотреть	Переглянути	View
+Распознавание без интернета доступно на Android 13 и новее	Розпізнавання без інтернету доступне на Android 13 і новіших	Offline recognition requires Android 13 or newer
+Распознавание не ответило вовремя	Розпізнавання не відповіло вчасно	Recognition timed out
+Расшифровать заново	Розшифрувати знову	Transcribe again
+Расшифровка	Розшифровка	Transcript
+Расшифровываю…	Розшифровую…	Transcribing…
+Резко встряхните телефон: архив закроется и пропадёт из недавних приложений	Різко струсніть телефон: архів закриється і зникне з недавніх застосунків	Shake the phone hard: the vault closes and disappears from recent apps
+Речь не распознана	Мовлення не розпізнано	No speech recognized
+С прошлого входа неверный PIN-код вводили %1$s %2$s.	Від попереднього входу неправильний PIN-код вводили %1$s %2$s.	Since your last sign-in, a wrong PIN was entered %1$s %2$s.
+Скачивается офлайн-модель языка. Повторите расшифровку чуть позже	Завантажується офлайн-модель мови. Повторіть розшифровку трохи пізніше	The offline language model is downloading. Try transcribing again a bit later
+Слушать	Слухати	Play
+Снимок при неверном PIN-коде	Знімок при неправильному PIN-коді	Photo on wrong PIN
+Стоп	Стоп	Stop
+Текст заметки	Текст нотатки	Note text
+Удалить голосовую заметку?	Видалити голосову нотатку?	Delete voice note?
+Фронтальная камера тихо фотографирует того, кто подбирает PIN-код	Фронтальна камера тихо фотографує того, хто підбирає PIN-код	The front camera silently photographs whoever is guessing the PIN

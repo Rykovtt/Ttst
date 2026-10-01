@@ -3,6 +3,7 @@ package com.kartoteka.app
 import com.kartoteka.app.i18n.t
 
 import android.content.Intent
+import android.hardware.SensorManager
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
@@ -21,6 +22,11 @@ import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.kartoteka.app.messaging.AutoSend
 import com.kartoteka.app.reminders.Reminders
+import com.kartoteka.app.security.IntruderCamera
+import com.kartoteka.app.security.ShakeDetector
+import com.kartoteka.app.ui.IntruderAlert
+import com.kartoteka.app.ui.settings.IntruderLogDialog
+import kotlinx.coroutines.Dispatchers
 import com.kartoteka.app.ui.KartotekaRoot
 import com.kartoteka.app.ui.LockScreen
 import com.kartoteka.app.ui.theme.KartotekaTheme
@@ -35,6 +41,12 @@ class MainActivity : FragmentActivity() {
     private var pendingReminderId: Long? = null
     private var stoppedAt = 0L
     private var authInProgress = false
+    private var lastSnapAt = 0L
+    /** Сколько неудачных попыток было, пока нас не было (показываем после входа). */
+    private var intruderAlert by mutableStateOf(0)
+    private var showIntruders by mutableStateOf(false)
+    private val shake = ShakeDetector { onShake() }
+    private val sensors by lazy { getSystemService(SENSOR_SERVICE) as SensorManager }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -62,7 +74,7 @@ class MainActivity : FragmentActivity() {
                         pinLength = if (pin.hasPin) pin.length else null,
                         biometric = app.settings.biometric.value && canUseBiometric(this),
                         onBiometric = ::authenticate,
-                        onPin = { entered -> pin.verify(entered).also { if (it) unlock() } },
+                        onPin = { entered -> pin.verify(entered).also { if (it) unlock() else onWrongPin() } },
                         waitMillis = { pin.waitMillis() },
                     )
                 } else {
@@ -72,6 +84,14 @@ class MainActivity : FragmentActivity() {
                         openAppointmentId = pendingAppointmentId,
                         onAppointmentOpened = { pendingAppointmentId = null },
                     )
+                    if (intruderAlert > 0) {
+                        IntruderAlert(
+                            count = intruderAlert,
+                            onShow = { intruderAlert = 0; showIntruders = true },
+                            onDismiss = { intruderAlert = 0; app.intruders.markSeen() },
+                        )
+                    }
+                    if (showIntruders) IntruderLogDialog(onDismiss = { showIntruders = false })
                 }
             }
         }
@@ -103,7 +123,31 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        shake.start(sensors)
         if (locked) authenticate() else runPendingReminder()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        shake.stop(sensors)
+    }
+
+    /** Встряхнули: закрываем архив и убираем его из списка недавних приложений. */
+    private fun onShake() {
+        if (!app.settings.shakeToClose.value.value) return
+        if (app.settings.lockEnabled.value) locked = true
+        finishAndRemoveTask()
+    }
+
+    /** Неверный PIN на экране блокировки: пишем в журнал и, если включено, тихо фотографируем. */
+    private fun onWrongPin() {
+        val time = System.currentTimeMillis()
+        app.intruders.record(time, null)
+        if (!app.settings.intruderPhoto.value.value || time - lastSnapAt < SNAP_INTERVAL_MS) return
+        lastSnapAt = time
+        IntruderCamera.snap(this) { jpeg ->
+            if (jpeg != null) app.appScope.launch(Dispatchers.IO) { app.intruders.attachPhoto(time, jpeg) }
+        }
     }
 
     override fun onStop() {
@@ -144,6 +188,7 @@ class MainActivity : FragmentActivity() {
 
     fun unlock() {
         locked = false
+        if (app.pinLock.hasPin) intruderAlert = app.intruders.unseen
         runPendingReminder()
     }
 
@@ -182,6 +227,7 @@ class MainActivity : FragmentActivity() {
         const val EXTRA_STOP_AUTOSEND = "stop_autosend"
         private const val KEY_UNLOCKED = "unlocked"
         private const val LOCK_TIMEOUT_MS = 60_000L
+        private const val SNAP_INTERVAL_MS = 5_000L
 
         fun canUseBiometric(context: android.content.Context): Boolean =
             BiometricManager.from(context).canAuthenticate(BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS

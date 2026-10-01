@@ -358,6 +358,8 @@ fun PersonDetailScreen(
                 }
             }
 
+            item(key = "voice") { VoiceNotesSection(p.id) }
+
             item(key = "journal") {
                 SectionCard(
                     t("Хроника"), Icons.Default.History,
@@ -423,7 +425,7 @@ fun PersonDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(t("Удалить %1\$s?", p.displayName)) },
-            text = { Text(t("Карточка, фото и хроника будут удалены без возможности восстановления.")) },
+            text = { Text(t("Карточка, фото, голосовые заметки и хроника будут удалены без возможности восстановления.")) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text(t("Удалить")) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )

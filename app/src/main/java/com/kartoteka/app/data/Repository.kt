@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 class Repository(
     private val db: AppDatabase,
     val photos: PhotoStorage,
+    val voices: VoiceStorage,
 ) {
     private val dao = db.dao()
 
@@ -37,7 +38,9 @@ class Repository(
 
     suspend fun deletePerson(id: Long) {
         val pf = dao.getPerson(id) ?: return
+        val notes = dao.voiceNotesOf(id)
         dao.deletePerson(id)
+        notes.forEach { voices.delete(it.file) }
         photos.delete(pf.person.avatarPath)
         pf.photos.forEach { photos.delete(it.path) }
     }
@@ -55,6 +58,16 @@ class Repository(
         val p = dao.getPerson(photo.personId)?.person
         if (p?.avatarPath == photo.path) dao.setAvatar(photo.personId, null)
         photos.delete(photo.path)
+    }
+
+    // --- голосовые заметки ---
+    fun observeVoiceNotes(personId: Long) = dao.observeVoiceNotes(personId)
+    suspend fun allVoiceNotes() = dao.allVoiceNotes()
+    suspend fun addVoiceNote(note: VoiceNote): Long = dao.insertVoiceNote(note)
+    suspend fun setVoiceText(id: Long, text: String) = dao.setVoiceText(id, text)
+    suspend fun deleteVoiceNote(note: VoiceNote) {
+        dao.deleteVoiceNote(note)
+        voices.delete(note.file)
     }
 
     suspend fun updatePhotoCaption(photo: Photo, caption: String) = dao.updatePhoto(photo.copy(caption = caption))

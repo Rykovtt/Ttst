@@ -2,6 +2,9 @@ package com.kartoteka.app.ui.settings
 
 import com.kartoteka.app.i18n.t
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.KeyboardOptions
@@ -9,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Password
+import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +31,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.kartoteka.app.MainActivity
 import com.kartoteka.app.data.PinLock
+import com.kartoteka.app.security.IntruderCamera
 import com.kartoteka.app.ui.app
 import com.kartoteka.app.ui.components.OutlinedTextField
 
@@ -43,6 +50,12 @@ fun LockSettings() {
     var refresh by remember { mutableStateOf(0) }
     val hasPin = remember(refresh, lock) { pin.hasPin }
     val canBio = MainActivity.canUseBiometric(context)
+    val intruderPhoto by settings.intruderPhoto.value.collectAsState()
+    val shake by settings.shakeToClose.value.collectAsState()
+    var showLog by remember { mutableStateOf(false) }
+    val askCamera = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        settings.intruderPhoto.set(ok)
+    }
 
     ToggleRow(Icons.Default.Lock, t("Блокировка приложения"), t("Свой PIN-код приложения (не телефона) и отпечаток"), lock) { v ->
         flow = when {
@@ -60,7 +73,31 @@ fun LockSettings() {
         if (canBio && hasPin) {
             ToggleRow(Icons.Default.Fingerprint, t("Вход по отпечатку"), t("PIN-код остаётся запасным способом"), biometric, settings::setBiometric)
         }
+        if (hasPin) {
+            ToggleRow(
+                Icons.Default.PhotoCamera, t("Снимок при неверном PIN-коде"),
+                t("Фронтальная камера тихо фотографирует того, кто подбирает PIN-код"), intruderPhoto,
+            ) { v ->
+                if (v && !IntruderCamera.hasPermission(context)) askCamera.launch(Manifest.permission.CAMERA)
+                else settings.intruderPhoto.set(v)
+            }
+            val unseen = remember(showLog) { app.intruders.unseen }
+            val total = remember(showLog) { app.intruders.attempts().size }
+            ActionRow(
+                Icons.Default.PersonSearch, t("Попытки входа"),
+                when {
+                    total == 0 -> t("Неудачных попыток не было")
+                    unseen > 0 -> t("Новых: %1\$s, всего: %2\$s", unseen, total)
+                    else -> t("Всего: %1\$s", total)
+                },
+            ) { showLog = true }
+        }
     }
+    ToggleRow(
+        Icons.Default.Vibration, t("Встряхнуть — закрыть"),
+        t("Резко встряхните телефон: архив закроется и пропадёт из недавних приложений"), shake, settings.shakeToClose::set,
+    )
+    if (showLog) IntruderLogDialog(onDismiss = { showLog = false })
 
     when (flow) {
         PinFlow.CREATE -> NewPinDialog(

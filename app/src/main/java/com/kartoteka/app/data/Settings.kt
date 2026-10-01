@@ -32,6 +32,12 @@ class Settings(context: Context) {
     fun setBirthdayReminders(v: Boolean) { prefs.edit().putBoolean(BIRTHDAYS, v).apply(); _birthdayReminders.value = v }
     fun setSortMode(v: SortMode) { prefs.edit().putString(SORT, v.name).apply(); _sortMode.value = v }
 
+    /** Тихий снимок фронтальной камерой при неверном PIN-коде. */
+    val intruderPhoto = BoolPref("intruder_photo", false)
+
+    /** Встряхнуть телефон — архив закрывается и пропадает из недавних. */
+    val shakeToClose = BoolPref("shake_close", true)
+
     /** Язык интерфейса: auto (как в системе), ru, uk, en. */
     val uiLang = StringPref("ui_lang", "auto")
 
@@ -74,6 +80,12 @@ class Settings(context: Context) {
         val value: StateFlow<String> = state.asStateFlow()
         fun set(v: String) { prefs.edit().putString(key, v).apply(); state.value = v }
         fun reset() = set(default)
+    }
+
+    inner class BoolPref(private val key: String, default: Boolean) {
+        private val state = MutableStateFlow(prefs.getBoolean(key, default))
+        val value: StateFlow<Boolean> = state.asStateFlow()
+        fun set(v: Boolean) { prefs.edit().putBoolean(key, v).apply(); state.value = v }
     }
 
     private companion object {

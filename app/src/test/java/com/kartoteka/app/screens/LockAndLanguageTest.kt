@@ -45,7 +45,13 @@ class LockAndLanguageTest {
         assertEquals("Male", t("Мужской"))
         assertEquals("1 person", "1 ${ArchiveLogic.plural(1, "человек", "человека", "человек")}")
         assertEquals("5 people", "5 ${ArchiveLogic.plural(5, "человек", "человека", "человек")}")
+        assertEquals("1 time", "1 ${ArchiveLogic.plural(1, "раз", "раза", "раз")}")
+        assertEquals("3 times", "3 ${ArchiveLogic.plural(3, "раз", "раза", "раз")}")
+        I18n.init(context, UiLang.UK)
+        assertEquals("3 рази", "3 ${ArchiveLogic.plural(3, "раз", "раза", "раз")}")
+        assertEquals("5 разів", "5 ${ArchiveLogic.plural(5, "раз", "раза", "раз")}")
         I18n.init(context, UiLang.RU)
         assertEquals("Мужской", t("Мужской"))
+        assertEquals("21 раз", "21 ${ArchiveLogic.plural(21, "раз", "раза", "раз")}")
     }
 }

@@ -106,6 +106,25 @@ interface ArchiveDao {
     @Delete
     suspend fun deleteJournal(entry: JournalEntry)
 
+    // --- голосовые заметки ---
+    @Query("SELECT * FROM voice_notes WHERE personId = :personId ORDER BY createdAt DESC")
+    fun observeVoiceNotes(personId: Long): Flow<List<VoiceNote>>
+
+    @Query("SELECT * FROM voice_notes WHERE personId = :personId")
+    suspend fun voiceNotesOf(personId: Long): List<VoiceNote>
+
+    @Query("SELECT * FROM voice_notes")
+    suspend fun allVoiceNotes(): List<VoiceNote>
+
+    @Insert
+    suspend fun insertVoiceNote(note: VoiceNote): Long
+
+    @Query("UPDATE voice_notes SET text = :text WHERE id = :id")
+    suspend fun setVoiceText(id: Long, text: String)
+
+    @Delete
+    suspend fun deleteVoiceNote(note: VoiceNote)
+
     // --- адреса ---
     @Query("DELETE FROM places WHERE personId = :personId")
     suspend fun deletePlaces(personId: Long)

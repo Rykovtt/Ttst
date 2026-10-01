@@ -336,3 +336,19 @@ data class ServiceTemplate(
 
     val ownTemplates: Int get() = TemplateKind.entries.count { template(it).isNotBlank() }
 }
+
+/** Голосовая заметка о человеке. Сам звук — в зашифрованном файле [file] (см. [VoiceStorage]). */
+@Entity(
+    tableName = "voice_notes",
+    foreignKeys = [ForeignKey(Person::class, ["id"], ["personId"], onDelete = ForeignKey.CASCADE)],
+    indices = [Index("personId")],
+)
+data class VoiceNote(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val personId: Long,
+    val file: String,
+    val durationMs: Long,
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Расшифровка (распознанная на устройстве или написанная вручную). */
+    val text: String = "",
+)
