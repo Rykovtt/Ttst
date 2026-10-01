@@ -135,7 +135,11 @@ fun SectionCard(
                     )
                 }
             }
-            androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = expanded,
+                enter = androidx.compose.animation.expandVertically(expandFrom = Alignment.Top) + androidx.compose.animation.fadeIn(),
+                exit = androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Top) + androidx.compose.animation.fadeOut(),
+            ) {
                 Column {
                     Spacer(Modifier.size(6.dp))
                     content()
