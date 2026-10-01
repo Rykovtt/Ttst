@@ -17,6 +17,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import com.kartoteka.app.data.Appointment
 import com.kartoteka.app.data.AppointmentLogic
 import com.kartoteka.app.data.ContactItem
@@ -236,6 +238,10 @@ class ScreensTest {
         compose.onNodeWithText("Попытки входа").performClick()
         settle()
         screenShot("21_intruder_log")
+        compose.onAllNodesWithText("Неверный PIN-код")[0].performClick()
+        settle()
+        compose.onNodeWithContentDescription("Закрыть").assertExists()
+        compose.onAllNodes(androidx.compose.ui.test.isRoot()).onLast().captureRoboImage("screenshots/22_intruder_photo.png")
         app.pinLock.clear()
         app.intruders.clear()
     }

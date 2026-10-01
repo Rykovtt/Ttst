@@ -178,7 +178,6 @@ fun PersonDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onOpenPhoto: (Int) -> Unit,
-    onMessage: () -> Unit,
     onOpenPerson: (Long) -> Unit = {},
     onNewAppointment: () -> Unit = {},
     onOpenAppointment: (Long) -> Unit = {},
@@ -209,7 +208,7 @@ fun PersonDetailScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") { Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) }) }
-            item(key = "actions") { QuickActions(pf, onMessage, onNewAppointment) }
+            item(key = "actions") { QuickActions(pf, onNewAppointment) }
 
             val bdText = ArchiveLogic.formatBirthday(p)
             if (bdText != null) {
@@ -490,7 +489,7 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
 }
 
 @Composable
-private fun QuickActions(pf: PersonFull, onMessage: () -> Unit, onNewAppointment: () -> Unit) {
+private fun QuickActions(pf: PersonFull, onNewAppointment: () -> Unit) {
     val context = LocalContext.current
     val actions = buildList<Triple<ImageVector, String, () -> Unit>> {
         pf.phone?.let { add(Triple(Icons.Default.Call, t("Звонок")) { Messaging.dial(context, it) }) }
@@ -499,7 +498,6 @@ private fun QuickActions(pf: PersonFull, onMessage: () -> Unit, onNewAppointment
         pf.telegram?.let { add(Triple(Icons.AutoMirrored.Filled.Send, "Telegram") { Messaging.telegram(context, it) }) }
         pf.email?.let { add(Triple(Icons.Default.Email, t("Почта")) { Messaging.email(context, listOf(it)) }) }
         add(Triple(Icons.Default.EventAvailable, t("Записать"), onNewAppointment))
-        if (pf.phone != null || pf.telegram != null) add(Triple(Icons.Default.Edit, t("Шаблон"), onMessage))
     }
     if (actions.isEmpty()) return
     Row(

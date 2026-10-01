@@ -65,5 +65,5 @@ object IntruderCamera {
         return ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
     }
 
-    private const val MAX = 1280
+    private const val MAX = 1920
 }

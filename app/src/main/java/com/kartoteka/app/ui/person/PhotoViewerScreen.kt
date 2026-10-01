@@ -118,11 +118,11 @@ fun PhotoViewerScreen(personId: Long, startIndex: Int, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ZoomableImage(path: String) {
+internal fun ZoomableImage(model: Any) {
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     AsyncImage(
-        model = File(path),
+        model = if (model is String) File(model) else model,
         contentDescription = null,
         contentScale = ContentScale.Fit,
         modifier = Modifier

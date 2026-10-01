@@ -233,7 +233,6 @@ fun KartotekaRoot(
                     onBack = { nav.popBackStack() },
                     onEdit = { nav.navigate(Routes.edit(id)) },
                     onOpenPhoto = { nav.navigate(Routes.photos(id, it)) },
-                    onMessage = { nav.navigate(Routes.broadcast(personIds = listOf(id))) },
                     onOpenPerson = { nav.navigate(Routes.person(it)) },
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = id)) },
                     onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
