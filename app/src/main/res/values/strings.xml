@@ -9,4 +9,5 @@
     <string name="alias_contacts">Контакты</string>
     <string name="autosend_label">RVault: авто-отправка</string>
     <string name="autosend_description">Во время рассылки или напоминания из RVault сама нажимает «Отправить» в WhatsApp и Telegram, чтобы не подтверждать каждое сообщение вручную. Работает только с этими двумя приложениями и только когда вы запустили отправку в RVault. Никакие данные не читаются и не передаются.</string>
+    <string name="share_import_label">RVault: импорт переписки</string>
 </resources>

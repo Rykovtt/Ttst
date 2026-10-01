@@ -61,4 +61,19 @@ class MigrationTest {
         db.query("SELECT firstName FROM persons").use { it.moveToFirst(); assertEquals("Максим", it.getString(0)) }
         db.query("SELECT COUNT(*) FROM voice_notes").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
     }
+
+    @Test
+    fun v3ToV4AddsChats() {
+        helper.createDatabase("migration4.db", 3).apply {
+            execSQL(
+                """INSERT INTO persons (id, lastName, firstName, middleName, nickname, gender, relation, closeness, company,
+                   position, city, howMet, notes, favorite, createdAt, updatedAt, language)
+                   VALUES (1, '', 'Максим', '', '', '', '', 0, '', '', '', '', '', 0, 0, 0, '')"""
+            )
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migration4.db", 4, true)
+        db.query("SELECT COUNT(*) FROM chats").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM chat_messages").use { it.moveToFirst(); assertEquals(0, it.getInt(0)) }
+    }
 }

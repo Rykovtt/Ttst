@@ -62,6 +62,31 @@
             android:windowSoftInputMode="adjustResize" />
 
         <!-- Варианты значка и названия на рабочем столе. Включён ровно один (см. AppIcons). -->
+        <!-- «Поделиться» → импорт переписки. Включается только на время импорта (см. ChatImports),
+             чтобы замаскированный архив не светился в меню «Поделиться». -->
+        <activity-alias
+            android:name=".share.ChatImport"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/share_import_label"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/html" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+
         <activity-alias
             android:name=".alias.Default"
             android:enabled="true"

@@ -11,11 +11,11 @@ object ArchiveLogic {
     data class SearchHit(val person: PersonFull, val matchedIn: String?)
 
     /** Поиск по всем полям: имена, контакты, детали, заметки, хроника, группы, расшифровки голосовых заметок. Все слова запроса должны найтись. */
-    fun search(all: List<PersonFull>, query: String): List<SearchHit> {
+    fun search(all: List<PersonFull>, query: String, chatHits: Map<Long, String> = emptyMap()): List<SearchHit> {
         val words = query.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
         if (words.isEmpty()) return all.map { SearchHit(it, null) }
         return all.mapNotNull { pf ->
-            val sources = searchSources(pf)
+            val sources = searchSources(pf) + listOfNotNull(chatHits[pf.person.id]?.let { t("Переписка") to it })
             val ok = words.all { w -> sources.any { it.second.lowercase().contains(w) } }
             if (!ok) return@mapNotNull null
             val nameHit = words.all { w -> pf.person.fullName.lowercase().contains(w) || pf.person.nickname.lowercase().contains(w) }

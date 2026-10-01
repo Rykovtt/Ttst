@@ -16,9 +16,9 @@ import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import java.io.File
 
-open class KartotekaApp : Application() {
+open class KartotekaApp : Application(), coil.ImageLoaderFactory {
     val settings by lazy { Settings(this) }
-    val repository by lazy { Repository(createDatabase(), PhotoStorage(this), com.kartoteka.app.data.VoiceStorage(this, fileVault)) }
+    val repository by lazy { Repository(createDatabase(), PhotoStorage(this, fileVault), com.kartoteka.app.data.VoiceStorage(this, fileVault)) }
     val fileVault by lazy { createFileVault() }
     val intruders by lazy { com.kartoteka.app.data.IntruderLog(this, fileVault) }
     val backup by lazy { BackupManager(this, repository) }
@@ -38,11 +38,20 @@ open class KartotekaApp : Application() {
             osmdroidTileCache = File(cacheDir, "osmdroid-tiles")
         }
         if (settings.birthdayReminders.value) scheduleReminders()
+        if (settings.autoBackup.value.value) scheduleAutoBackup()
         appScope.launch(Dispatchers.IO) { runCatching { rescheduleAppointmentReminders() } }
+        appScope.launch(Dispatchers.IO) { runCatching { repository.encryptLegacyPhotos() } }
     }
+
+    /** Coil умеет показывать зашифрованные фото архива. */
+    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)
+        .components { add(com.kartoteka.app.data.EncryptedPhotoFetcher.Factory { repository.photos }) }
+        .build()
 
     protected open fun createFileVault() = com.kartoteka.app.data.FileVault()
     protected open fun createDatabase(): AppDatabase = AppDatabase.create(this)
     protected open fun scheduleReminders() = BirthdayWorker.schedule(this)
+    protected open fun scheduleAutoBackup() =
+        com.kartoteka.app.data.AutoBackup.schedule(this, settings.autoBackupDays.value.value.toIntOrNull() ?: 1)
     protected open suspend fun rescheduleAppointmentReminders() = ReminderScheduler.rescheduleAll(this, repository)
 }

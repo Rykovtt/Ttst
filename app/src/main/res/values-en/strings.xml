@@ -9,4 +9,5 @@
     <string name="alias_contacts">Contacts</string>
     <string name="autosend_label">RVault: auto-send</string>
     <string name="autosend_description">During a broadcast or reminder from RVault, it taps “Send” in WhatsApp and Telegram for you so you don\'t have to confirm every message. It works only with these two apps and only when you started sending in RVault. No data is read or transmitted.</string>
+    <string name="share_import_label">RVault: import chat</string>
 </resources>

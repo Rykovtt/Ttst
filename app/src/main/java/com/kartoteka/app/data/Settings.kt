@@ -38,6 +38,18 @@ class Settings(context: Context) {
     /** Встряхнуть телефон — архив закрывается и пропадает из недавних. */
     val shakeToClose = BoolPref("shake_close", true)
 
+    // --- автоматическая резервная копия ---
+    val autoBackup = BoolPref("auto_backup", false)
+    /** Папка (SAF tree URI): память телефона, SD-карта или флешка. */
+    val autoBackupFolder = StringPref("auto_backup_folder", "")
+    /** Раз в сколько дней: 1 или 7. */
+    val autoBackupDays = StringPref("auto_backup_days", "1")
+    /** Сколько последних копий хранить в папке. */
+    val autoBackupKeep = StringPref("auto_backup_keep", "5")
+    val autoBackupLastAt = StringPref("auto_backup_last_at", "0")
+    /** Текст ошибки последней попытки; пусто — всё хорошо. */
+    val autoBackupError = StringPref("auto_backup_error", "")
+
     /** Язык интерфейса: auto (как в системе), ru, uk, en. */
     val uiLang = StringPref("ui_lang", "auto")
 

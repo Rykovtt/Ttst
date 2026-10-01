@@ -214,13 +214,14 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
 
         SectionCard(t("Данные"), Icons.Default.Backup) {
             ActionRow(Icons.Default.Contacts, t("Импорт из контактов телефона"), t("Перенести людей из телефонной книги"), onImportContacts)
-            ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными и фото")) {
+            ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными, фото и перепиской")) {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
                 exportLauncher.launch("rvault-${stamp}.krtk")
             }
             ActionRow(Icons.Default.Restore, t("Восстановить из копии"), t("Загрузить файл .krtk")) {
                 importLauncher.launch(arrayOf("*/*"))
             }
+            AutoBackupSettings()
         }
 
         Text(

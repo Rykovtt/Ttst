@@ -15,5 +15,6 @@ class TestApp : KartotekaApp() {
     }
 
     override fun scheduleReminders() = Unit
+    override fun scheduleAutoBackup() = Unit
     override suspend fun rescheduleAppointmentReminders() = Unit
 }

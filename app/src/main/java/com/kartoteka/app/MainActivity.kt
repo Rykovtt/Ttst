@@ -25,6 +25,7 @@ import com.kartoteka.app.reminders.Reminders
 import com.kartoteka.app.security.IntruderCamera
 import com.kartoteka.app.security.ShakeDetector
 import com.kartoteka.app.ui.IntruderAlert
+import com.kartoteka.app.ui.chat.ChatImports
 import com.kartoteka.app.ui.settings.IntruderLogDialog
 import kotlinx.coroutines.Dispatchers
 import com.kartoteka.app.ui.KartotekaRoot
@@ -52,6 +53,7 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         locked = app.settings.lockEnabled.value && savedInstanceState?.getBoolean(KEY_UNLOCKED) != true
+        ChatImports.expire(this)
         handleIntent(intent)
 
         lifecycleScope.launch {
@@ -108,6 +110,15 @@ class MainActivity : FragmentActivity() {
         intent.getLongExtra(EXTRA_APPOINTMENT_ID, 0L).takeIf { it != 0L }?.let { pendingAppointmentId = it }
         intent.getLongExtra(EXTRA_SEND_REMINDER, 0L).takeIf { it != 0L }?.let { pendingReminderId = it }
         if (intent.getBooleanExtra(EXTRA_STOP_AUTOSEND, false)) AutoSend.stop()
+        // «Поделиться» → импорт переписки (файлы читаем сразу: разрешение на чтение живёт, пока жива активность).
+        if (intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_SEND_MULTIPLE) {
+            val shared = intent
+            lifecycleScope.launch(Dispatchers.IO) {
+                if (!ChatImports.handleShare(this@MainActivity, shared)) launch(Dispatchers.Main) {
+                    android.widget.Toast.makeText(this@MainActivity, t("Здесь нет файла переписки"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
     /** Пользователь нажал уведомление «Напомнить …» — отправляем, как только приложение открыто. */

@@ -4,7 +4,6 @@ import com.kartoteka.app.i18n.t
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -160,11 +159,7 @@ fun pinBitmap(context: Context, person: Person?): Bitmap {
     }, white)
     val inner = r - border - d
     val photo = person?.avatarPath?.let { path ->
-        val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(path, opts)
-        var sample = 1
-        while (opts.outWidth / (sample * 2) >= size) sample *= 2
-        BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+        (context.applicationContext as com.kartoteka.app.KartotekaApp).repository.photos.decodeBitmap(path, size)
     }
     if (photo != null) {
         val scale = (inner * 2) / minOf(photo.width, photo.height)

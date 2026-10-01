@@ -106,6 +106,47 @@ interface ArchiveDao {
     @Delete
     suspend fun deleteJournal(entry: JournalEntry)
 
+    // --- переписка ---
+    @Insert
+    suspend fun insertChat(chat: Chat): Long
+
+    @Insert
+    suspend fun insertChatMessages(items: List<ChatMessage>)
+
+    @Query("SELECT * FROM chats WHERE personId = :personId ORDER BY lastAt DESC")
+    fun observeChats(personId: Long): Flow<List<Chat>>
+
+    @Query("SELECT * FROM chats")
+    suspend fun allChats(): List<Chat>
+
+    @Query("SELECT * FROM chats WHERE id = :id")
+    fun observeChat(id: Long): Flow<Chat?>
+
+    @Query("SELECT * FROM chats WHERE personId = :personId AND source = :source AND title = :title")
+    suspend fun findChats(personId: Long, source: String, title: String): List<Chat>
+
+    @Query("SELECT * FROM chat_messages WHERE chatId = :chatId ORDER BY time, id")
+    suspend fun chatMessages(chatId: Long): List<ChatMessage>
+
+    @Query("UPDATE chats SET meAuthor = :me WHERE id = :id")
+    suspend fun setChatMe(id: Long, me: String)
+
+    @Query("DELETE FROM chats WHERE id = :id")
+    suspend fun deleteChat(id: Long)
+
+    @Query(
+        """SELECT c.personId AS personId, m.text AS text FROM chat_messages m JOIN chats c ON c.id = m.chatId
+           WHERE m.textLower LIKE '%' || :word || '%' ORDER BY m.time DESC LIMIT 5000"""
+    )
+    suspend fun searchChatMessages(word: String): List<ChatSearchHit>
+
+    // --- шифрование старых фото (1.7) ---
+    @Query("UPDATE photos SET path = :to WHERE path = :from")
+    suspend fun renamePhotoPath(from: String, to: String)
+
+    @Query("UPDATE persons SET avatarPath = :to WHERE avatarPath = :from")
+    suspend fun renameAvatarPath(from: String, to: String)
+
     // --- голосовые заметки ---
     @Query("SELECT * FROM voice_notes WHERE personId = :personId ORDER BY createdAt DESC")
     fun observeVoiceNotes(personId: Long): Flow<List<VoiceNote>>

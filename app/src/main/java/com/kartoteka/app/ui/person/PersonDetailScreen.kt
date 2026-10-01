@@ -185,6 +185,7 @@ fun PersonDetailScreen(
     onOpenPerson: (Long) -> Unit = {},
     onNewAppointment: () -> Unit = {},
     onOpenAppointment: (Long) -> Unit = {},
+    onOpenChat: (Long) -> Unit = {},
 ) {
     val app = app()
     val vm: PersonDetailViewModel = viewModel(key = "person_${personId}") { PersonDetailViewModel(app, personId) }
@@ -375,6 +376,7 @@ fun PersonDetailScreen(
             }
 
             item(key = "voice") { VoiceNotesSection(p.id) }
+            item(key = "chats") { com.kartoteka.app.ui.chat.ChatsSection(p.id, onOpenChat) }
 
             item(key = "journal") {
                 SectionCard(
@@ -441,7 +443,7 @@ fun PersonDetailScreen(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(t("Удалить %1\$s?", p.displayName)) },
-            text = { Text(t("Карточка, фото, голосовые заметки и хроника будут удалены без возможности восстановления.")) },
+            text = { Text(t("Карточка, фото, голосовые заметки, переписка и хроника будут удалены без возможности восстановления.")) },
             confirmButton = { TextButton(onClick = { confirmDelete = false; vm.delete(onBack) }) { Text(t("Удалить")) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Отмена")) } },
         )
