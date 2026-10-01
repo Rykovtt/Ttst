@@ -112,11 +112,11 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             Text(t("Настройки"), style = MaterialTheme.typography.headlineLarge)
         }
 
-        SectionCard(t("Значок и название"), Icons.Default.Palette) {
+        SectionCard(t("Значок и название"), Icons.Default.Palette, collapsible = true, initiallyExpanded = true) {
             AppearanceSettings(settings)
         }
 
-        SectionCard(t("Приватность"), Icons.Default.Shield) {
+        SectionCard(t("Приватность"), Icons.Default.Shield, collapsible = true) {
             LockSettings()
             ToggleRow(
                 Icons.Default.VisibilityOff, t("Скрывать содержимое"),
@@ -125,7 +125,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             InfoLine(Icons.Default.EnhancedEncryption, t("База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено."))
         }
 
-        SectionCard(t("Телефоны"), Icons.Default.Phone) {
+        SectionCard(t("Телефоны"), Icons.Default.Phone, collapsible = true) {
             val iso by settings.country.value.collectAsState()
             val country = com.kartoteka.app.data.PhoneFormat.byIso(iso)
             ActionRow(Icons.Default.Public, t("Страна по умолчанию: %1\$s %2\$s (+%3\$s)", country.flag, t(country.name), country.code),
@@ -140,7 +140,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             }
         }
 
-        SectionCard(t("Язык приложения"), Icons.Default.Language) {
+        SectionCard(t("Язык приложения"), Icons.Default.Language, collapsible = true) {
             val uiLang by settings.uiLang.value.collectAsState()
             androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 com.kartoteka.app.i18n.UiLang.entries.forEach { l ->
@@ -164,7 +164,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             )
         }
 
-        SectionCard(t("Язык сообщений"), Icons.Default.Translate) {
+        SectionCard(t("Язык сообщений"), Icons.Default.Translate, collapsible = true) {
             val lang by settings.messageLang.value.collectAsState()
             Text(
                 t("На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. ") +
@@ -179,11 +179,11 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             }
         }
 
-        SectionCard(t("Записи и календарь"), Icons.Default.CalendarMonth) {
+        SectionCard(t("Записи и календарь"), Icons.Default.CalendarMonth, collapsible = true) {
             CalendarSettings(settings, onServices)
         }
 
-        SectionCard(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode) {
+        SectionCard(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, collapsible = true) {
             val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
             val delay by settings.autoSendDelaySec.value.collectAsState()
             ActionRow(
@@ -202,7 +202,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             InfoLine(Icons.Default.Info, t("Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне."))
         }
 
-        SectionCard(t("Напоминания"), Icons.Default.Cake) {
+        SectionCard(t("Напоминания"), Icons.Default.Cake, collapsible = true) {
             ToggleRow(Icons.Default.Cake, t("Дни рождения"), t("Уведомление в день рождения и за 3 дня"), birthdays) { v ->
                 if (v && Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else {
@@ -212,7 +212,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
             }
         }
 
-        SectionCard(t("Данные"), Icons.Default.Backup) {
+        SectionCard(t("Данные"), Icons.Default.Backup, collapsible = true) {
             ActionRow(Icons.Default.Contacts, t("Импорт из контактов телефона"), t("Перенести людей из телефонной книги"), onImportContacts)
             ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными и фото")) {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())

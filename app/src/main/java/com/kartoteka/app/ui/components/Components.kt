@@ -1,9 +1,11 @@
 package com.kartoteka.app.ui.components
 
 import com.kartoteka.app.i18n.t
+import androidx.compose.ui.draw.rotate
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -96,25 +99,48 @@ fun SectionCard(
     title: String,
     icon: ImageVector? = null,
     modifier: Modifier = Modifier,
+    collapsible: Boolean = false,
+    initiallyExpanded: Boolean = false,
     action: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // Свёрнутое состояние запоминается по заголовку — переживает прокрутку и поворот экрана.
+    val expandedState = androidx.compose.runtime.saveable.rememberSaveable(title) { androidx.compose.runtime.mutableStateOf(!collapsible || initiallyExpanded) }
+    val expanded = expandedState.value
+    val rotation = androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f, label = "chevron").value
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(Modifier.padding(vertical = 14.dp)) {
-            Row(Modifier.padding(horizontal = 18.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .then(if (collapsible) Modifier.clickable { expandedState.value = !expandedState.value } else Modifier)
+                    .padding(horizontal = 18.dp, vertical = if (collapsible) 4.dp else 0.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (icon != null) {
                     Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
                 Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
                 action?.invoke()
+                if (collapsible) {
+                    Icon(
+                        Icons.Default.ExpandMore, if (expanded) t("Свернуть") else t("Развернуть"),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.rotate(rotation),
+                    )
+                }
             }
-            Spacer(Modifier.size(6.dp))
-            content()
+            androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+                Column {
+                    Spacer(Modifier.size(6.dp))
+                    content()
+                }
+            }
         }
     }
 }
