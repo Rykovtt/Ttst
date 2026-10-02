@@ -517,16 +517,25 @@ private fun QuickActions(pf: PersonFull, onNewAppointment: () -> Unit) {
         add(Triple(Icons.Default.EventAvailable, t("Записать"), onNewAppointment))
     }
     if (actions.isEmpty()) return
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        actions.forEach { (icon, label, action) ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(72.dp)) {
-                FilledTonalIconButton(onClick = action, modifier = Modifier.size(52.dp)) { Icon(icon, label) }
-                Spacer(Modifier.height(4.dp))
-                Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-            }
+    @Composable
+    fun ActionItem(icon: ImageVector, label: String, action: () -> Unit, modifier: Modifier) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+            FilledTonalIconButton(onClick = action, modifier = Modifier.size(52.dp)) { Icon(icon, label) }
+            Spacer(Modifier.height(4.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        }
+    }
+    if (actions.size <= 5) {
+        // Помещаются в ширину — делят её поровну, без пустоты справа.
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+            actions.forEach { (icon, label, action) -> ActionItem(icon, label, action, Modifier.weight(1f)) }
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            actions.forEach { (icon, label, action) -> ActionItem(icon, label, action, Modifier.width(72.dp)) }
         }
     }
 }

@@ -55,6 +55,8 @@ import androidx.compose.material3.ModalBottomSheet
 import com.kartoteka.app.ui.components.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import com.kartoteka.app.ui.components.SuggestionChip
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -577,19 +579,26 @@ private fun AddContactButton(onAdd: (ContactType) -> Unit) {
 
 @Composable
 private fun DetailEditor(d: DetailField, onChange: (DetailField) -> Unit, onRemove: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            InputChip(selected = false, onClick = {}, label = { Text(d.category.ifBlank { t("Разное") }) })
-            Spacer(Modifier.width(8.dp))
-            OutlinedTextField(
-                value = d.name,
-                onValueChange = { onChange(d.copy(name = it)) },
-                label = { Text(t("Что")) },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(onClick = onRemove) { Icon(Icons.Default.Close, t("Удалить")) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Категория слева, «удалить» справа — на одной линии; поля ниже на всю ширину.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                Text(
+                    d.category.ifBlank { t("Разное") },
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) { Icon(Icons.Default.Close, t("Удалить"), Modifier.size(20.dp)) }
         }
+        OutlinedTextField(
+            value = d.name,
+            onValueChange = { onChange(d.copy(name = it)) },
+            label = { Text(t("Что")) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         OutlinedTextField(
             value = d.value,
             onValueChange = { onChange(d.copy(value = it)) },
@@ -597,7 +606,7 @@ private fun DetailEditor(d: DetailField, onChange: (DetailField) -> Unit, onRemo
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
-        HorizontalDivider(Modifier.padding(top = 10.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        HorizontalDivider(Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
     }
 }
 
