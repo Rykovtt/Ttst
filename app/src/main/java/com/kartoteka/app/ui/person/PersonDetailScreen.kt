@@ -193,6 +193,7 @@ fun PersonDetailScreen(
     onOpenPerson: (Long) -> Unit = {},
     onNewAppointment: () -> Unit = {},
     onOpenAppointment: (Long) -> Unit = {},
+    openNote: Boolean = false,
 ) {
     val app = app()
     val vm: PersonDetailViewModel = viewModel(key = "person_${personId}") { PersonDetailViewModel(app, personId) }
@@ -202,7 +203,7 @@ fun PersonDetailScreen(
     val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 700 } }
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var journalDialog by remember { mutableStateOf(false) }
+    var journalDialog by remember { mutableStateOf(openNote) }
     var photoMenu by remember { mutableStateOf(false) }
     var relationDialog by remember { mutableStateOf(false) }
     val relations by vm.relations.collectAsState()

@@ -30,6 +30,11 @@ import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
@@ -81,7 +86,7 @@ object Routes {
     const val GROUPS = "groups"
     const val BROADCAST = "broadcast?groupId={groupId}&personIds={personIds}"
     const val SETTINGS = "settings"
-    const val PERSON = "person/{id}"
+    const val PERSON = "person/{id}?note={note}"
     const val EDIT = "edit/{id}"
     const val PHOTOS = "photos/{personId}/{index}"
     const val GROUP = "group/{id}"
@@ -91,25 +96,26 @@ object Routes {
     const val SERVICES = "services"
     const val NOA = "noa"
     const val STATS = "stats"
-    const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
+    const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}&kind={kind}"
 
     fun person(id: Long) = "person/${id}"
     fun edit(id: Long = 0) = "edit/${id}"
     fun photos(personId: Long, index: Int) = "photos/${personId}/${index}"
     fun group(id: Long) = "group/${id}"
-    fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0) = "appointment/${id}?personId=${personId}&date=${date}"
+    fun appointment(id: Long = 0, personId: Long = 0, date: Long = 0, kind: String = "") = "appointment/${id}?personId=${personId}&date=${date}&kind=${kind}"
+    fun personNote(id: Long) = "person/${id}?note=true"
     fun broadcast(groupId: Long = 0, personIds: Collection<Long> = emptyList()) =
         "broadcast?groupId=${groupId}&personIds=${personIds.joinToString(",")}"
 }
 
-private data class Tab(val route: String, val base: String, val title: String, val icon: ImageVector)
+private data class Tab(val route: String, val base: String, val title: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 private val tabs = listOf(
-    Tab(Routes.PEOPLE, "people", "Люди", Icons.Default.People),
-    Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Default.CalendarMonth),
-    Tab(Routes.MAP, "map", "Карта", Icons.Default.Map),
-    Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Filled.Send),
-    Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Default.Settings),
+    Tab(Routes.PEOPLE, "people", "Люди", Icons.Outlined.People, Icons.Default.People),
+    Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Outlined.CalendarMonth, Icons.Default.CalendarMonth),
+    Tab(Routes.MAP, "map", "Карта", Icons.Outlined.Map, Icons.Default.Map),
+    Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Outlined.Send, Icons.AutoMirrored.Filled.Send),
+    Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Outlined.Settings, Icons.Default.Settings),
 )
 
 /** Разделы, где видна нижняя навигация (карта и статистика открываются с «Людей»). */
@@ -129,6 +135,7 @@ fun KartotekaRoot(
     val route = entry?.destination?.route.orEmpty()
     val showBar = barRoutes.any { route.startsWith(it) }
     var quick by remember { mutableStateOf(false) }
+    var notePicker by remember { mutableStateOf(false) }
     LaunchedEffect(route) { quick = false }
     val app = app()
     val assistantOn by app.settings.assistant.value.collectAsState()
@@ -162,7 +169,7 @@ fun KartotekaRoot(
     Scaffold(
         bottomBar = {
             if (showBar) {
-                val items = tabs.map { NavItem(it.base, it.title, it.icon, badge = it.base == "calendar" && hasToday) }
+                val items = tabs.map { NavItem(it.base, it.title, it.icon, it.selectedIcon, badge = it.base == "calendar" && hasToday) }
                 RvNavBar(
                     items = items,
                     selected = tabs.firstOrNull { route.startsWith(it.base) }?.base,
@@ -229,9 +236,11 @@ fun KartotekaRoot(
                     navArgument("id") { type = NavType.LongType },
                     navArgument("personId") { type = NavType.LongType; defaultValue = 0L },
                     navArgument("date") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("kind") { type = NavType.StringType; defaultValue = "" },
                 ),
             ) { e ->
                 AppointmentEditScreen(
+                    kind = e.arguments?.getString("kind").orEmpty(),
                     id = e.arguments!!.getLong("id"),
                     personId = e.arguments!!.getLong("personId"),
                     dateEpoch = e.arguments!!.getLong("date"),
@@ -258,9 +267,13 @@ fun KartotekaRoot(
             composable(Routes.SETTINGS) {
                 SettingsScreen(onImportContacts = { nav.navigate(Routes.IMPORT) }, onServices = { nav.navigate(Routes.SERVICES) }, onNoa = { nav.navigate(Routes.NOA) })
             }
-            composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
+            composable(Routes.PERSON, arguments = listOf(
+                navArgument("id") { type = NavType.LongType },
+                navArgument("note") { type = NavType.BoolType; defaultValue = false },
+            )) { e ->
                 val id = e.arguments!!.getLong("id")
                 PersonDetailScreen(
+                    openNote = e.arguments?.getBoolean("note") ?: false,
                     personId = id,
                     onBack = { nav.popBackStack() },
                     onEdit = { nav.navigate(Routes.edit(id)) },
@@ -333,18 +346,28 @@ fun KartotekaRoot(
                 com.kartoteka.app.ui.stats.StatsScreen(onBack = { nav.popBackStack() }, onOpenPerson = { nav.navigate(Routes.person(it)) })
             }
         }
-        QuickMenu(
-            visible = quick,
-            actions = buildList {
-                add(QuickAction(t("Новый человек"), t("Карточка с фото, контактами и деталями"), QuickIcons.person, com.kartoteka.app.ui.theme.Rv.PeachDeep) { nav.navigate(Routes.edit()) })
-                add(QuickAction(t("Новая запись"), t("Встреча, сеанс или звонок с напоминанием"), QuickIcons.appointment, com.kartoteka.app.ui.theme.Rv.Lavender) {
+        QuickActionsOverlay(
+            open = quick,
+            anchorBelow = QuickFabCenterBelowBarTop,
+            actions = listOf(
+                QuickAction(t("Человек"), QuickIcons.person, com.kartoteka.app.ui.theme.Rv.PeachDeep, t("Добавить человека")) { nav.navigate(Routes.edit()) },
+                QuickAction(t("Встреча"), QuickIcons.appointment, com.kartoteka.app.ui.theme.Rv.Lavender, t("Создать встречу")) {
                     nav.navigate(Routes.appointment(date = java.time.LocalDate.now().toEpochDay()))
-                })
-                if (assistantOn) add(QuickAction(t("Ассистент"), t("Скажите, что сделать"), QuickIcons.noa, com.kartoteka.app.ui.theme.Rv.Cobalt) { nav.navigate(Routes.NOA) })
-                add(QuickAction(t("Импорт контактов"), t("Перенести людей из телефонной книги"), QuickIcons.import, com.kartoteka.app.ui.theme.Rv.Lime) { nav.navigate(Routes.IMPORT) })
-            },
+                },
+                QuickAction(t("Заметка"), QuickIcons.note, Color(0xFF2E9C6A), t("Добавить заметку")) { notePicker = true },
+                QuickAction(t("Напоминание"), QuickIcons.reminder, com.kartoteka.app.ui.theme.Rv.Cobalt, t("Создать напоминание")) {
+                    nav.navigate(Routes.appointment(date = java.time.LocalDate.now().toEpochDay(), kind = "reminder"))
+                },
+            ),
             onDismiss = { quick = false },
         )
+        if (notePicker) {
+            val everyone by app.repository.observeAll().collectAsState(initial = emptyList())
+            com.kartoteka.app.ui.calendar.PersonPickerDialog(everyone, onDismiss = { notePicker = false }) { pf ->
+                notePicker = false
+                nav.navigate(Routes.personNote(pf.person.id))
+            }
+        }
         }
     }
 }

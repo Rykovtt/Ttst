@@ -115,7 +115,7 @@ enum class MessageKind(private val titleRu: String, val template: TemplateKind) 
     val title: String get() = t(titleRu)
 }
 
-class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, personId: Long, dateEpoch: Long) : ViewModel() {
+class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, personId: Long, dateEpoch: Long, kind: String = "") : ViewModel() {
     private val repo = app.repository
     private val settings = app.settings
     val isNew = id == 0L
@@ -140,6 +140,13 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
     val service: ServiceTemplate? get() = services.value.firstOrNull { it.id == serviceId }
 
     init {
+        // «Напоминание» из меню «+»: запись только для себя — без сообщений человеку.
+        if (isNew && kind == "reminder") {
+            title = t("Напоминание")
+            channel = NotifyChannel.NONE
+            sendConfirm = false
+            clientOffsets.clear()
+        }
         viewModelScope.launch {
             val all = repo.getAll()
             if (!isNew) {
@@ -292,10 +299,10 @@ private val durations = listOf(15, 30, 45, 60, 90, 120, 180)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
+fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () -> Unit, onOpenPerson: (Long) -> Unit, kind: String = "") {
     val app = app()
     val context = LocalContext.current
-    val vm: AppointmentEditViewModel = viewModel(key = "appt_${id}_${personId}_${dateEpoch}") { AppointmentEditViewModel(app, id, personId, dateEpoch) }
+    val vm: AppointmentEditViewModel = viewModel(key = "appt_${id}_${personId}_${dateEpoch}_${kind}") { AppointmentEditViewModel(app, id, personId, dateEpoch, kind) }
     val everyone by vm.everyone.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }

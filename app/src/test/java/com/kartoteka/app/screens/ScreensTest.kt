@@ -143,9 +143,7 @@ class ScreensTest {
         compose.setContent { KartotekaTheme { KartotekaRoot(openPersonId = null, onPersonOpened = {}) } }
         settle()
         shot("01_home")
-        compose.onNodeWithContentDescription("Быстрые действия").performClick()
-        settle()
-        compose.onNodeWithText("Ассистент").performClick()
+        compose.onNodeWithText("Ассистент", substring = true).performClick()
         settle()
         shot("27_noa")
         compose.onNodeWithContentDescription("Назад").performClick()

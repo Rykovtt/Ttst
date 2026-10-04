@@ -130,45 +130,55 @@ private val Dark = darkColorScheme(
     inverseOnSurface = Rv.Ink,
 )
 
-// ---- Типографика: Manrope (переменный шрифт, кириллица и украинский) ----
+// ---- Типографика: Inter (как системный шрифт макета) + Montserrat для словесного знака ----
 @OptIn(ExperimentalTextApi::class)
-private fun manrope(w: Int) = Font(
-    R.font.manrope, FontWeight(w),
+private fun inter(w: Int) = Font(
+    R.font.inter, FontWeight(w),
+    variationSettings = FontVariation.Settings(FontVariation.weight(w), FontVariation.Setting("opsz", 28f)),
+)
+
+@OptIn(ExperimentalTextApi::class)
+private fun montserrat(w: Int) = Font(
+    R.font.montserrat, FontWeight(w),
     variationSettings = FontVariation.Settings(FontVariation.weight(w)),
 )
 
-val Manrope = FontFamily(
-    manrope(300), manrope(400), manrope(500), manrope(600), manrope(700), manrope(800),
-)
+val Inter = FontFamily(inter(300), inter(400), inter(500), inter(600), inter(700), inter(800))
+
+/** Шрифт тонкого логотипа «RVAULT». */
+val Wordmark = FontFamily(montserrat(200), montserrat(300), montserrat(400))
+
+/** Совместимость: старое имя основного шрифта. */
+val Manrope = Inter
 
 private val AppTypography = Typography().let { t ->
     fun TextStyle.m(w: FontWeight, size: Int? = null, ls: Float? = null, lh: Int? = null) = copy(
-        fontFamily = Manrope, fontWeight = w,
+        fontFamily = Inter, fontWeight = w,
         fontSize = size?.sp ?: fontSize,
         letterSpacing = ls?.sp ?: letterSpacing,
         lineHeight = lh?.sp ?: lineHeight,
     )
     t.copy(
-        displayLarge = t.displayLarge.m(FontWeight.ExtraBold, ls = -2f),
-        displayMedium = t.displayMedium.m(FontWeight.ExtraBold, ls = -1.5f),
-        displaySmall = t.displaySmall.m(FontWeight.ExtraBold, 36, -1.2f, 40),
-        headlineLarge = t.headlineLarge.m(FontWeight.ExtraBold, 34, -1.1f, 38),
-        headlineMedium = t.headlineMedium.m(FontWeight.ExtraBold, 28, -0.8f, 32),
-        headlineSmall = t.headlineSmall.m(FontWeight.Bold, 22, -0.4f),
-        titleLarge = t.titleLarge.m(FontWeight.Bold, 20, -0.3f),
-        titleMedium = t.titleMedium.m(FontWeight.Bold, 16, -0.1f),
-        titleSmall = t.titleSmall.m(FontWeight.Bold, 14, 0f),
-        bodyLarge = t.bodyLarge.m(FontWeight.Medium, 16, 0f),
-        bodyMedium = t.bodyMedium.m(FontWeight.Medium, 14, 0f),
-        bodySmall = t.bodySmall.m(FontWeight.Medium, 12, 0.1f),
-        labelLarge = t.labelLarge.m(FontWeight.Bold, 14, 0f),
-        labelMedium = t.labelMedium.m(FontWeight.SemiBold, 12, 0.1f),
-        labelSmall = t.labelSmall.m(FontWeight.SemiBold, 11, 0.2f),
+        displayLarge = t.displayLarge.m(FontWeight.Bold, ls = -2f),
+        displayMedium = t.displayMedium.m(FontWeight.Bold, ls = -1.6f),
+        displaySmall = t.displaySmall.m(FontWeight.Bold, 36, -1.2f, 40),
+        headlineLarge = t.headlineLarge.m(FontWeight.Bold, 34, -1.1f, 38),
+        headlineMedium = t.headlineMedium.m(FontWeight.Bold, 28, -0.8f, 32),
+        headlineSmall = t.headlineSmall.m(FontWeight.SemiBold, 22, -0.4f),
+        titleLarge = t.titleLarge.m(FontWeight.SemiBold, 20, -0.4f),
+        titleMedium = t.titleMedium.m(FontWeight.SemiBold, 16, -0.2f),
+        titleSmall = t.titleSmall.m(FontWeight.SemiBold, 14, -0.1f),
+        bodyLarge = t.bodyLarge.m(FontWeight.Normal, 16, -0.2f),
+        bodyMedium = t.bodyMedium.m(FontWeight.Normal, 14, -0.1f),
+        bodySmall = t.bodySmall.m(FontWeight.Normal, 12, 0f),
+        labelLarge = t.labelLarge.m(FontWeight.Medium, 14, -0.1f),
+        labelMedium = t.labelMedium.m(FontWeight.Medium, 12, 0f),
+        labelSmall = t.labelSmall.m(FontWeight.Medium, 11, 0.1f),
     )
 }
 
 /** Цифры для времени, дат и статистики — крупные и плотные. */
-val NumberStyle = TextStyle(fontFamily = Manrope, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.8).sp)
+val NumberStyle = TextStyle(fontFamily = Inter, fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp)
 
 // ---- Скругления ----
 private val AppShapes = Shapes(
@@ -237,8 +247,7 @@ fun KartotekaTheme(content: @Composable () -> Unit) {
             colorScheme = if (isSystemInDarkTheme()) Dark else Light,
             typography = AppTypography,
             shapes = AppShapes,
-            content = content,
-        )
+        ) { com.kartoteka.app.ui.components.ProvideSheen(content) }
     }
 }
 
