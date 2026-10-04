@@ -152,7 +152,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
             GeminiNanoBrain.State.READY -> { brainReady = true; bubbles.add(Bubble(t("Умный режим готов 🧠"), mine = false)) }
             GeminiNanoBrain.State.DOWNLOADING ->
                 bubbles.add(Bubble(t("Умный режим загружается — пока работают быстрые команды. Попробуйте позже."), mine = false))
-            else -> bubbles.add(Bubble(t("Умный режим пока недоступен (%1\$s) — работают быстрые команды.", app.brain.detail.ifBlank { "AICore" }), mine = false))
+            else -> bubbles.add(Bubble(t("Умный режим недоступен на этом телефоне — работают быстрые команды."), mine = false))
         }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }
