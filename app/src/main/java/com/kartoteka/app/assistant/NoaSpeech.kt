@@ -26,6 +26,15 @@ class NoaListener(private val context: Context) {
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
     @Volatile private var done = false
 
+    // Глушим системный «бип» распознавания на время прослушивания.
+    private val audio = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager
+    private fun muteBeep(mute: Boolean) = runCatching {
+        val dir = if (mute) android.media.AudioManager.ADJUST_MUTE else android.media.AudioManager.ADJUST_UNMUTE
+        audio?.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, dir, 0)
+        audio?.adjustStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION, dir, 0)
+        audio?.adjustStreamVolume(android.media.AudioManager.STREAM_SYSTEM, dir, 0)
+    }
+
     fun available() = runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
 
     /** Запуск строго на главном потоке; все вызовы распознавателя защищены. */
@@ -36,9 +45,11 @@ class NoaListener(private val context: Context) {
     private fun startOnMain(cb: Callback) {
         stop()
         done = false
+        muteBeep(true)
         fun finish(body: () -> Unit) {
             if (done) return
             done = true
+            muteBeep(false)
             body(); safe { cb.onEnd() }
         }
         // Любой сбой создания/запуска — сообщаем ошибкой, не роняя приложение.
@@ -73,6 +84,7 @@ class NoaListener(private val context: Context) {
 
     fun stop() {
         val r = recognizer; recognizer = null
+        muteBeep(false)
         main.post { r?.runCatching { cancel() }; r?.runCatching { destroy() } }
     }
 }

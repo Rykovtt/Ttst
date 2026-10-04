@@ -142,15 +142,17 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         if (voiceOn) NoaVoice.init(context)
         if (bubbles.isEmpty()) bubbles.add(Bubble(t("Привет! Я %1\$s. Скажите или напишите, что сделать: записать человека, позвонить, найти, добавить заметку.", name), mine = false))
     }
-    // Готовим мозг в фоне; если недоступен — молча работают быстрые команды.
+    // Готовим мозг в фоне и показываем его состояние, чтобы было видно, работает ли ИИ.
     LaunchedEffect(brainOn) {
         brainReady = false
-        if (!brainOn || !app.brain.supported) return@LaunchedEffect
+        if (!brainOn) { bubbles.add(Bubble(t("Умный режим выключен — работают быстрые команды."), mine = false)); return@LaunchedEffect }
+        if (!app.brain.supported) { bubbles.add(Bubble(t("Умный режим недоступен на этом телефоне — работают быстрые команды."), mine = false)); return@LaunchedEffect }
+        bubbles.add(Bubble(t("Проверяю умный режим…"), mine = false))
         when (app.brain.prepare()) {
-            GeminiNanoBrain.State.READY -> brainReady = true
+            GeminiNanoBrain.State.READY -> { brainReady = true; bubbles.add(Bubble(t("Умный режим готов 🧠"), mine = false)) }
             GeminiNanoBrain.State.DOWNLOADING ->
-                bubbles.add(Bubble(t("Загружаю умный режим — пока работают быстрые команды. Попробуйте чуть позже."), mine = false))
-            else -> Unit
+                bubbles.add(Bubble(t("Умный режим загружается — пока работают быстрые команды. Попробуйте позже."), mine = false))
+            else -> bubbles.add(Bubble(t("Умный режим пока недоступен (%1\$s) — работают быстрые команды.", app.brain.detail.ifBlank { "AICore" }), mine = false))
         }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }

@@ -772,3 +772,9 @@ SMS одним сообщением	SMS одним повідомленням	SM
 Недоступно на этом телефоне (нужен Android 12+ и поддержка Gemini Nano).	Недоступно на цьому телефоні (потрібен Android 12+ і підтримка Gemini Nano).	Not available on this phone (needs Android 12+ and Gemini Nano support).
 Загружаю умный режим — пока работают быстрые команды. Попробуйте чуть позже.	Завантажую розумний режим — поки працюють швидкі команди. Спробуйте трохи пізніше.	Loading smart mode — quick commands work meanwhile. Try again shortly.
 Не поняла команду.	Не зрозуміла команду.	I didn't understand that.
+Умный режим выключен — работают быстрые команды.	Розумний режим вимкнено — працюють швидкі команди.	Smart mode is off — quick commands are active.
+Умный режим недоступен на этом телефоне — работают быстрые команды.	Розумний режим недоступний на цьому телефоні — працюють швидкі команди.	Smart mode isn't available on this phone — quick commands are active.
+Проверяю умный режим…	Перевіряю розумний режим…	Checking smart mode…
+Умный режим готов 🧠	Розумний режим готовий 🧠	Smart mode ready 🧠
+Умный режим загружается — пока работают быстрые команды. Попробуйте позже.	Розумний режим завантажується — поки працюють швидкі команди. Спробуйте пізніше.	Smart mode is downloading — quick commands work meanwhile. Try later.
+Умный режим пока недоступен (%1$s) — работают быстрые команды.	Розумний режим поки недоступний (%1$s) — працюють швидкі команди.	Smart mode isn't available yet (%1$s) — quick commands are active.

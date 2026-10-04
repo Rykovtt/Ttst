@@ -129,11 +129,25 @@ class Noa(private val app: KartotekaApp) {
             .sortedByDescending { it.second }.map { it.first }
     }
 
-    /** Основа слова: отбрасываем 1–2 конечные гласные и мягкий знак (падежные окончания). */
+    /**
+     * Сводим похожие буквы русского и украинского алфавитов к одной форме, чтобы
+     * «Илья Рыков» и «Ілля Риков» совпадали: и/і/ї/ы/й→и, е/є/ё/э→е, г/ґ→г, апостроф/ь убираем.
+     */
+    private fun fold(w: String): String = buildString {
+        for (c in w.lowercase()) when (c) {
+            'і', 'ї', 'ы', 'й', 'и' -> append('и')
+            'е', 'є', 'ё', 'э' -> append('е')
+            'ґ' -> append('г')
+            'ь', '\'', '’', '`', 'ʼ' -> {}
+            else -> append(c)
+        }
+    }
+
+    /** Основа слова: сводим алфавиты и отбрасываем 1–2 конечные гласные (падежные окончания). */
     private fun stem(w: String): String {
-        var s = w.trim()
+        var s = fold(w.trim())
         var cut = 0
-        while (s.length > 2 && cut < 2 && s.last() in "ауюыиеояэёїієь") { s = s.dropLast(1); cut++ }
+        while (s.length > 2 && cut < 2 && s.last() in "ауюиеоя") { s = s.dropLast(1); cut++ }
         return s
     }
 

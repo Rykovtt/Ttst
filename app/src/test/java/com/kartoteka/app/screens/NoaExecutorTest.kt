@@ -62,6 +62,14 @@ class NoaExecutorTest {
         assertEquals("переехала во Львов", anya.journal[0].text)
     }
 
+    @Test fun matchesAcrossRussianUkrainianLetters() = runBlocking {
+        app.repository.savePerson(Person(firstName = "Ілля", lastName = "Риков"),
+            listOf(ContactItem(type = "PHONE", value = "+380731018582")), emptyList(), emptyList())
+        // запрос русскими буквами находит украинскую карточку
+        val r = Noa(app).handle("открой илья рыков", now)
+        assertTrue("reply=$r", r is Noa.Reply.Say2Open)
+    }
+
     @Test fun unknownCommandIsHandledGracefully() = runBlocking {
         val r = Noa(app).handle("расскажи анекдот", now)
         assertTrue(r is Noa.Reply.Say)
