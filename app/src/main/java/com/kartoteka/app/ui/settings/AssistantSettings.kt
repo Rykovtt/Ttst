@@ -4,6 +4,9 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
+import com.kartoteka.app.assistant.LlmBrain
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -11,13 +14,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Downloading
 import androidx.compose.material.icons.filled.FileOpen
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Close
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +50,7 @@ fun AssistantSettings() {
     if (on) {
         ToggleRow(
             Icons.Default.AutoAwesome, t("Умный режим (офлайн ИИ)"),
-            t("Модель Gemma на телефоне понимает свободную речь. Нужна разовая загрузка модели (~1.3 ГБ)."),
+            t("ИИ прямо на телефоне понимает свободную речь. Нужно один раз скачать модель (~1.6 ГБ)."),
             brain,
         ) { s.assistantBrain.set(it) }
         if (brain) BrainModelRow()
@@ -84,7 +88,7 @@ private fun setLauncher(context: android.content.Context, on: Boolean) = runCatc
     )
 }
 
-/** Управление файлом модели для умного режима: выбрать файл, скачать по ссылке, удалить. */
+/** Модель для умного режима: одна кнопка «Скачать», загрузка идёт в фоне, приложение само её подхватывает. */
 @Composable
 private fun BrainModelRow() {
     val app = app()
@@ -92,72 +96,92 @@ private fun BrainModelRow() {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val brain = app.brain
     var has by remember { mutableStateOf(brain.hasModel()) }
-    var busy by remember { mutableStateOf(false) }
-    var progress by remember { mutableStateOf(-1) }
-    var urlDialog by remember { mutableStateOf(false) }
-    var info by remember { mutableStateOf(false) }
+    var dl by remember { mutableStateOf(brain.syncDownload()) }
+    var importing by remember { mutableStateOf(-1) }
+    var confirm by remember { mutableStateOf(false) }
+
+    // Следим за загрузкой, пока открыт экран; по окончании модель подключается сама.
+    LaunchedEffect(dl is LlmBrain.Download.Running) {
+        while (dl is LlmBrain.Download.Running) {
+            kotlinx.coroutines.delay(1000)
+            dl = brain.syncDownload()
+            if (dl == LlmBrain.Download.Done) {
+                has = brain.hasModel()
+                android.widget.Toast.makeText(context, t("Модель скачана — умный режим готов"), android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val pick = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        busy = true; progress = 0
+        importing = 0
         scope.launch {
-            val ok = brain.importModel(uri) { progress = it }
-            busy = false; progress = -1; has = brain.hasModel()
+            val ok = brain.importModel(uri) { importing = it }
+            importing = -1; has = brain.hasModel()
             android.widget.Toast.makeText(context, if (ok) t("Модель загружена") else t("Не удалось загрузить модель"), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
+    val running = dl as? LlmBrain.Download.Running
     when {
-        busy -> ActionRow(Icons.Default.Downloading, t("Загрузка модели…"), if (progress in 0..100) "$progress%" else t("Подождите")) {}
+        importing >= 0 -> ActionRow(Icons.Default.Downloading, t("Загрузка модели…"), "$importing%") {}
+        running != null -> {
+            ActionRow(
+                Icons.Default.Downloading,
+                t("Скачивание модели…") + " ${running.percent}%",
+                if (running.waiting) t("Ожидание сети. Загрузка продолжится сама.")
+                else t("%1\$s из %2\$s МБ. Можно закрыть приложение — загрузка идёт в фоне.", running.doneMb, running.totalMb),
+            ) {}
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { running.percent / 100f },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            ActionRow(Icons.Default.Close, t("Отменить загрузку"), "") {
+                brain.cancelDownload(); dl = LlmBrain.Download.None
+            }
+        }
         has -> {
-            ActionRow(Icons.Default.AutoAwesome, t("Модель загружена"), t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb())) {}
+            ActionRow(Icons.Default.AutoAwesome, t("Модель установлена"), t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb())) {}
             ActionRow(Icons.Default.Delete, t("Удалить модель"), t("Освободить место")) {
                 brain.deleteModel(); has = false
             }
         }
         else -> {
-            ActionRow(Icons.Default.FileOpen, t("Выбрать файл модели"), t("Если вы уже скачали файл Gemma (.task)")) {
+            if (dl is LlmBrain.Download.Failed) {
+                Text(
+                    t("Загрузка прервалась. Проверьте интернет и нажмите «Скачать» ещё раз."),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+            ActionRow(Icons.Default.Download, t("Скачать модель"), t("Один раз, ~1.6 ГБ. Лучше по Wi‑Fi. Дальше работает без интернета.")) {
+                confirm = true
+            }
+            ActionRow(Icons.Default.FileOpen, t("Свой файл модели"), t("Для опытных: файл .task с телефона")) {
                 pick.launch(arrayOf("*/*"))
             }
-            ActionRow(Icons.Default.Download, t("Скачать по ссылке"), t("Прямая ссылка на модель .task")) { urlDialog = true }
-            ActionRow(Icons.Default.Info, t("Где взять модель"), t("Короткая инструкция")) { info = true }
         }
     }
 
-    if (urlDialog) {
-        var url by remember { mutableStateOf("") }
+    if (confirm) {
         AlertDialog(
-            onDismissRequest = { urlDialog = false },
+            onDismissRequest = { confirm = false },
             title = { Text(t("Скачать модель")) },
-            text = {
-                Column(androidx.compose.ui.Modifier.fillMaxWidth()) {
-                    Text(t("Вставьте прямую ссылку на файл модели Gemma (.task). Загрузка ~1.3 ГБ."), style = androidx.compose.material3.MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(url, { url = it }, singleLine = true, modifier = Modifier.fillMaxWidth(), label = { Text("URL") })
-                }
-            },
+            text = { Text(t("Будет скачано около 1.6 ГБ. Загрузка идёт в фоне — можно пользоваться телефоном и закрыть приложение. Когда закончится, умный режим включится сам.")) },
             confirmButton = {
-                TextButton(enabled = url.startsWith("http"), onClick = {
-                    urlDialog = false; busy = true; progress = 0
-                    scope.launch {
-                        val ok = brain.downloadModel(url.trim()) { progress = it }
-                        busy = false; progress = -1; has = brain.hasModel()
-                        android.widget.Toast.makeText(context, if (ok) t("Модель загружена") else t("Не удалось скачать модель"), android.widget.Toast.LENGTH_SHORT).show()
+                TextButton(onClick = {
+                    confirm = false
+                    when {
+                        !brain.enoughSpace() -> android.widget.Toast.makeText(context, t("Не хватает места: нужно около 1.8 ГБ свободной памяти"), android.widget.Toast.LENGTH_LONG).show()
+                        brain.startDownload() -> dl = brain.syncDownload()
+                        else -> android.widget.Toast.makeText(context, t("Не удалось скачать модель"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }) { Text(t("Скачать")) }
             },
-            dismissButton = { TextButton(onClick = { urlDialog = false }) { Text(t("Отмена")) } },
-        )
-    }
-    if (info) {
-        AlertDialog(
-            onDismissRequest = { info = false },
-            title = { Text(t("Где взять модель")) },
-            text = {
-                Text(t("Нужна модель Gemma для MediaPipe в формате .task (около 1.3 ГБ).\n\n1. На сайте Hugging Face найдите litert-community (например, модель Gemma 2B в формате .task).\n2. Примите лицензию Gemma и скачайте файл .task на телефон или компьютер.\n3. Здесь нажмите «Выбрать файл модели» и укажите его, либо «Скачать по ссылке» с прямым адресом файла.\n\nМодель хранится только на вашем телефоне."))
-            },
-            confirmButton = { TextButton(onClick = { info = false }) { Text(t("Понятно")) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(t("Отмена")) } },
         )
     }
 }

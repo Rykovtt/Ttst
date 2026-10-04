@@ -150,9 +150,15 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         if (app.brain.hasModel()) bubbles.add(Bubble(t("Запускаю умный режим…"), mine = false))
         when (app.brain.prepare()) {
             LlmBrain.State.READY -> { brainReady = true; bubbles.add(Bubble(t("Умный режим готов 🧠"), mine = false)) }
-            LlmBrain.State.NEEDS_MODEL ->
-                bubbles.add(Bubble(t("Чтобы включить ум, загрузите модель в «Настройки → Ассистент». Пока работают быстрые команды."), mine = false))
-            else -> bubbles.add(Bubble(t("Не удалось запустить умный режим — работают быстрые команды."), mine = false))
+            LlmBrain.State.NEEDS_MODEL -> {
+                val dl = app.brain.syncDownload()
+                bubbles.add(Bubble(
+                    if (dl is LlmBrain.Download.Running) t("Модель ещё скачивается (%1\$s). Пока работают быстрые команды.", "${dl.percent}%")
+                    else t("Чтобы включить ум, нажмите «Скачать модель» в «Настройки → Ассистент». Пока работают быстрые команды."),
+                    mine = false,
+                ))
+            }
+            else -> bubbles.add(Bubble(t("Не удалось запустить умный режим — работают быстрые команды.") + "\n" + app.brain.detail, mine = false))
         }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }
