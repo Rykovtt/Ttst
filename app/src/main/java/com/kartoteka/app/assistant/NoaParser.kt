@@ -29,7 +29,7 @@ sealed interface NoaIntent {
  * затем вытаскиваем человека, дату/время и прочее.
  */
 object NoaParser {
-    private fun has(s: String, vararg keys: String) = keys.any { Regex("(?U)\\b${Regex.escape(it)}").containsMatchIn(s) }
+    private fun has(s: String, vararg keys: String) = keys.any { s.contains(" $it") }
 
     fun parse(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
         val original = input.trim()

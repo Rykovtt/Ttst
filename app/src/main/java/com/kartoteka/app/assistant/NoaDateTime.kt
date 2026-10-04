@@ -40,9 +40,9 @@ object NoaDateTime {
 
         // относительные дни
         when {
-            Regex("(?U)\\b(послезавтра|післязавтра|day after tomorrow)\\b").containsMatchIn(s) -> { date = now.toLocalDate().plusDays(2); hadDate = true }
-            Regex("(?U)\\b(завтра|tomorrow)\\b").containsMatchIn(s) -> { date = now.toLocalDate().plusDays(1); hadDate = true }
-            Regex("(?U)\\b(сегодня|сьогодні|today)\\b").containsMatchIn(s) -> { date = now.toLocalDate(); hadDate = true }
+            listOf("послезавтра", "післязавтра", "day after tomorrow").any { s.contains(it) } -> { date = now.toLocalDate().plusDays(2); hadDate = true }
+            listOf("завтра", "tomorrow").any { s.contains(it) } -> { date = now.toLocalDate().plusDays(1); hadDate = true }
+            listOf("сегодня", "сьогодні", "today").any { s.contains(it) } -> { date = now.toLocalDate(); hadDate = true }
         }
         // день недели → ближайший будущий
         if (date == null) {
@@ -54,9 +54,10 @@ object NoaDateTime {
         }
         // число месяца: «12», «12-е», «12 числа», «12 октября», «12th»
         if (date == null) {
-            val dayMatch = Regex("(?U)\\b(\\d{1,2})(?:\\s*(?:-?е|-?го|числа|th|st|nd|rd))?\\b").find(sForDate)
-            val day = dayMatch?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..31 }
-            if (day != null && !isTimeToken(sForDate, dayMatch.range, time)) {
+            // Время уже вырезано из sForDate, поэтому любое оставшееся число 1–31 — это день.
+            val dayMatch = Regex("\\d{1,2}").find(sForDate)
+            val day = dayMatch?.value?.toIntOrNull()?.takeIf { it in 1..31 }
+            if (day != null) {
                 val month = MONTHS.entries.firstOrNull { (_, w) -> w.any { s.contains(" $it") } }?.key
                 date = resolveDay(day, month, now.toLocalDate()); hadDate = true
             }
@@ -70,23 +71,27 @@ object NoaDateTime {
         return Parsed(dt, hadTime = time != null, hadDate = hadDate)
     }
 
+    // Границы вокруг предлога «в/о/at» делаем по пробелам, а не \b (Cyrillic + Android regex).
+    private val TIME_HM = Regex("(\\d{1,2})[:.](\\d{2})")
+    private val TIME_H = Regex("(?:^| )(?:в|о|у|at)\\s+(\\d{1,2})(?: |$)")
+
     /** Диапазон строки, занятый временем (чтобы не спутать с числом дня). */
     private fun timeRange(s: String): IntRange? {
-        Regex("(?U)\\b(?:в|о|at)?\\s*(\\d{1,2})[:.\\s](\\d{2})\\b").find(s)?.let { return it.range }
-        Regex("(?U)\\b(?:в|о|at)\\s*(\\d{1,2})(?:\\s*(?:час\\w*|год\\w*|o'?clock|pm|am|рм|ам))?\\b").find(s)?.let { return it.range }
+        TIME_HM.find(s)?.let { return it.range }
+        TIME_H.find(s)?.let { return it.groups[1]!!.range }
         return null
     }
 
     private fun parseTime(s: String): LocalTime? {
-        // «в 14:30», «о 9:00», «at 12:00», «14 30»
-        Regex("(?U)\\b(?:в|о|at)?\\s*(\\d{1,2})[:.\\s](\\d{2})\\b").find(s)?.let { m ->
+        // «в 14:30», «о 9:00», «at 12:00»
+        TIME_HM.find(s)?.let { m ->
             val h = m.groupValues[1].toInt(); val mi = m.groupValues[2].toInt()
             if (h in 0..23 && mi in 0..59) return withAmPm(s, m.range, LocalTime.of(h, mi))
         }
-        // «в 12», «в 12 часов», «at 5 pm» — целый час
-        Regex("(?U)\\b(?:в|о|at)\\s*(\\d{1,2})(?:\\s*(?:час\\w*|год\\w*|o'?clock|pm|am|рм|ам))?\\b").find(s)?.let { m ->
+        // «в 12», «о 9», «at 5» (+ pm/утра обрабатываем ниже)
+        TIME_H.find(s)?.let { m ->
             val h = m.groupValues[1].toInt()
-            if (h in 0..23) return withAmPm(s, m.range, LocalTime.of(h, 0))
+            if (h in 0..23) return withAmPm(s, m.groups[1]!!.range, LocalTime.of(h, 0))
         }
         return null
     }
@@ -101,13 +106,6 @@ object NoaDateTime {
         }
     }
 
-    /** Число оказалось частью времени (например «12» из «12:00»)? */
-    private fun isTimeToken(s: String, range: IntRange, time: LocalTime?): Boolean {
-        if (time == null) return false
-        val before = if (range.first > 0) s[range.first - 1] else ' '
-        val after = if (range.last + 1 < s.length) s[range.last + 1] else ' '
-        return before == ':' || after == ':' || before == '.' || after == '.'
-    }
 
     /** День с месяцем или без: без месяца берём ближайший будущий такой день. */
     private fun resolveDay(day: Int, month: Int?, today: LocalDate): LocalDate {

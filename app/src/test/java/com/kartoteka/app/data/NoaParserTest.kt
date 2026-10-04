@@ -52,6 +52,14 @@ class NoaParserTest {
         assertTrue(NoaParser.parse("бла бла бла", now) is NoaIntent.Unknown)
     }
 
+    @Test fun deviceCommandsFromScreenshot() {
+        assertTrue(NoaParser.parse("Открой контакт Илья рыков", now) is NoaIntent.Open)
+        assertTrue(NoaParser.parse("набери Илья рыков", now) is NoaIntent.Call)
+        assertTrue(NoaParser.parse("заблокируй приложение", now) is NoaIntent.Lock)
+        // пустой ввод не падает
+        assertTrue(NoaParser.parse("", now) is NoaIntent.Unknown)
+    }
+
     @Test fun englishAndUkrainian() {
         val en = NoaParser.parse("call Anna", now) as NoaIntent.Call
         assertEquals("anna", en.personQuery.lowercase())

@@ -112,7 +112,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                 if (yes != null && isYes(text)) { pendingYes = null; apply(yes()) }
                 else if (yes != null && isNo(text)) { pendingYes = null; say(t("Хорошо, отменила.")) }
                 else { pendingYes = null; apply(noa.handle(text)) }
-            }.onFailure { e -> say("⚠ " + (e::class.java.simpleName) + ": " + (e.message ?: "")) }
+            }.onFailure { say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
         }
     }
 
@@ -206,5 +206,10 @@ private fun sendMessage(context: android.content.Context, pf: PersonFull?, m: No
     }
 }
 
-private fun isYes(s: String) = Regex("\\b(да|ага|давай|подтвер|так|yes|yeah|ok|окей|добре)\\b").containsMatchIn(s.lowercase())
-private fun isNo(s: String) = Regex("\\b(нет|не надо|отмен|ні|no|cancel)\\b").containsMatchIn(s.lowercase())
+// Без \b — на Android он не ловит кириллические границы. Сравниваем по словам.
+private val YES = listOf("да", "ага", "давай", "подтвер", "так", "yes", "yeah", "ok", "окей", "добре")
+private val NO = listOf("нет", "отмен", "ні", "no", "cancel", "скасуй", "неа")
+private fun words(s: String) = s.lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotBlank() }
+private fun isYes(s: String) = words(s).any { w -> YES.any { w == it || w.startsWith(it) } }
+private fun isNo(s: String) = words(s).any { w -> NO.any { w == it || w.startsWith(it) } }
+
