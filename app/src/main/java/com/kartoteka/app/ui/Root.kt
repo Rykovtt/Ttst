@@ -107,6 +107,7 @@ private data class Tab(val route: String, val base: String, val title: String, v
 private val tabs = listOf(
     Tab(Routes.PEOPLE, "people", "Люди", Icons.Default.People),
     Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Default.CalendarMonth),
+    Tab(Routes.MAP, "map", "Карта", Icons.Default.Map),
     Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Filled.Send),
     Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Default.Settings),
 )
@@ -203,7 +204,9 @@ fun KartotekaRoot(
                     onImport = { nav.navigate(Routes.IMPORT) },
                     onGroups = { nav.navigate(Routes.GROUPS) },
                     onNoa = { nav.navigate(Routes.NOA) },
-                    onMap = { nav.navigate(Routes.MAP) },
+                    onMap = { nav.switchTab(Routes.MAP) },
+                    onCalendar = { nav.switchTab(Routes.CALENDAR) },
+                    onNewAppointment = { nav.navigate(Routes.appointment(personId = it)) },
                     onStats = { nav.navigate(Routes.STATS) },
                 )
             }
@@ -218,7 +221,7 @@ fun KartotekaRoot(
                 )
             }
             composable(Routes.MAP) {
-                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) }, onBack = { nav.popBackStack() })
+                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) })
             }
             composable(
                 Routes.APPOINTMENT,

@@ -136,6 +136,12 @@ class MainActivity : FragmentActivity() {
         shake.stop(sensors)
     }
 
+    /** Кнопка «Закрыть сейф»: блокируем (если включена блокировка) и убираем из недавних. */
+    fun closeVault() {
+        if (app.settings.lockEnabled.value) locked = true
+        finishAndRemoveTask()
+    }
+
     /** Встряхнули: закрываем архив и убираем его из списка недавних приложений. */
     private fun onShake() {
         if (!app.settings.shakeToClose.value.value) return

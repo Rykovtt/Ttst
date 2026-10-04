@@ -54,6 +54,9 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.border
 import com.kartoteka.app.i18n.t
 import com.kartoteka.app.ui.components.pressable
 import com.kartoteka.app.ui.theme.Motion
@@ -64,39 +67,36 @@ import com.kartoteka.app.ui.theme.rememberHaptics
 data class NavItem(val key: String, val title: String, val icon: ImageVector, val badge: Boolean = false)
 
 /**
- * Нижняя навигация RVAULT: четыре раздела и центральная кнопка быстрых действий.
- * Активный раздел подсвечивается «каплей», которая плавно переезжает между пунктами.
+ * Нижняя навигация RVAULT: тёмная панель, выбранный раздел — на светлой подложке с точкой,
+ * в центре — кремовая кнопка быстрых действий со свечением.
  */
 @Composable
 fun RvNavBar(items: List<NavItem>, selected: String?, quickOpen: Boolean, onSelect: (NavItem) -> Unit, onQuick: () -> Unit) {
-    val c = MaterialTheme.colorScheme
     val haptics = rememberHaptics()
-    // Подложка отдельно от содержимого — чтобы центральная кнопка могла выступать над панелью.
+    val barShape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
     Box(Modifier.fillMaxWidth()) {
         Box(
             Modifier.matchParentSize()
-                .shadow(18.dp, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), ambientColor = Color.Black.copy(alpha = 0.25f), spotColor = Color.Black.copy(alpha = 0.18f))
-                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(c.surfaceContainerLowest)
+                .shadow(20.dp, barShape, ambientColor = Color.Black.copy(alpha = 0.4f), spotColor = Color.Black.copy(alpha = 0.3f))
+                .clip(barShape)
+                .background(Brush.verticalGradient(listOf(Color(0xFF1E1D1F), Color(0xFF111112))))
         )
-        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(66.dp)) {
-            val slot = maxWidth / (items.size + 1)
-            // Позиция «капли» с учётом центрального слота.
-            val idx = items.indexOfFirst { it.key == selected }
-            val slotIdx = if (idx < 0) -1 else if (idx >= items.size / 2) idx + 1 else idx
-            val x by animateDpAsState(slot * slotIdx.coerceAtLeast(0) + slot / 2 - 14.dp, motion(Motion.STANDARD), label = "drop")
-            val a by animateFloatAsState(if (slotIdx >= 0) 1f else 0f, motion(Motion.MICRO), label = "dropA")
-            Box(
-                Modifier.offset(x = x, y = 6.dp).size(28.dp, 4.dp).clip(CircleShape)
-                    .background(Rv.PeachDeep.copy(alpha = a))
-            )
-            Row(Modifier.fillMaxSize()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(72.dp)) {
+            // Кнопка строго по центру: слева два раздела, справа — остальные; каждая половина делится поровну.
+            val gap = 62.dp
+            val half = (maxWidth - gap) / 2
+            val leftCount = 2
+            val rightCount = (items.size - leftCount).coerceAtLeast(1)
+            Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 items.forEachIndexed { i, item ->
-                    if (i == items.size / 2) Spacer(Modifier.width(slot))
+                    if (i == leftCount) Spacer(Modifier.width(gap))
+                    val slot = if (i < leftCount) half / leftCount else half / rightCount
                     val sel = item.key == selected
-                    val fg by animateColorAsState(if (sel) c.onSurface else c.outline, motion(Motion.MICRO), label = "navfg")
+                    val fg by animateColorAsState(if (sel) Rv.HeroText else Color(0xFF9B968F), motion(Motion.MICRO), label = "navfg")
+                    val bg by animateColorAsState(if (sel) Color.White.copy(alpha = 0.08f) else Color.Transparent, motion(Motion.STANDARD), label = "navbg")
                     Column(
-                        Modifier.width(slot).fillMaxSize()
+                        Modifier.width(slot).padding(horizontal = 1.dp).height(60.dp).clip(RoundedCornerShape(18.dp)).background(bg)
+                            .then(if (sel) Modifier.border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp)) else Modifier)
                             .semantics { role = Role.Tab; this.selected = sel }
                             .clickable(remember { MutableInteractionSource() }, indication = null) {
                                 if (!sel) haptics.tick()
@@ -106,34 +106,37 @@ fun RvNavBar(items: List<NavItem>, selected: String?, quickOpen: Boolean, onSele
                         verticalArrangement = Arrangement.Center,
                     ) {
                         Box {
-                            Icon(item.icon, null, tint = fg, modifier = Modifier.size(24.dp))
+                            Icon(item.icon, null, tint = if (sel) Rv.Peach else fg, modifier = Modifier.size(22.dp))
                             if (item.badge) {
-                                Box(
-                                    Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(8.dp)
-                                        .clip(CircleShape).background(c.surfaceContainerLowest).padding(1.5.dp)
-                                        .clip(CircleShape).background(Rv.PeachDeep)
-                                )
+                                Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(8.dp).clip(CircleShape).background(Rv.PeachDeep))
                             }
                         }
                         Spacer(Modifier.height(3.dp))
                         Text(
-                            t(item.title), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, softWrap = false,
-                            fontWeight = if (sel) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            t(item.title), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, letterSpacing = (-0.2).sp), color = fg, maxLines = 1, softWrap = false,
+                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
                         )
+                        Box(Modifier.padding(top = 3.dp).size(4.dp).clip(CircleShape).background(if (sel) Rv.HeroText else Color.Transparent))
                     }
                 }
             }
-            // Центральная кнопка.
+            // Центральная кнопка со свечением.
             val rot by animateFloatAsState(if (quickOpen) 45f else 0f, motion(Motion.STANDARD), label = "plus")
             Box(
-                Modifier.align(Alignment.TopCenter).offset(y = (-18).dp).size(58.dp)
-                    .shadow(10.dp, CircleShape, spotColor = Rv.PeachDeep.copy(alpha = 0.5f))
-                    .clip(CircleShape).background(c.primary)
-                    .pressable(haptic = false) { haptics.heavy(); onQuick() }
-                    .semantics { role = Role.Button },
+                Modifier.align(Alignment.TopCenter).offset(y = (-18).dp).size(80.dp)
+                    .background(Brush.radialGradient(listOf(Rv.Peach.copy(alpha = 0.45f), Color.Transparent)), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Default.Add, t("Быстрые действия"), tint = c.onPrimary, modifier = Modifier.size(28.dp).rotate(rot))
+                Box(
+                    Modifier.size(56.dp).clip(CircleShape)
+                        .background(Brush.radialGradient(listOf(Color(0xFFFFF4EA), Color(0xFFF3D2B6))))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.7f), CircleShape)
+                        .pressable(haptic = false) { haptics.heavy(); onQuick() }
+                        .semantics { role = Role.Button },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Add, t("Быстрые действия"), tint = Rv.Ink, modifier = Modifier.size(28.dp).rotate(rot))
+                }
             }
         }
     }
