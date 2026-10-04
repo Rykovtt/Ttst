@@ -288,6 +288,17 @@ fun KartotekaRoot(
                     onBack = { nav.popBackStack() },
                     onOpenPerson = { nav.navigate(Routes.person(it)) },
                     onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
+                    onNavigate = { section ->
+                        nav.popBackStack()
+                        when (section) {
+                            com.kartoteka.app.assistant.NoaIntent.Section.PEOPLE -> nav.navigate(Routes.PEOPLE)
+                            com.kartoteka.app.assistant.NoaIntent.Section.CALENDAR -> nav.navigate(Routes.CALENDAR)
+                            com.kartoteka.app.assistant.NoaIntent.Section.MAP -> nav.navigate(Routes.MAP)
+                            com.kartoteka.app.assistant.NoaIntent.Section.BROADCAST -> nav.navigate(Routes.broadcast())
+                            com.kartoteka.app.assistant.NoaIntent.Section.SETTINGS -> nav.navigate(Routes.SETTINGS)
+                            com.kartoteka.app.assistant.NoaIntent.Section.SERVICES -> nav.navigate(Routes.SERVICES)
+                        }
+                    },
                 )
             }
             composable(Routes.IMPORT) {

@@ -62,7 +62,7 @@ private data class Bubble(val text: String, val mine: Boolean)
 
 /** Экран ассистента Ноа: голос и текст. [onOpenPerson]/[onOpenAppointment] — переход по результату. */
 @Composable
-fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointment: (Long) -> Unit) {
+fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointment: (Long) -> Unit, onNavigate: (NoaIntent.Section) -> Unit = {}) {
     val app = app()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -97,6 +97,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                 reply.appointmentId?.let(onOpenAppointment)
             }
             is Noa.Reply.Choose -> { say(reply.text); pendingYes = null }
+            is Noa.Reply.Navigate -> { say(reply.text); onNavigate(reply.section) }
             is Noa.Reply.Confirm -> { say(reply.text + "  " + t("Скажите «да» или «нет».")); pendingYes = reply.onYes }
         }
     }

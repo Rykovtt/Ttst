@@ -27,6 +27,8 @@ class Noa(private val app: KartotekaApp) {
         data class Say2Open(val text: String, val personId: Long? = null, val appointmentId: Long? = null) : Reply
         /** Уточнить, кого из нескольких имелось в виду. */
         data class Choose(val text: String, val options: List<PersonFull>) : Reply
+        /** Перейти в раздел приложения. */
+        data class Navigate(val text: String, val section: NoaIntent.Section) : Reply
     }
 
     suspend fun handle(text: String, now: LocalDateTime = LocalDateTime.now()): Reply =
@@ -37,6 +39,7 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Backup -> Reply.Say(t("Резервную копию удобнее сделать в настройках, в разделе «Данные»."))
             is NoaIntent.Find -> find(intent.query)
             is NoaIntent.Open -> withPerson(intent.personQuery) { Reply.Say2Open(t("Открываю %1\$s.", it.person.displayName), personId = it.person.id) }
+            is NoaIntent.OpenScreen -> Reply.Navigate(t("Открываю %1\$s.", sectionName(intent.section)), intent.section)
             is NoaIntent.Call -> withPerson(intent.personQuery) {
                 val phone = it.phone ?: return@withPerson Reply.Say(t("У %1\$s нет номера телефона.", it.person.displayName))
                 Reply.Say2Open(t("Звоню %1\$s.", it.person.displayName), personId = it.person.id).also { NoaActions.pendingCall = phone }
@@ -46,6 +49,12 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.CreateAppointment -> createAppointment(intent, now)
             is NoaIntent.Unknown -> Reply.Say(t("Не поняла команду. Скажите, например: «запиши Анну на завтра в 12:00» или «позвони маме»."))
         }
+
+    private fun sectionName(s: NoaIntent.Section): String = when (s) {
+        NoaIntent.Section.PEOPLE -> t("людей"); NoaIntent.Section.CALENDAR -> t("календарь")
+        NoaIntent.Section.MAP -> t("карту"); NoaIntent.Section.BROADCAST -> t("рассылку")
+        NoaIntent.Section.SETTINGS -> t("настройки"); NoaIntent.Section.SERVICES -> t("услуги")
+    }
 
     private suspend fun find(query: String): Reply {
         if (query.isBlank()) return Reply.Say(t("Кого найти?"))

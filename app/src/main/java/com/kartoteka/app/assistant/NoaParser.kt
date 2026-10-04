@@ -13,6 +13,7 @@ sealed interface NoaIntent {
     ) : NoaIntent
     data class Find(val query: String) : NoaIntent
     data class Open(val personQuery: String) : NoaIntent
+    data class OpenScreen(val section: Section) : NoaIntent
     data class Call(val personQuery: String) : NoaIntent
     data class Message(val personQuery: String, val channel: Channel, val text: String?) : NoaIntent
     data class AddNote(val personQuery: String, val text: String) : NoaIntent
@@ -21,6 +22,7 @@ sealed interface NoaIntent {
     data class Unknown(val heard: String) : NoaIntent
 
     enum class Channel { WHATSAPP, SMS, TELEGRAM }
+    enum class Section { PEOPLE, CALENDAR, MAP, BROADCAST, SETTINGS, SERVICES }
 }
 
 /**
@@ -67,8 +69,10 @@ object NoaParser {
             val text = extractQuoted(original) ?: afterWord(original, "что", "про", "о том", "about")
             return NoaIntent.AddNote(extractPerson(s), text.orEmpty())
         }
+        // открыть раздел приложения
+        screenSection(s)?.let { return NoaIntent.OpenScreen(it) }
         // открыть карточку
-        if (has(s, "открой", "покажи карточку", "відкрий", "open")) {
+        if (has(s, "открой", "покажи карточку", "покажи контакт", "відкрий", "open")) {
             return NoaIntent.Open(extractPerson(s))
         }
         // найти
@@ -90,7 +94,24 @@ object NoaParser {
         "клиента","клієнта","client","числа","час","часов","года","the","to","at","for","про","что","о","том","about",
         "добавь","добав","додай","запиши","хронику","хроніку","тату","tattoo","маникюр","манікюр","стрижк","стрижку","маникюра",
         "сделай","зроби","make","отправь","надішли","надішлі","send","тату-сеанс","о","от",
+        "контакт","контакта","контакты","контакт","ну","а","же","ещё","еще","пожалуйста","будь","ласка",
+        "рассылку","рассылка","рассылки","розсилку","календарь","календар","карту","карта","настройки","налаштування",
+        "меню","раздел","вкладку","услуги","послуги","людей","людини",
     )
+
+    /** «Открой/зайди/покажи …» раздел приложения. */
+    private fun screenSection(s: String): NoaIntent.Section? {
+        if (!has(s, "открой", "зайди", "покажи", "перейди", "відкрий", "зайди в", "open", "go to")) return null
+        return when {
+            has(s, "рассылк", "розсилк", "broadcast") -> NoaIntent.Section.BROADCAST
+            has(s, "календар", "calendar") -> NoaIntent.Section.CALENDAR
+            (has(s, "карт") && !has(s, "карточ")) || has(s, "map") -> NoaIntent.Section.MAP
+            has(s, "настройк", "налаштуванн", "settings") -> NoaIntent.Section.SETTINGS
+            has(s, "услуг", "послуг", "service") -> NoaIntent.Section.SERVICES
+            has(s, "людей", "список", "контакты", "people", "home", "главн", "головн") -> NoaIntent.Section.PEOPLE
+            else -> null
+        }
+    }
     private val MONTH_WORDS = listOf("январ","феврал","март","апрел","мая","июн","июл","август","сентябр","октябр","ноябр","декабр",
         "січн","лют","берез","квітн","травн","черв","лип","серп","вересн","жовтн","листопад","грудн",
         "janu","febr","march","april","june","july","august","septemb","octob","novemb","decemb")

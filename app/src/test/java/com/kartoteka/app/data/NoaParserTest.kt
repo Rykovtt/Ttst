@@ -52,6 +52,15 @@ class NoaParserTest {
         assertTrue(NoaParser.parse("бла бла бла", now) is NoaIntent.Unknown)
     }
 
+    @Test fun openSectionsAndCleanName() {
+        assertEquals(NoaIntent.Section.BROADCAST, (NoaParser.parse("Открой рассылку", now) as NoaIntent.OpenScreen).section)
+        assertEquals(NoaIntent.Section.CALENDAR, (NoaParser.parse("зайди в календарь", now) as NoaIntent.OpenScreen).section)
+        assertEquals(NoaIntent.Section.SETTINGS, (NoaParser.parse("открой настройки", now) as NoaIntent.OpenScreen).section)
+        // «контакт» и «ну» не попадают в имя
+        val o = NoaParser.parse("Ну а открой контакт Илья Рыков", now) as NoaIntent.Open
+        assertEquals("илья рыков", o.personQuery.lowercase())
+    }
+
     @Test fun deviceCommandsFromScreenshot() {
         assertTrue(NoaParser.parse("Открой контакт Илья рыков", now) is NoaIntent.Open)
         assertTrue(NoaParser.parse("набери Илья рыков", now) is NoaIntent.Call)
