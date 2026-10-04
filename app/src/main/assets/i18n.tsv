@@ -767,3 +767,8 @@ SMS одним сообщением	SMS одним повідомленням	SM
 да	так	yes
 нет	ні	no
 Что-то пошло не так. Попробуйте ещё раз.	Щось пішло не так. Спробуйте ще раз.	Something went wrong. Please try again.
+Умный режим (Gemini Nano)	Розумний режим (Gemini Nano)	Smart mode (Gemini Nano)
+ИИ на телефоне понимает свободную речь. Модель загрузится при первом запуске.	ШІ на телефоні розуміє вільне мовлення. Модель завантажиться під час першого запуску.	On-device AI understands free speech. The model downloads on first use.
+Недоступно на этом телефоне (нужен Android 12+ и поддержка Gemini Nano).	Недоступно на цьому телефоні (потрібен Android 12+ і підтримка Gemini Nano).	Not available on this phone (needs Android 12+ and Gemini Nano support).
+Загружаю умный режим — пока работают быстрые команды. Попробуйте чуть позже.	Завантажую розумний режим — поки працюють швидкі команди. Спробуйте трохи пізніше.	Loading smart mode — quick commands work meanwhile. Try again shortly.
+Не поняла команду.	Не зрозуміла команду.	I didn't understand that.

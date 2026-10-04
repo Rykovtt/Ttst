@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
@@ -31,11 +32,19 @@ fun AssistantSettings() {
     val on by s.assistant.value.collectAsState()
     val voice by s.assistantVoice.value.collectAsState()
     val launcher by s.assistantLauncher.value.collectAsState()
+    val brain by s.assistantBrain.value.collectAsState()
     val name by s.assistantName.value.collectAsState()
     var rename by remember { mutableStateOf(false) }
 
     ToggleRow(Icons.Default.RecordVoiceOver, t("Ассистент"), t("Кнопка-микрофон на главном экране"), on, s.assistant::set)
     if (on) {
+        val smart = android.os.Build.VERSION.SDK_INT >= 31
+        ToggleRow(
+            Icons.Default.AutoAwesome, t("Умный режим (Gemini Nano)"),
+            if (smart) t("ИИ на телефоне понимает свободную речь. Модель загрузится при первом запуске.")
+            else t("Недоступно на этом телефоне (нужен Android 12+ и поддержка Gemini Nano)."),
+            brain && smart,
+        ) { if (smart) s.assistantBrain.set(it) }
         ActionRow(Icons.Default.RecordVoiceOver, t("Имя ассистента"), name.ifBlank { "Ноа" }) { rename = true }
         ToggleRow(Icons.Default.RecordVoiceOver, t("Отвечать голосом"), t("Женский голос; читает ответы вслух"), voice, s.assistantVoice::set)
         ToggleRow(Icons.Default.Apps, t("Иконка на рабочем столе"), t("Отдельный значок для быстрого запуска ассистента"), launcher) { v ->

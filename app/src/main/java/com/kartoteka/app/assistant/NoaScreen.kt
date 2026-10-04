@@ -71,6 +71,10 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     val name = app.settings.assistantName.value.collectAsState().value.ifBlank { "Ноа" }
     val voiceOn by app.settings.assistantVoice.value.collectAsState()
 
+    val brainOn by app.settings.assistantBrain.value.collectAsState()
+    val interpreter = remember { NoaInterpreter(app.brain) }
+    var brainReady by remember { mutableStateOf(false) }
+
     val bubbles = remember { mutableListOf<Bubble>().toMutableStateList() }
     var input by remember { mutableStateOf("") }
     var listening by remember { mutableStateOf(false) }
@@ -110,9 +114,21 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         val yes = pendingYes
         scope.launch {
             runCatching {
-                if (yes != null && isYes(text)) { pendingYes = null; apply(yes()) }
-                else if (yes != null && isNo(text)) { pendingYes = null; say(t("Хорошо, отменила.")) }
-                else { pendingYes = null; apply(noa.handle(text)) }
+                when {
+                    yes != null && isYes(text) -> { pendingYes = null; apply(yes()) }
+                    yes != null && isNo(text) -> { pendingYes = null; say(t("Хорошо, отменила.")) }
+                    else -> {
+                        pendingYes = null
+                        // Сначала «мозг» (Gemini Nano), если включён и готов; иначе — быстрые команды.
+                        val smart = if (brainReady) runCatching { interpreter.interpret(text) }.getOrNull() else null
+                        if (smart != null) {
+                            if (smart.intent != null) apply(noa.handleIntent(smart.intent))
+                            else say(smart.reply ?: t("Не поняла команду."))
+                        } else {
+                            apply(noa.handle(text))
+                        }
+                    }
+                }
             }.onFailure { say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
         }
     }
@@ -125,6 +141,17 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     LaunchedEffect(Unit) {
         if (voiceOn) NoaVoice.init(context)
         if (bubbles.isEmpty()) bubbles.add(Bubble(t("Привет! Я %1\$s. Скажите или напишите, что сделать: записать человека, позвонить, найти, добавить заметку.", name), mine = false))
+    }
+    // Готовим мозг в фоне; если недоступен — молча работают быстрые команды.
+    LaunchedEffect(brainOn) {
+        brainReady = false
+        if (!brainOn || !app.brain.supported) return@LaunchedEffect
+        when (app.brain.prepare()) {
+            GeminiNanoBrain.State.READY -> brainReady = true
+            GeminiNanoBrain.State.DOWNLOADING ->
+                bubbles.add(Bubble(t("Загружаю умный режим — пока работают быстрые команды. Попробуйте чуть позже."), mine = false))
+            else -> Unit
+        }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }
     DisposableEffect(Unit) { onDispose { listener.stop(); NoaVoice.stop() } }

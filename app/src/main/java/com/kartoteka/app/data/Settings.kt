@@ -38,6 +38,8 @@ class Settings(context: Context) {
     val assistantVoice = BoolPref("assistant_voice", true)
     /** Показывать отдельную иконку ассистента на рабочем столе. */
     val assistantLauncher = BoolPref("assistant_launcher", false)
+    /** Умный режим: Gemini Nano на устройстве. */
+    val assistantBrain = BoolPref("assistant_brain", true)
 
     /** Тихий снимок фронтальной камерой при неверном PIN-коде. */
     val intruderPhoto = BoolPref("intruder_photo", false)

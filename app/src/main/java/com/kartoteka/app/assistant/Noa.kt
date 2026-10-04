@@ -32,7 +32,10 @@ class Noa(private val app: KartotekaApp) {
     }
 
     suspend fun handle(text: String, now: LocalDateTime = LocalDateTime.now()): Reply =
-        when (val intent = NoaParser.parse(text, now)) {
+        handleIntent(NoaParser.parse(text, now), now)
+
+    suspend fun handleIntent(intent: NoaIntent, now: LocalDateTime = LocalDateTime.now()): Reply =
+        when (intent) {
             is NoaIntent.Lock -> Reply.Confirm(t("Заблокировать приложение?")) {
                 app.settings.setLockEnabled(true); Reply.Say(t("Готово, заблокировала."))
             }
