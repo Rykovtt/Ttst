@@ -7,6 +7,7 @@ plugins {
 }
 
 android {
+    packaging { jniLibs { useLegacyPackaging = true } }
     namespace = "com.kartoteka.app"
     compileSdk = 35
 
@@ -17,7 +18,7 @@ android {
         versionCode = 24
         versionName = "1.12"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     // Один постоянный ключ подписи: обновления ставятся поверх без потери данных.
