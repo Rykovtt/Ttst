@@ -14,8 +14,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.11.3"
+        versionCode = 24
+        versionName = "1.12"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
@@ -88,8 +88,8 @@ dependencies {
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     implementation("androidx.biometric:biometric:1.1.0")
-    // Офлайн-ИИ «мозг» Ноа: Gemini Nano на устройстве (только Android 12+/флагманы)
-    implementation("com.google.ai.edge.aicore:aicore:0.0.1-exp01")
+    // Офлайн-ИИ «мозг» Ноа: MediaPipe LLM + скачиваемая модель Gemma (открыт для любых приложений)
+    implementation("com.google.mediapipe:tasks-genai:0.10.24")
     // Тихий снимок фронтальной камерой при неверном PIN-коде
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")

@@ -147,12 +147,12 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         brainReady = false
         if (!brainOn) { bubbles.add(Bubble(t("Умный режим выключен — работают быстрые команды."), mine = false)); return@LaunchedEffect }
         if (!app.brain.supported) { bubbles.add(Bubble(t("Умный режим недоступен на этом телефоне — работают быстрые команды."), mine = false)); return@LaunchedEffect }
-        bubbles.add(Bubble(t("Проверяю умный режим…"), mine = false))
+        if (app.brain.hasModel()) bubbles.add(Bubble(t("Запускаю умный режим…"), mine = false))
         when (app.brain.prepare()) {
-            GeminiNanoBrain.State.READY -> { brainReady = true; bubbles.add(Bubble(t("Умный режим готов 🧠"), mine = false)) }
-            GeminiNanoBrain.State.DOWNLOADING ->
-                bubbles.add(Bubble(t("Умный режим загружается — пока работают быстрые команды. Попробуйте позже."), mine = false))
-            else -> bubbles.add(Bubble(t("Умный режим недоступен на этом телефоне — работают быстрые команды."), mine = false))
+            LlmBrain.State.READY -> { brainReady = true; bubbles.add(Bubble(t("Умный режим готов 🧠"), mine = false)) }
+            LlmBrain.State.NEEDS_MODEL ->
+                bubbles.add(Bubble(t("Чтобы включить ум, загрузите модель в «Настройки → Ассистент». Пока работают быстрые команды."), mine = false))
+            else -> bubbles.add(Bubble(t("Не удалось запустить умный режим — работают быстрые команды."), mine = false))
         }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }

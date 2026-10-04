@@ -11,7 +11,7 @@ data class Interpreted(val intent: NoaIntent?, val reply: String?)
  * дату/время всё равно разбираем сами ([NoaDateTime]) — это надёжнее, чем доверять счёт модели.
  * Любой сбой → null, и вызывающий переходит на быстрые команды.
  */
-class NoaInterpreter(private val brain: GeminiNanoBrain?) {
+class NoaInterpreter(private val brain: LlmBrain?) {
 
     suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now()): Interpreted? {
         val raw = brain?.ask(prompt(userText, now)) ?: return null

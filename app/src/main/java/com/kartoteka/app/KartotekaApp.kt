@@ -24,7 +24,7 @@ open class KartotekaApp : Application(), coil.ImageLoaderFactory {
     val backup by lazy { BackupManager(this, repository) }
     val phoneContacts by lazy { PhoneContacts(this) }
     val pinLock by lazy { com.kartoteka.app.data.PinLock(this) }
-    val brain by lazy { com.kartoteka.app.assistant.GeminiNanoBrain(this) }
+    val brain by lazy { com.kartoteka.app.assistant.LlmBrain(this) }
 
     /** Для фоновой работы, которая должна пережить экран (журнал после отправки и т.п.). */
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

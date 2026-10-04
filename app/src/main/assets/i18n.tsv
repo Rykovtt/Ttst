@@ -778,3 +778,32 @@ SMS одним сообщением	SMS одним повідомленням	SM
 Умный режим готов 🧠	Розумний режим готовий 🧠	Smart mode ready 🧠
 Умный режим загружается — пока работают быстрые команды. Попробуйте позже.	Розумний режим завантажується — поки працюють швидкі команди. Спробуйте пізніше.	Smart mode is downloading — quick commands work meanwhile. Try later.
 Умный режим пока недоступен (%1$s) — работают быстрые команды.	Розумний режим поки недоступний (%1$s) — працюють швидкі команди.	Smart mode isn't available yet (%1$s) — quick commands are active.
+%1$s МБ. Умный режим готов к работе.	%1$s МБ. Розумний режим готовий до роботи.	%1$s MB. Smart mode is ready.
+Вставьте прямую ссылку на файл модели Gemma (.task). Загрузка ~1.3 ГБ.	Вставте пряме посилання на файл моделі Gemma (.task). Завантаження ~1.3 ГБ.	Paste a direct link to the Gemma model file (.task). ~1.3 GB download.
+Выбрать файл модели	Вибрати файл моделі	Choose model file
+Где взять модель	Де взяти модель	Where to get the model
+Если вы уже скачали файл Gemma (.task)	Якщо ви вже завантажили файл Gemma (.task)	If you already downloaded the Gemma file (.task)
+Загрузка модели…	Завантаження моделі…	Loading model…
+Запускаю умный режим…	Запускаю розумний режим…	Starting smart mode…
+Короткая инструкция	Коротка інструкція	Quick guide
+Модель Gemma на телефоне понимает свободную речь. Нужна разовая загрузка модели (~1.3 ГБ).	Модель Gemma на телефоні розуміє вільне мовлення. Потрібне разове завантаження моделі (~1.3 ГБ).	The Gemma model on your phone understands free speech. A one-time ~1.3 GB model download is needed.
+Модель загружена	Модель завантажено	Model loaded
+Не удалось загрузить модель	Не вдалося завантажити модель	Couldn't load the model
+Не удалось запустить умный режим — работают быстрые команды.	Не вдалося запустити розумний режим — працюють швидкі команди.	Couldn't start smart mode — quick commands are active.
+Не удалось скачать модель	Не вдалося завантажити модель	Couldn't download the model
+Нужна модель Gemma для MediaPipe в формате .task (около 1.3 ГБ).\n\n1. На сайте Hugging Face найдите litert-community (например, модель Gemma 2B в формате .task).\n2. Примите лицензию Gemma и скачайте файл .task на телефон или компьютер.\n3. Здесь нажмите «Выбрать файл модели» и укажите его, либо «Скачать по ссылке» с прямым адресом файла.\n\nМодель хранится только на вашем телефоне.	Потрібна модель Gemma для MediaPipe у форматі .task (близько 1.3 ГБ).\n\n1. На сайті Hugging Face знайдіть litert-community (наприклад, модель Gemma 2B у форматі .task).\n2. Прийміть ліцензію Gemma і завантажте файл .task на телефон або комп'ютер.\n3. Тут натисніть «Вибрати файл моделі» та вкажіть його, або «Завантажити за посиланням» з прямою адресою файлу.\n\nМодель зберігається лише на вашому телефоні.	You need a Gemma model for MediaPipe in .task format (about 1.3 GB).\n\n1. On Hugging Face find litert-community (e.g. a Gemma 2B model in .task format).\n2. Accept the Gemma license and download the .task file to your phone or computer.\n3. Here tap "Choose model file" and point to it, or "Download by link" with the direct file URL.\n\nThe model is stored only on your phone.
+Освободить место	Звільнити місце	Free up space
+Подождите	Зачекайте	Please wait
+Прямая ссылка на модель .task	Пряме посилання на модель .task	Direct link to the .task model
+Скачать	Завантажити	Download
+Скачать модель	Завантажити модель	Download model
+Скачать по ссылке	Завантажити за посиланням	Download by link
+Удалить модель	Видалити модель	Delete model
+Умный режим (офлайн ИИ)	Розумний режим (офлайн ШІ)	Smart mode (offline AI)
+Чтобы включить ум, загрузите модель в «Настройки → Ассистент». Пока работают быстрые команды.	Щоб увімкнути розум, завантажте модель у «Налаштування → Асистент». Поки працюють швидкі команди.	To enable the brain, load the model in Settings → Assistant. Quick commands work meanwhile.
+календарь	календар	calendar
+карту	карту	map
+людей	людей	people
+настройки	налаштування	settings
+рассылку	розсилку	broadcast
+услуги	послуги	services
