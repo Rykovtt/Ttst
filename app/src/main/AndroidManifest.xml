@@ -62,6 +62,21 @@
             android:windowSoftInputMode="adjustResize" />
 
         <!-- Варианты значка и названия на рабочем столе. Включён ровно один (см. AppIcons). -->
+        <!-- Отдельная иконка ассистента «Ноа» на рабочем столе (включается в настройках). -->
+        <activity-alias
+            android:name=".assistant.NoaLauncher"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/noa_label"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="open_noa" android:value="true" />
+        </activity-alias>
+
         <activity-alias
             android:name=".alias.Default"
             android:enabled="true"

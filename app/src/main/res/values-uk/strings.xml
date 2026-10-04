@@ -9,4 +9,5 @@
     <string name="alias_contacts">Контакти</string>
     <string name="autosend_label">RVault: авто-надсилання</string>
     <string name="autosend_description">Під час розсилки чи нагадування з RVault сама натискає «Надіслати» у WhatsApp і Telegram, щоб не підтверджувати кожне повідомлення вручну. Працює лише з цими двома застосунками і лише коли ви запустили надсилання в RVault. Жодні дані не читаються і не передаються.</string>
+    <string name="noa_label">Ноа</string>
 </resources>

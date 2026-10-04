@@ -91,6 +91,7 @@ object Routes {
     const val CALENDAR = "calendar"
     const val MAP = "map"
     const val SERVICES = "services"
+    const val NOA = "noa"
     const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
     fun person(id: Long) = "person/${id}"
@@ -118,12 +119,17 @@ fun KartotekaRoot(
     onPersonOpened: () -> Unit,
     openAppointmentId: Long? = null,
     onAppointmentOpened: () -> Unit = {},
+    openNoa: Boolean = false,
+    onNoaOpened: () -> Unit = {},
 ) {
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route.orEmpty()
     val showBar = tabs.any { route.startsWith(it.base) }
 
+    LaunchedEffect(openNoa) {
+        if (openNoa) { nav.navigate(Routes.NOA); onNoaOpened() }
+    }
     LaunchedEffect(openPersonId) {
         if (openPersonId != null) {
             nav.navigate(Routes.person(openPersonId))
@@ -177,6 +183,7 @@ fun KartotekaRoot(
                     onAdd = { nav.navigate(Routes.edit()) },
                     onImport = { nav.navigate(Routes.IMPORT) },
                     onGroups = { nav.navigate(Routes.GROUPS) },
+                    onNoa = { nav.navigate(Routes.NOA) },
                 )
             }
             composable(Routes.GROUPS) {
@@ -275,6 +282,13 @@ fun KartotekaRoot(
             }
             composable(Routes.SERVICES) {
                 com.kartoteka.app.ui.services.ServicesScreen(onBack = { nav.popBackStack() })
+            }
+            composable(Routes.NOA) {
+                com.kartoteka.app.assistant.NoaScreen(
+                    onBack = { nav.popBackStack() },
+                    onOpenPerson = { nav.navigate(Routes.person(it)) },
+                    onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
+                )
             }
             composable(Routes.IMPORT) {
                 ImportContactsScreen(onBack = { nav.popBackStack() })

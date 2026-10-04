@@ -38,6 +38,7 @@ class MainActivity : FragmentActivity() {
     private var locked by mutableStateOf(false)
     private var pendingPersonId by mutableStateOf<Long?>(null)
     private var pendingAppointmentId by mutableStateOf<Long?>(null)
+    private var openNoa by mutableStateOf(false)
     private var pendingReminderId: Long? = null
     private var stoppedAt = 0L
     private var authInProgress = false
@@ -83,6 +84,8 @@ class MainActivity : FragmentActivity() {
                         onPersonOpened = { pendingPersonId = null },
                         openAppointmentId = pendingAppointmentId,
                         onAppointmentOpened = { pendingAppointmentId = null },
+                        openNoa = openNoa,
+                        onNoaOpened = { openNoa = false },
                     )
                     if (intruderAlert > 0) {
                         IntruderAlert(
@@ -104,6 +107,7 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
+        if (intent.component?.className?.endsWith(".assistant.NoaLauncher") == true || intent.getBooleanExtra(EXTRA_OPEN_NOA, false)) openNoa = true
         intent.personId()?.let { pendingPersonId = it }
         intent.getLongExtra(EXTRA_APPOINTMENT_ID, 0L).takeIf { it != 0L }?.let { pendingAppointmentId = it }
         intent.getLongExtra(EXTRA_SEND_REMINDER, 0L).takeIf { it != 0L }?.let { pendingReminderId = it }
@@ -222,6 +226,7 @@ class MainActivity : FragmentActivity() {
 
     companion object {
         const val EXTRA_PERSON_ID = "person_id"
+        const val EXTRA_OPEN_NOA = "open_noa"
         const val EXTRA_APPOINTMENT_ID = "appointment_id"
         const val EXTRA_SEND_REMINDER = "send_reminder"
         const val EXTRA_STOP_AUTOSEND = "stop_autosend"

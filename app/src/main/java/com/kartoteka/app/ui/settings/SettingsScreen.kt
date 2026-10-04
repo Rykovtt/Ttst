@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.EnhancedEncryption
@@ -210,6 +211,10 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                     if (v) BirthdayWorker.schedule(context) else BirthdayWorker.cancel(context)
                 }
             }
+        }
+
+        SectionCard(t("Ассистент Ноа"), Icons.Default.Mic, collapsible = true) {
+            AssistantSettings()
         }
 
         SectionCard(t("Данные"), Icons.Default.Backup, collapsible = true) {

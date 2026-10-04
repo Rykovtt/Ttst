@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
@@ -125,7 +126,7 @@ class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, onGroups: () -> Unit = {}) {
+fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, onGroups: () -> Unit = {}, onNoa: () -> Unit = {}) {
     val app = app()
     val vm: HomeViewModel = viewModel { HomeViewModel(app) }
     val state by vm.state.collectAsState()
@@ -158,7 +159,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
             contentPadding = PaddingValues(bottom = 112.dp),
         ) {
             item(key = "header") {
-                Header(total = state.total, sort = sort, onSort = vm::setSort, onGroups = onGroups)
+                Header(total = state.total, sort = sort, onSort = vm::setSort, onGroups = onGroups, onNoa = onNoa)
             }
             item(key = "search") {
                 SearchField(query, onChange = { vm.query.value = it })
@@ -218,7 +219,7 @@ fun HomeScreen(onOpen: (Long) -> Unit, onAdd: () -> Unit, onImport: () -> Unit, 
 }
 
 @Composable
-private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGroups: () -> Unit) {
+private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGroups: () -> Unit, onNoa: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     Row(
         Modifier.statusBarsPadding().fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 8.dp),
@@ -234,6 +235,8 @@ private fun Header(total: Int, sort: SortMode, onSort: (SortMode) -> Unit, onGro
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        val assistantOn by com.kartoteka.app.ui.app().settings.assistant.value.collectAsState()
+        if (assistantOn) IconButton(onClick = onNoa) { Icon(Icons.Default.Mic, t("Ассистент")) }
         IconButton(onClick = onGroups) { Icon(Icons.Default.Workspaces, t("Группы")) }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, t("Сортировка")) }

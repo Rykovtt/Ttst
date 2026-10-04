@@ -32,6 +32,13 @@ class Settings(context: Context) {
     fun setBirthdayReminders(v: Boolean) { prefs.edit().putBoolean(BIRTHDAYS, v).apply(); _birthdayReminders.value = v }
     fun setSortMode(v: SortMode) { prefs.edit().putString(SORT, v.name).apply(); _sortMode.value = v }
 
+    // --- ассистент «Ноа» ---
+    val assistant = BoolPref("assistant", true)
+    val assistantName = StringPref("assistant_name", "Ноа")
+    val assistantVoice = BoolPref("assistant_voice", true)
+    /** Показывать отдельную иконку ассистента на рабочем столе. */
+    val assistantLauncher = BoolPref("assistant_launcher", false)
+
     /** Тихий снимок фронтальной камерой при неверном PIN-коде. */
     val intruderPhoto = BoolPref("intruder_photo", false)
 
