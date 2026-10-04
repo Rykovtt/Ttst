@@ -42,14 +42,19 @@ object VoiceNotes {
         stop(app)
         app.appScope.launch {
             val file = runCatching { withContext(Dispatchers.IO) { app.repository.voices.playbackFile(note.file) } }.getOrNull()
-                ?: return@launch
-            player = MediaPlayer().apply {
-                setDataSource(file.absolutePath)
-                setOnCompletionListener { stop(app) }
-                prepare()
-                start()
-            }
-            playingId = note.id
+                ?: run { status[note.id] = t("Не удалось открыть запись"); return@launch }
+            // prepare()/start() могут бросить исключение — ни в коем случае не роняем приложение.
+            val ok = runCatching {
+                player = MediaPlayer().apply {
+                    setDataSource(file.absolutePath)
+                    setOnCompletionListener { stop(app) }
+                    setOnErrorListener { _, _, _ -> stop(app); true }
+                    prepare()
+                    start()
+                }
+            }.isSuccess
+            if (ok) playingId = note.id
+            else { stop(app); status[note.id] = t("Не удалось воспроизвести запись") }
         }
     }
 

@@ -57,7 +57,15 @@ object VoiceTranscriber {
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private suspend fun run33(context: Context, pcm: ByteArray, tag: String): Result {
+    private suspend fun run33(context: Context, pcm: ByteArray, tag: String): Result = try {
+        runOnDevice(context, pcm, tag)
+    } catch (t: Throwable) {
+        // Любой сбой распознавателя (включая устройства без поддержки файлового источника) — не роняем приложение.
+        Result.Unavailable(t("На этом телефоне не удалось распознать речь"))
+    }
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private suspend fun runOnDevice(context: Context, pcm: ByteArray, tag: String): Result {
         val recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
         try {
             val base = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -81,7 +89,7 @@ object VoiceTranscriber {
             }
             return listen(recognizer, base, pcm)
         } finally {
-            recognizer.destroy()
+            runCatching { recognizer.destroy() }
         }
     }
 
@@ -133,7 +141,13 @@ object VoiceTranscriber {
                     override fun onPartialResults(partialResults: Bundle?) = Unit
                     override fun onEvent(eventType: Int, params: Bundle?) = Unit
                 })
-                recognizer.startListening(intent)
+                // На части устройств файловый источник не поддерживается — ловим и отдаём понятный ответ.
+                try {
+                    recognizer.startListening(intent)
+                } catch (e: Throwable) {
+                    finish(Result.Unavailable(t("На этом телефоне не удалось распознать речь")))
+                    return@suspendCancellableCoroutine
+                }
                 // Подаём звук в канал; конец файла = конец сеанса.
                 CoroutineScope(Dispatchers.IO).launch {
                     runCatching {
@@ -147,7 +161,10 @@ object VoiceTranscriber {
                         }
                     }
                 }
-                cont.invokeOnCancellation { runCatching { recognizer.cancel() } }
+                // cancel() обязан вызываться на главном потоке — иначе SpeechRecognizer бросит исключение.
+                cont.invokeOnCancellation {
+                    android.os.Handler(android.os.Looper.getMainLooper()).post { runCatching { recognizer.cancel() } }
+                }
             }
         } finally {
             runCatching { read.close() }
