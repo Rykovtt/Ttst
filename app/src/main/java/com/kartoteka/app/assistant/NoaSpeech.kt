@@ -23,42 +23,57 @@ class NoaListener(private val context: Context) {
     }
 
     private var recognizer: SpeechRecognizer? = null
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    @Volatile private var done = false
 
-    fun available() = SpeechRecognizer.isRecognitionAvailable(context)
+    fun available() = runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
 
-    /** Вызывать с главного потока. */
+    /** Запуск строго на главном потоке; все вызовы распознавателя защищены. */
     fun start(cb: Callback) {
+        main.post { startOnMain(cb) }
+    }
+
+    private fun startOnMain(cb: Callback) {
         stop()
-        val r = runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull() ?: return cb.onError(null)
+        done = false
+        fun finish(body: () -> Unit) {
+            if (done) return
+            done = true
+            body(); safe { cb.onEnd() }
+        }
+        // Любой сбой создания/запуска — сообщаем ошибкой, не роняя приложение.
+        val r = runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull()
+        if (r == null) { finish { safe { cb.onError(null) } }; return }
         recognizer = r
-        r.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) = cb.onReady()
+        val listener = object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) = safe { cb.onReady() }
             override fun onResults(results: Bundle) {
                 val best = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
-                cb.onResult(best); cb.onEnd()
+                finish { safe { cb.onResult(best) } }
             }
             override fun onPartialResults(partialResults: Bundle) {
-                partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(cb::onPartial)
+                safe { partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(cb::onPartial) }
             }
-            override fun onError(error: Int) { cb.onError(error.toString()); cb.onEnd() }
+            override fun onError(error: Int) { finish { safe { cb.onError(error.toString()) } } }
             override fun onBeginningOfSpeech() = Unit
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
-        })
-        val tag = NoaVoice.localeTag()
+        }
+        runCatching { r.setRecognitionListener(listener) }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, tag)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, NoaVoice.localeTag())
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        runCatching { r.startListening(intent) }.onFailure { cb.onError(null); cb.onEnd() }
+        runCatching { r.startListening(intent) }.onFailure { finish { safe { cb.onError(null) } } }
     }
 
+    private inline fun safe(body: () -> Unit) { runCatching { body() } }
+
     fun stop() {
-        recognizer?.runCatching { stopListening() }
-        recognizer?.runCatching { destroy() }
-        recognizer = null
+        val r = recognizer; recognizer = null
+        main.post { r?.runCatching { cancel() }; r?.runCatching { destroy() } }
     }
 }
 

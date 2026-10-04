@@ -108,9 +108,11 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         input = ""
         val yes = pendingYes
         scope.launch {
-            if (yes != null && isYes(text)) { pendingYes = null; apply(yes()) }
-            else if (yes != null && isNo(text)) { pendingYes = null; say(t("Хорошо, отменила.")) }
-            else { pendingYes = null; apply(noa.handle(text)) }
+            runCatching {
+                if (yes != null && isYes(text)) { pendingYes = null; apply(yes()) }
+                else if (yes != null && isNo(text)) { pendingYes = null; say(t("Хорошо, отменила.")) }
+                else { pendingYes = null; apply(noa.handle(text)) }
+            }.onFailure { say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
         }
     }
 
