@@ -85,6 +85,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.height
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -223,12 +224,17 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
 
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(Modifier.statusBarsPadding().padding(start = if (onBack != null) 4.dp else 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.statusBarsPadding().padding(start = if (onBack != null) 4.dp else 22.dp, end = 20.dp, top = 18.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
                 Column {
                     Text(t("Рассылка"), style = MaterialTheme.typography.headlineLarge)
-                    Text(t("SMS и мессенджеры — персонально каждому или в группу"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(t("Сообщения для клиентов и близких — каждому лично"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+            }
+            if (!vm.sending) {
+                // Прогресс сценария: кому → что → как → отправка.
+                val done = listOf(selected.isNotEmpty() || vm.channel == Channel.SHARE, vm.text.text.isNotBlank(), true, false)
+                StepProgress(done, listOf(t("Кому"), t("Текст"), t("Канал"), t("Отправка")))
             }
         }
 
@@ -236,7 +242,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             // --- 1. Получатели ---
             item { StepTitle("1", t("Кому")) }
             item {
-                Column(Modifier.padding(horizontal = 16.dp)) {
+                com.kartoteka.app.ui.components.Panel(padding = 16.dp) {
                     if (groups.isNotEmpty()) {
                         Text(t("Добавить группу целиком:"), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(4.dp))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -278,7 +284,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             // --- 2. Сообщение ---
             item { StepTitle("2", t("Сообщение")) }
             item {
-                Column(Modifier.padding(horizontal = 16.dp)) {
+                com.kartoteka.app.ui.components.Panel(padding = 14.dp) {
                     OutlinedTextField(
                         value = vm.text,
                         onValueChange = { vm.text = it },
@@ -313,9 +319,9 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                 val sel = vm.channel == ch
                 val (tileBg, tileFg) = channelTile(ch)
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(22.dp),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = if (sel) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                    border = if (sel) androidx.compose.foundation.BorderStroke(1.5.dp, com.kartoteka.app.ui.theme.Rv.PeachDeep) else null,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                         .selectable(selected = sel, role = Role.RadioButton) { vm.channel = ch },
                 ) {
@@ -342,7 +348,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                         Spacer(Modifier.width(8.dp))
                         Icon(
                             if (sel) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, null,
-                            tint = if (sel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            tint = if (sel) com.kartoteka.app.ui.theme.Rv.PeachDeep else MaterialTheme.colorScheme.outline,
                         )
                     }
                 }
@@ -368,8 +374,12 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
             item {
                 val usable = selected.filter { vm.canReceive(it) }
                 val enabled = vm.text.text.isNotBlank() && (vm.channel == Channel.SHARE || usable.isNotEmpty())
-                Button(
+                com.kartoteka.app.ui.components.GradientButton(
+                    text = if (vm.channel.personal) t("Начать рассылку") else t("Отправить"),
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    trailing = if (vm.channel.personal) t("%1\$s %2\$s", usable.size, ArchiveLogic.plural(usable.size.toLong(), "человек", "человека", "человек")) else null,
                     enabled = enabled,
+                    modifier = Modifier.padding(16.dp),
                     onClick = {
                         when (vm.channel) {
                             Channel.SHARE -> {
@@ -389,11 +399,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                 if (serviceOn && vm.autoMode) confirmMessenger = true else vm.sending = true
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp))
-                    Text(if (vm.channel.personal) t("Начать рассылку (%1\$s)", usable.size) else t("Отправить"))
-                }
+                )
                 if (vm.channel == Channel.SHARE && selected.size > 1) {
                     Text(
                         t("Подсказка: в групповой чат уйдёт один общий текст, имя заменится на «%1\$s».", friendsWord(vm.lang)),
@@ -580,8 +586,8 @@ private fun sendOne(context: android.content.Context, vm: BroadcastViewModel, pf
 @Composable
 private fun StepTitle(num: String, title: String) {
     Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primary) {
-            Text(num, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
+        Surface(shape = RoundedCornerShape(50), color = com.kartoteka.app.ui.theme.Rv.Peach) {
+            Text(num, color = com.kartoteka.app.ui.theme.Rv.Ink, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
         }
         Spacer(Modifier.width(10.dp))
         Text(title, style = MaterialTheme.typography.titleLarge)
@@ -619,6 +625,22 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text(t("Открыть настройки")) }
+            }
+        }
+    }
+}
+
+/** Индикатор шагов: сегменты заполняются персиковым по мере готовности. */
+@Composable
+private fun StepProgress(done: List<Boolean>, labels: List<String>) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        done.forEachIndexed { i, ok ->
+            val fill by androidx.compose.animation.core.animateFloatAsState(if (ok) 1f else 0f, com.kartoteka.app.ui.theme.motion(com.kartoteka.app.ui.theme.Motion.EMPHASIZED), label = "step")
+            Column(Modifier.weight(1f)) {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+                    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(fill).height(5.dp).clip(RoundedCornerShape(3.dp)).background(com.kartoteka.app.ui.theme.Rv.PeachDeep))
+                }
+                Text(labels[i], style = MaterialTheme.typography.labelSmall, color = if (ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }

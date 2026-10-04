@@ -36,7 +36,7 @@ import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.TilesOverlay
 
-data class MapMarker(val key: String, val lat: Double, val lng: Double, val person: Person?, val title: String)
+data class MapMarker(val key: String, val lat: Double, val lng: Double, val person: Person?, val title: String, val ring: Int? = null)
 
 val DefaultCenter = GeoPoint(50.4501, 30.5234) // Киев
 
@@ -50,6 +50,8 @@ fun OsmMap(
     modifier: Modifier = Modifier,
     fitKey: Any? = Unit,
     interactive: Boolean = true,
+    /** Фирменный тёмный стиль подложки (тёмная карта RVAULT) — независимо от темы телефона. */
+    styled: Boolean = false,
     onMarkerClick: (MapMarker) -> Unit = {},
     onTap: ((GeoPoint) -> Unit)? = null,
 ) {
@@ -69,7 +71,8 @@ fun OsmMap(
             minZoomLevel = 3.0
             controller.setZoom(5.0)
             controller.setCenter(DefaultCenter)
-            if (dark) overlayManager.tilesOverlay.setColorFilter(TilesOverlay.INVERT_COLORS)
+            if (styled) overlayManager.tilesOverlay.setColorFilter(rvaultDarkFilter())
+            else if (dark) overlayManager.tilesOverlay.setColorFilter(TilesOverlay.INVERT_COLORS)
             if (!interactive) setOnTouchListener { _, _ -> true }
             overlays.add(MapEventsOverlay(object : MapEventsReceiver {
                 override fun singleTapConfirmedHelper(p: GeoPoint): Boolean { tap.value?.invoke(p); return tap.value != null }
@@ -103,7 +106,7 @@ fun OsmMap(
                 view.overlays.add(Marker(view).apply {
                     position = GeoPoint(m.lat, m.lng)
                     title = m.title
-                    icon = BitmapDrawable(context.resources, pinBitmap(context, m.person))
+                    icon = BitmapDrawable(context.resources, pinBitmap(context, m.person, m.ring))
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     setOnMarkerClickListener { _, _ -> markerClick.value(m); true }
                 })
@@ -142,8 +145,8 @@ private fun fit(view: MapView, markers: List<MapMarker>) {
 private val pinCache = HashMap<String, Bitmap>()
 
 /** Круглая булавка с фото человека или его инициалами. */
-fun pinBitmap(context: Context, person: Person?): Bitmap {
-    val key = "${person?.id}_${person?.avatarPath}_${person?.displayName}"
+fun pinBitmap(context: Context, person: Person?, ring: Int? = null): Bitmap {
+    val key = "${person?.id}_${person?.avatarPath}_${person?.displayName}_${ring}"
     pinCache[key]?.let { return it }
     val d = context.resources.displayMetrics.density
     val size = (46 * d).toInt()
@@ -151,7 +154,8 @@ fun pinBitmap(context: Context, person: Person?): Bitmap {
     val border = 3 * d
     val bmp = Bitmap.createBitmap(size, size + tail, Bitmap.Config.ARGB_8888)
     val c = Canvas(bmp)
-    val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE; setShadowLayer(3 * d, 0f, d, 0x55000000) }
+    // Кольцо — цвет категории человека (группа), иначе белое.
+    val white = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ring ?: android.graphics.Color.WHITE; setShadowLayer(3 * d, 0f, d, 0x55000000) }
     val r = size / 2f
     c.drawCircle(r, r, r - d, white)
     c.drawPath(Path().apply {
@@ -181,4 +185,16 @@ fun pinBitmap(context: Context, person: Person?): Bitmap {
     }
     pinCache[key] = bmp
     return bmp
+}
+
+/** Тёмная подложка: обесцвечиваем, инвертируем и слегка тонируем в тёплый графит. */
+private fun rvaultDarkFilter(): android.graphics.ColorMatrixColorFilter {
+    val a = 0.78f
+    val m = floatArrayOf(
+        -0.299f * a, -0.587f * a, -0.114f * a, 0f, 255f * a + 14f,
+        -0.299f * a, -0.587f * a, -0.114f * a, 0f, 255f * a + 13f,
+        -0.299f * a, -0.587f * a, -0.114f * a, 0f, 255f * a + 16f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+    return android.graphics.ColorMatrixColorFilter(m)
 }

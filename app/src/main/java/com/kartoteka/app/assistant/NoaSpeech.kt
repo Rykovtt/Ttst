@@ -20,6 +20,8 @@ class NoaListener(private val context: Context) {
         fun onError(message: String?)
         fun onReady()
         fun onEnd()
+        /** Уровень громкости 0..1 — для анимации сферы. */
+        fun onLevel(level: Float) {}
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -67,7 +69,7 @@ class NoaListener(private val context: Context) {
             }
             override fun onError(error: Int) { finish { safe { cb.onError(error.toString()) } } }
             override fun onBeginningOfSpeech() = Unit
-            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onRmsChanged(rmsdB: Float) = safe { cb.onLevel(((rmsdB + 2f) / 12f).coerceIn(0f, 1f)) }
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit

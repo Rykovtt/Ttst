@@ -64,6 +64,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.kartoteka.app.ui.components.CategoryTag
+import com.kartoteka.app.ui.components.FilterChip
+import com.kartoteka.app.ui.components.ScreenTitle
+import com.kartoteka.app.ui.components.categoryColor
+import com.kartoteka.app.ui.components.pressable
+import com.kartoteka.app.ui.theme.Motion
+import com.kartoteka.app.ui.theme.NumberStyle
+import com.kartoteka.app.ui.theme.Rv
+import com.kartoteka.app.ui.theme.motion
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -118,21 +135,29 @@ private const val PAGES = 2400
 private const val MID = PAGES / 2
 private val ru: Locale get() = com.kartoteka.app.i18n.I18n.locale
 
+private enum class CalFilter { ALL, APPOINTMENTS, BIRTHDAYS }
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
+fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPerson: (Long) -> Unit = {}) {
     val app = app()
     val vm: CalendarViewModel = viewModel { CalendarViewModel(app) }
     val listMode by vm.listMode.collectAsState()
+    var weekMode by rememberSaveable { mutableStateOf(true) }
+    var filter by rememberSaveable { mutableStateOf(CalFilter.ALL) }
     val appts by vm.monthAppointments.collectAsState()
     val upcoming by vm.upcoming.collectAsState()
+    val people by app.repository.observeAll().collectAsState(initial = emptyList())
     var selectedEpoch by rememberSaveable { mutableStateOf(LocalDate.now().toEpochDay()) }
     val selected = LocalDate.ofEpochDay(selectedEpoch)
+    val today = LocalDate.now()
     val base = YearMonth.now()
     val pager = rememberPagerState(initialPage = MID + (YearMonth.from(selected).let { (it.year - base.year) * 12 + it.monthValue - base.monthValue })) { PAGES }
+    val baseWeek = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val weekPager = rememberPagerState(initialPage = MID + ((selected.toEpochDay() - baseWeek.toEpochDay()).let { Math.floorDiv(it, 7L) }).toInt()) { PAGES }
     val scope = rememberCoroutineScope()
-    val shownMonth = base.plusMonths((pager.currentPage - MID).toLong())
-    LaunchedEffect(shownMonth) { vm.month.value = shownMonth }
+    val shownMonth = if (weekMode) YearMonth.from(baseWeek.plusWeeks((weekPager.currentPage - MID).toLong()).plusDays(3)) else base.plusMonths((pager.currentPage - MID).toLong())
+    LaunchedEffect(shownMonth, selected, weekMode) { vm.month.value = if (weekMode) YearMonth.from(selected) else shownMonth }
 
     // Напоминания о записях приходят уведомлениями — попросим разрешение один раз.
     val notifPermission = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -146,72 +171,81 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
     }
 
     val byDay = appts.groupBy { AppointmentLogic.zoned(it.appointment.start).toLocalDate() }
+    fun birthdaysOn(d: LocalDate) = people.filter { it.person.birthDay == d.dayOfMonth && it.person.birthMonth == d.monthValue }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNew(if (listMode) LocalDate.now() else selected) },
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(60.dp),
-            ) { Icon(Icons.Default.Add, t("Записать"), Modifier.size(28.dp)) }
-        },
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
-            item(key = "header") {
-                Column {
-                Row(
-                    Modifier.statusBarsPadding().fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(t("Календарь"), style = MaterialTheme.typography.headlineLarge)
-                        val todayCount = byDay[LocalDate.now()].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
-                        Text(
-                            if (todayCount == 0) t("Сегодня записей нет") else t("Сегодня %1\$s %2\$s", todayCount, com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    IconButton(onClick = {
-                        selectedEpoch = LocalDate.now().toEpochDay()
-                        scope.launch { pager.animateScrollToPage(MID) }
-                    }) { Icon(Icons.Default.Today, t("Сегодня")) }
-                }
-                com.kartoteka.app.ui.components.Segmented(
-                    options = listOf(t("Месяц"), t("Список")),
-                    selected = if (listMode) 1 else 0,
-                    onSelect = { vm.listMode.value = it == 1 },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                )
+    fun goToday() {
+        selectedEpoch = today.toEpochDay()
+        scope.launch { if (weekMode) weekPager.animateScrollToPage(MID) else pager.animateScrollToPage(MID) }
+    }
+
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp)) {
+        item(key = "header") {
+            val todayCount = byDay[today].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
+            ScreenTitle(
+                t("Календарь"),
+                subtitle = if (todayCount == 0) t("Сегодня записей нет") else t("Сегодня %1\$s %2\$s", todayCount, com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")),
+            ) {
+                IconButton(onClick = ::goToday) { Icon(Icons.Default.Today, t("Сегодня")) }
+                Box(
+                    Modifier.padding(start = 4.dp, end = 6.dp).size(44.dp).clip(CircleShape)
+                        .border(1.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                        .pressable { onNew(if (listMode) today else selected) },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Default.Add, t("Записать")) }
+            }
+        }
+        item(key = "filters") {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                FilterChip(filter == CalFilter.ALL, { filter = CalFilter.ALL }, label = { Text(t("Все")) })
+                FilterChip(filter == CalFilter.APPOINTMENTS, { filter = CalFilter.APPOINTMENTS }, label = { Text(t("Записи")) })
+                FilterChip(filter == CalFilter.BIRTHDAYS, { filter = CalFilter.BIRTHDAYS }, label = { Text(t("Дни рождения")) })
+            }
+        }
+        item(key = "mode") {
+            com.kartoteka.app.ui.components.Segmented(
+                options = listOf(t("Неделя"), t("Месяц"), t("Список")),
+                selected = if (listMode) 2 else if (weekMode) 0 else 1,
+                onSelect = {
+                    vm.listMode.value = it == 2
+                    if (it != 2) weekMode = it == 0
+                },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
+
+        if (listMode) {
+            val grouped = upcoming.filter { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
+                .groupBy { AppointmentLogic.zoned(it.appointment.start).toLocalDate() }
+            if (grouped.isEmpty()) {
+                item { EmptyState(Icons.Default.CalendarMonth, t("Нет ближайших записей"), t("Нажмите «Записать», чтобы запланировать встречу с человеком.")) }
+            }
+            grouped.forEach { (date, list) ->
+                item(key = "d_${date}") { DayHeader(date) }
+                itemsIndexed(list, key = { _, it -> it.appointment.id }) { i, it ->
+                    TimelineItem(it, first = i == 0, last = i == list.lastIndex, onClick = { onOpen(it.appointment.id) })
                 }
             }
-
-            if (listMode) {
-                val grouped = upcoming.filter { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
-                    .groupBy { AppointmentLogic.zoned(it.appointment.start).toLocalDate() }
-                if (grouped.isEmpty()) {
-                    item { EmptyState(Icons.Default.CalendarMonth, t("Нет ближайших записей"), t("Нажмите «Записать», чтобы запланировать встречу с человеком.")) }
-                }
-                grouped.forEach { (date, list) ->
-                    item(key = "d_${date}") { DayHeader(date) }
-                    items(list, key = { it.appointment.id }) { AppointmentCard(it, onClick = { onOpen(it.appointment.id) }) }
-                }
-            } else {
-                item(key = "month") {
-                    Column {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.Default.ChevronLeft, t("Назад")) }
-                            Text(
-                                shownMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, ru).replaceFirstChar { it.uppercase() } + " " + shownMonth.year,
-                                style = MaterialTheme.typography.titleLarge,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.weight(1f),
-                            )
-                            IconButton(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.Default.ChevronRight, t("Вперёд")) }
+        } else {
+            item(key = "grid") {
+                Column(Modifier.animateContentSize(motion(Motion.EMPHASIZED))) {
+                    Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            shownMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, ru).replaceFirstChar { it.uppercase() } + " " + shownMonth.year,
+                            style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { scope.launch { if (weekMode) weekPager.animateScrollToPage(weekPager.currentPage - 1) else pager.animateScrollToPage(pager.currentPage - 1) } }) { Icon(Icons.Default.ChevronLeft, t("Назад")) }
+                        IconButton(onClick = { scope.launch { if (weekMode) weekPager.animateScrollToPage(weekPager.currentPage + 1) else pager.animateScrollToPage(pager.currentPage + 1) } }) { Icon(Icons.Default.ChevronRight, t("Вперёд")) }
+                    }
+                    if (weekMode) {
+                        HorizontalPager(state = weekPager, modifier = Modifier.fillMaxWidth()) { page ->
+                            val start = baseWeek.plusWeeks((page - MID).toLong())
+                            WeekStrip(start, selected, byDay, ::birthdaysOn) { selectedEpoch = it.toEpochDay() }
                         }
+                    } else {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                             DayOfWeek.entries.forEach { d ->
                                 Text(
@@ -228,18 +262,63 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit) {
                         }
                     }
                 }
-                item(key = "day_title") { DayHeader(selected) }
-                val dayList = byDay[selected].orEmpty().sortedBy { it.appointment.start }
-                if (dayList.isEmpty()) {
-                    item(key = "free") {
-                        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(t("Свободный день"), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(8.dp))
-                            FilledTonalButton(onClick = { onNew(selected) }) { Text(t("Записать на этот день")) }
+            }
+
+            // Выбранный день, а в режиме недели — ещё и следующий.
+            val days = if (weekMode) listOf(selected, selected.plusDays(1)) else listOf(selected)
+            days.forEachIndexed { di, day ->
+                val dayAppts = if (filter == CalFilter.BIRTHDAYS) emptyList()
+                    else byDay[day].orEmpty().sortedBy { it.appointment.start }
+                val bds = if (filter == CalFilter.APPOINTMENTS) emptyList() else birthdaysOn(day)
+                item(key = "day_${day}") { DayTitle(day) }
+                if (dayAppts.isEmpty() && bds.isEmpty()) {
+                    item(key = "free_${day}") {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(t("Свободный день"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                            if (di == 0) FilledTonalButton(onClick = { onNew(day) }) { Text(t("Записать на этот день")) }
                         }
                     }
                 }
-                items(dayList, key = { it.appointment.id }) { AppointmentCard(it, onClick = { onOpen(it.appointment.id) }) }
+                items(bds, key = { "bd_${day}_${it.person.id}" }) { pf ->
+                    BirthdayItem(pf, onClick = { onOpenPerson(pf.person.id) })
+                }
+                itemsIndexed(dayAppts, key = { _, it -> it.appointment.id }) { i, it ->
+                    TimelineItem(it, first = i == 0, last = i == dayAppts.lastIndex, onClick = { onOpen(it.appointment.id) })
+                }
+            }
+        }
+    }
+}
+
+/** Лента недели: сегодня — тонкая рамка, выбранный день — персиковая «таблетка». */
+@Composable
+private fun WeekStrip(start: LocalDate, selected: LocalDate, byDay: Map<LocalDate, List<AppointmentFull>>, birthdays: (LocalDate) -> List<com.kartoteka.app.data.PersonFull>, onSelect: (LocalDate) -> Unit) {
+    val today = LocalDate.now()
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for (i in 0 until 7) {
+            val d = start.plusDays(i.toLong())
+            val sel = d == selected
+            val bg by animateColorAsState(if (sel) Rv.Peach else androidx.compose.ui.graphics.Color.Transparent, motion(Motion.MICRO), label = "wbg")
+            val count = byDay[d].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
+            val hasBd = birthdays(d).isNotEmpty()
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(bg)
+                    .then(if (d == today && !sel) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp)) else Modifier)
+                    .pressable { onSelect(d) }
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    d.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, ru).replaceFirstChar { it.uppercase() },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (sel) Rv.Ink.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text("${d.dayOfMonth}", style = NumberStyle.copy(fontSize = 20.sp), color = if (sel) Rv.Ink else MaterialTheme.colorScheme.onSurface)
+                Row(Modifier.height(8.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (hasBd) Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) Rv.Ink else Rv.PeachDeep))
+                    repeat(minOf(count, 3)) { Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) Rv.Ink else Rv.Lavender)) }
+                }
             }
         }
     }
@@ -258,14 +337,9 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                     val isSel = date == selected
                     val count = byDay[date].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).padding(4.dp).clip(CircleShape)
-                            .background(
-                                when {
-                                    isSel -> MaterialTheme.colorScheme.primary
-                                    date == today -> MaterialTheme.colorScheme.surfaceContainerHighest
-                                    else -> androidx.compose.ui.graphics.Color.Transparent
-                                }
-                            )
+                        Modifier.weight(1f).aspectRatio(1f).padding(3.dp).clip(RoundedCornerShape(14.dp))
+                            .background(if (isSel) Rv.Peach else androidx.compose.ui.graphics.Color.Transparent)
+                            .then(if (date == today && !isSel) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)) else Modifier)
                             .clickable { onSelect(date) },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -273,16 +347,16 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                             Text(
                                 "${date.dayOfMonth}",
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = if (date == today || isSel) FontWeight.Bold else FontWeight.Normal,
+                                fontWeight = if (date == today || isSel) FontWeight.ExtraBold else FontWeight.Medium,
                                 color = when {
-                                    isSel -> MaterialTheme.colorScheme.onPrimary
+                                    isSel -> Rv.Ink
                                     !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
                                     else -> MaterialTheme.colorScheme.onSurface
                                 },
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(6.dp)) {
                                 repeat(minOf(count, 3)) {
-                                    Box(Modifier.size(4.dp).clip(CircleShape).background(if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.tertiary))
+                                    Box(Modifier.size(4.dp).clip(CircleShape).background(if (isSel) Rv.Ink else Rv.Lavender))
                                 }
                             }
                         }
@@ -293,72 +367,119 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
     }
 }
 
+/** Заголовок дня: «Сегодня» крупно, дата справа. */
 @Composable
-private fun DayHeader(date: LocalDate) {
+private fun DayTitle(date: LocalDate) {
     val today = LocalDate.now()
-    val prefix = when (date) {
-        today -> t("Сегодня, ")
-        today.plusDays(1) -> t("Завтра, ")
-        else -> ""
+    val name = when (date) {
+        today -> t("Сегодня")
+        today.plusDays(1) -> t("Завтра")
+        today.minusDays(1) -> t("Вчера")
+        else -> AppointmentLogic.weekday(date).replaceFirstChar { it.uppercase() }
     }
-    Text(
-        prefix + com.kartoteka.app.i18n.I18n.dayMonth(date.dayOfMonth, date.monthValue) + ", " + AppointmentLogic.weekday(date),
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 6.dp),
-    )
+    Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
+        Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+        Text(
+            com.kartoteka.app.i18n.I18n.dayMonth(date.dayOfMonth, date.monthValue) + ", " + AppointmentLogic.weekday(date),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 @Composable
-fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) {
+private fun DayHeader(date: LocalDate) = DayTitle(date)
+
+/** День рождения в расписании дня. */
+@Composable
+private fun BirthdayItem(pf: com.kartoteka.app.data.PersonFull, onClick: () -> Unit) {
+    val p = pf.person
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(56.dp), contentAlignment = Alignment.CenterStart) {
+            Text("🎂", style = MaterialTheme.typography.titleLarge)
+        }
+        Row(
+            Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(Rv.PeachSoft.copy(alpha = if (androidx.compose.foundation.isSystemInDarkTheme()) 0.14f else 1f))
+                .pressable(onClick = onClick).padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Avatar(p, 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(p.displayName, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(t("День рождения"), com.kartoteka.app.data.ArchiveLogic.turningAge(p)?.let { com.kartoteka.app.data.ArchiveLogic.ageString(it) }).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Запись на вертикальной временной шкале: время — крупно слева, узел на линии, карточка с человеком. */
+@Composable
+private fun TimelineItem(af: AppointmentFull, first: Boolean, last: Boolean, onClick: () -> Unit) {
     val a = af.appointment
     val p = af.person ?: return
     val start = AppointmentLogic.zoned(a.start)
     val end = AppointmentLogic.zoned(a.end)
     val cancelled = a.appointmentStatus == AppointmentStatus.CANCELLED
-    val past = a.end < System.currentTimeMillis()
+    val now = System.currentTimeMillis()
+    val past = a.end < now
+    val live = a.start <= now && now < a.end && !cancelled
     val (tileBg, tileFg) = channelColors(a.notifyChannel)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.width(48.dp)) {
-            Text(AppointmentLogic.timeText(start), style = MaterialTheme.typography.titleSmall)
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 16.dp, end = 16.dp)) {
+        Column(Modifier.width(52.dp).padding(top = 14.dp)) {
+            Text(AppointmentLogic.timeText(start), style = NumberStyle.copy(fontSize = 16.sp), color = if (past) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface)
             Text(AppointmentLogic.timeText(end), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
+        Box(Modifier.width(18.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Box(Modifier.width(2.dp).fillMaxHeight().padding(top = if (first) 18.dp else 0.dp).background(if (first && last) androidx.compose.ui.graphics.Color.Transparent else line))
+            Box(
+                Modifier.padding(top = 18.dp).size(12.dp).clip(CircleShape).background(MaterialTheme.colorScheme.background).padding(2.dp)
+                    .clip(CircleShape).background(if (live) Rv.Lime else if (past || cancelled) MaterialTheme.colorScheme.outline else Rv.PeachDeep)
+            )
+        }
         Spacer(Modifier.width(8.dp))
-        Surface(
-            onClick = onClick,
-            shape = RoundedCornerShape(18.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            modifier = Modifier.weight(1f).alpha(if (cancelled || past) 0.6f else 1f),
+        Row(
+            Modifier.weight(1f).padding(vertical = 5.dp).alpha(if (cancelled || past) 0.6f else 1f).clip(RoundedCornerShape(22.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .pressable(onClick = onClick)
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(tileBg), contentAlignment = Alignment.Center) {
-                    Icon(channelIcon(a.notifyChannel) ?: Icons.Default.EventAvailable, null, tint = tileFg, modifier = Modifier.size(22.dp))
+            Avatar(p, 42.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    a.title.ifBlank { t("Встреча") },
+                    style = MaterialTheme.typography.titleSmall,
+                    textDecoration = if (cancelled) TextDecoration.LineThrough else null,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                val sub = listOfNotNull(p.displayName, a.place.takeIf { it.isNotBlank() }).joinToString(" · ")
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val pending = af.reminders.count { it.sentAt == null }
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (p.relation.isNotBlank()) CategoryTag(t(p.relation), categoryColor(p.relation).takeIf { it != androidx.compose.ui.graphics.Color.Transparent } ?: Rv.Lavender)
+                    when (a.appointmentStatus) {
+                        AppointmentStatus.CANCELLED -> CategoryTag(t("отменено"), Rv.Coral)
+                        AppointmentStatus.DONE -> CategoryTag(t("состоялось"), Rv.Lime)
+                        AppointmentStatus.PLANNED -> if (live) CategoryTag(t("сейчас"), Rv.Lime) else if (pending > 0) CategoryTag("🔔 ${pending}", Rv.PeachDeep)
+                    }
                 }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        a.title.ifBlank { t("Встреча") },
-                        style = MaterialTheme.typography.titleSmall,
-                        textDecoration = if (cancelled) TextDecoration.LineThrough else null,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    val pending = af.reminders.count { it.sentAt == null }
-                    val sub = listOfNotNull(
-                        p.displayName,
-                        a.place.takeIf { it.isNotBlank() },
-                        when (a.appointmentStatus) {
-                            AppointmentStatus.CANCELLED -> t("отменено")
-                            AppointmentStatus.DONE -> t("состоялось")
-                            AppointmentStatus.PLANNED -> if (pending > 0) "🔔 ${pending}" else null
-                        },
-                    ).joinToString(" · ")
-                    Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Spacer(Modifier.width(8.dp))
-                Avatar(p, 40.dp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(tileBg), contentAlignment = Alignment.Center) {
+                Icon(channelIcon(a.notifyChannel) ?: Icons.Default.EventAvailable, null, tint = tileFg, modifier = Modifier.size(18.dp))
             }
         }
     }
 }
+
+/** Карточка записи (для других экранов) — та же, что на шкале. */
+@Composable
+fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) = TimelineItem(af, first = true, last = true, onClick = onClick)
 
 /** Пастельная плашка и цвет значка для способа оповещения. */
 @Composable

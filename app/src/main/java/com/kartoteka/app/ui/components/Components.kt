@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -110,10 +111,10 @@ fun SectionCard(
     val rotation = androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f, label = "chevron").value
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(Modifier.padding(vertical = 14.dp)) {
+        Column(Modifier.padding(vertical = 16.dp)) {
             Row(
                 Modifier
                     .then(if (collapsible) Modifier.clickable { expandedState.value = !expandedState.value } else Modifier)
@@ -219,11 +220,19 @@ fun EmptyState(icon: ImageVector, title: String, text: String, modifier: Modifie
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // Концентрические «орбиты» — фирменная графика пустых состояний.
+        val ring = MaterialTheme.colorScheme.outlineVariant
+        val accent = com.kartoteka.app.ui.theme.Rv.Peach
         Box(
-            Modifier.size(96.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            Modifier.size(132.dp).orbitRings(ring, accent),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(44.dp))
+            Box(
+                Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerLowest),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(32.dp))
+            }
         }
         Text(title, style = MaterialTheme.typography.titleLarge)
         Text(
@@ -259,3 +268,15 @@ fun Badge(text: String, container: Color = MaterialTheme.colorScheme.tertiaryCon
 fun FullScreenCenter(content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
 }
+
+private fun Modifier.orbitRings(ring: Color, accent: Color) = this.then(
+    Modifier.drawBehind {
+        val r = size.minDimension / 2
+        drawCircle(ring, r - 1f, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+        drawCircle(ring, r * 0.78f, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5f))
+        val a = Math.toRadians(-38.0)
+        drawCircle(accent, 5.dp.toPx(), center + androidx.compose.ui.geometry.Offset((r - 1f) * kotlin.math.cos(a).toFloat(), (r - 1f) * kotlin.math.sin(a).toFloat()))
+        val b = Math.toRadians(150.0)
+        drawCircle(com.kartoteka.app.ui.theme.Rv.Lavender, 3.5f.dp.toPx(), center + androidx.compose.ui.geometry.Offset(r * 0.78f * kotlin.math.cos(b).toFloat(), r * 0.78f * kotlin.math.sin(b).toFloat()))
+    }
+)

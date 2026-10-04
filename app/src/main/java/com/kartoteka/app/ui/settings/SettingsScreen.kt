@@ -1,5 +1,9 @@
 package com.kartoteka.app.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.kartoteka.app.ui.components.ScreenTitle
+
 import com.kartoteka.app.i18n.t
 
 import android.Manifest
@@ -82,7 +86,7 @@ private sealed interface BackupDialog {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
+fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, onNoa: () -> Unit = {}) {
     val app = app()
     val context = LocalContext.current
     val settings = app.settings
@@ -108,25 +112,35 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
         if (uri != null) dialog = BackupDialog.Import(uri)
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
-            Text(t("Настройки"), style = MaterialTheme.typography.headlineLarge)
-        }
+    val iso by settings.country.value.collectAsState()
+    val phoneSub = com.kartoteka.app.data.PhoneFormat.byIso(iso).let { "${it.flag} ${t(it.name)} (+${it.code})" }
+    val uiLangCode by settings.uiLang.value.collectAsState()
+    val uiLangSub = com.kartoteka.app.i18n.UiLang.entries.firstOrNull { it.code == uiLangCode }?.let { if (it == com.kartoteka.app.i18n.UiLang.AUTO) t(it.title) else it.title }.orEmpty()
+    val msgLang by settings.messageLang.value.collectAsState()
+    val msgLangSub = com.kartoteka.app.data.MessageLang.entries.firstOrNull { it.name == msgLang }?.title.orEmpty()
+    val autoOn = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
+    val assistantOn by settings.assistant.value.collectAsState()
+    val assistantName by settings.assistantName.value.collectAsState()
+    val assistantSub = if (assistantOn) t("%1\$s — ваш ИИ-помощник", assistantName.ifBlank { "Ноа" }) else t("Выключен")
+    val people by app.repository.observeAll().collectAsState(initial = emptyList())
+    var search by rememberSaveable { mutableStateOf("") }
 
-        SectionCard(t("Значок и название"), Icons.Default.Palette, collapsible = true, initiallyExpanded = true) {
+    val entries = buildList {
+
+        add(SettingEntry(t("Значок и название"), Icons.Default.Palette, t("Маскировка значка и название"), "значок иконка маскировка название калькулятор") {
             AppearanceSettings(settings)
-        }
+        })
 
-        SectionCard(t("Приватность"), Icons.Default.Shield, collapsible = true) {
+        add(SettingEntry(t("Приватность"), Icons.Default.Shield, if (lock) t("Блокировка включена") else t("Блокировка выключена"), "pin пин блокировка отпечаток скриншот шифрование встряхнуть") {
             LockSettings()
             ToggleRow(
                 Icons.Default.VisibilityOff, t("Скрывать содержимое"),
                 t("Запрет скриншотов и размытие в списке недавних приложений"), secure, settings::setSecureScreen,
             )
             InfoLine(Icons.Default.EnhancedEncryption, t("База данных зашифрована AES-256, ключ хранится в защищённом хранилище Android. Фото лежат во внутренней памяти приложения и не видны в галерее. Облачное резервирование Google отключено."))
-        }
+        })
 
-        SectionCard(t("Телефоны"), Icons.Default.Phone, collapsible = true) {
+        add(SettingEntry(t("Телефоны"), Icons.Default.Phone, phoneSub, "страна номер код телефон") {
             val iso by settings.country.value.collectAsState()
             val country = com.kartoteka.app.data.PhoneFormat.byIso(iso)
             ActionRow(Icons.Default.Public, t("Страна по умолчанию: %1\$s %2\$s (+%3\$s)", country.flag, t(country.name), country.code),
@@ -139,9 +153,9 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                     message = if (n == 0) t("Все номера уже в международном формате") else t("Исправлено номеров: %1\$s", n)
                 }
             }
-        }
+        })
 
-        SectionCard(t("Язык приложения"), Icons.Default.Language, collapsible = true) {
+        add(SettingEntry(t("Язык приложения"), Icons.Default.Language, uiLangSub, "язык мова language") {
             val uiLang by settings.uiLang.value.collectAsState()
             androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 com.kartoteka.app.i18n.UiLang.entries.forEach { l ->
@@ -163,9 +177,9 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 18.dp),
             )
-        }
+        })
 
-        SectionCard(t("Язык сообщений"), Icons.Default.Translate, collapsible = true) {
+        add(SettingEntry(t("Язык сообщений"), Icons.Default.Translate, msgLangSub, "язык сообщений шаблоны") {
             val lang by settings.messageLang.value.collectAsState()
             Text(
                 t("На этом языке будут шаблоны подтверждений и напоминаний, даты, дни недели и приветствие в рассылке. ") +
@@ -178,13 +192,13 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                     com.kartoteka.app.ui.components.FilterChip(lang == l.name, { settings.messageLang.set(l.name) }, label = { Text(l.title) })
                 }
             }
-        }
+        })
 
-        SectionCard(t("Записи и календарь"), Icons.Default.CalendarMonth, collapsible = true) {
+        add(SettingEntry(t("Записи и календарь"), Icons.Default.CalendarMonth, t("Длительность, напоминания, услуги"), "запись календарь услуги шаблоны напоминания длительность") {
             CalendarSettings(settings, onServices)
-        }
+        })
 
-        SectionCard(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, collapsible = true) {
+        add(SettingEntry(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, if (autoOn) t("Включена") else t("Выключена"), "whatsapp telegram авто отправка") {
             val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
             val delay by settings.autoSendDelaySec.value.collectAsState()
             ActionRow(
@@ -201,9 +215,9 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                 modifier = Modifier.padding(horizontal = 18.dp),
             )
             InfoLine(Icons.Default.Info, t("Если телефон заблокирован в момент напоминания, придёт уведомление — одно нажатие, и сообщение уйдёт. SMS отправляются полностью в фоне."))
-        }
+        })
 
-        SectionCard(t("Напоминания"), Icons.Default.Cake, collapsible = true) {
+        add(SettingEntry(t("Напоминания"), Icons.Default.Cake, if (birthdays) t("Дни рождения — включены") else t("Дни рождения — выключены"), "день рождения уведомления") {
             ToggleRow(Icons.Default.Cake, t("Дни рождения"), t("Уведомление в день рождения и за 3 дня"), birthdays) { v ->
                 if (v && Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else {
@@ -211,13 +225,13 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                     if (v) BirthdayWorker.schedule(context) else BirthdayWorker.cancel(context)
                 }
             }
-        }
+        })
 
-        SectionCard(t("Ассистент Ноа"), Icons.Default.Mic, collapsible = true) {
+        add(SettingEntry(t("Ассистент Ноа"), Icons.Default.Mic, assistantSub, "ноа ассистент голос ии модель", accent = true) {
             AssistantSettings()
-        }
+        })
 
-        SectionCard(t("Данные"), Icons.Default.Backup, collapsible = true) {
+        add(SettingEntry(t("Данные"), Icons.Default.Backup, t("Копии, импорт и восстановление"), "резервная копия импорт восстановление бэкап") {
             ActionRow(Icons.Default.Contacts, t("Импорт из контактов телефона"), t("Перенести людей из телефонной книги"), onImportContacts)
             ActionRow(Icons.Default.Backup, t("Создать резервную копию"), t("Зашифрованный файл с данными и фото")) {
                 val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
@@ -227,8 +241,21 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}) {
                 importLauncher.launch(arrayOf("*/*"))
             }
             AutoBackupSettings()
-        }
+        })
 
+    }
+
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        ScreenTitle(t("Настройки"))
+        SettingsHero(app.settings, people.size)
+        SettingsSearch(search) { search = it }
+        val q = search.trim().lowercase()
+        val shown = if (q.isEmpty()) entries else entries.filter { it.title.lowercase().contains(q) || it.keywords.contains(q) || it.subtitle.lowercase().contains(q) }
+        if (shown.isEmpty()) {
+            Text(t("Ничего не найдено"), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(22.dp))
+        } else {
+            SettingsGroup(shown, forceOpen = q.isNotEmpty() && shown.size == 1, onNoa = onNoa)
+        }
         Text(
             t("Все данные хранятся только на этом устройстве. Разработчик Rykov."),
             style = MaterialTheme.typography.bodySmall,

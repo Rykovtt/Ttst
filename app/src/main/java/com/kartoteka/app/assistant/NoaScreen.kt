@@ -50,6 +50,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.material.icons.filled.GraphicEq
+import com.kartoteka.app.ui.components.NoaOrb
+import com.kartoteka.app.ui.components.OrbState
+import com.kartoteka.app.ui.components.heroBackground
+import com.kartoteka.app.ui.components.pressable
+import com.kartoteka.app.ui.theme.Motion
+import com.kartoteka.app.ui.theme.Rv
+import com.kartoteka.app.ui.theme.motion
 import com.kartoteka.app.KartotekaApp
 import com.kartoteka.app.data.PersonFull
 import com.kartoteka.app.i18n.t
@@ -78,6 +90,11 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     val bubbles = remember { mutableListOf<Bubble>().toMutableStateList() }
     var input by remember { mutableStateOf("") }
     var listening by remember { mutableStateOf(false) }
+    var thinking by remember { mutableStateOf(false) }
+    var level by remember { mutableStateOf(0f) }
+    var partial by remember { mutableStateOf("") }
+    var flash by remember { mutableStateOf<OrbState?>(null) }
+    LaunchedEffect(flash) { if (flash != null) { kotlinx.coroutines.delay(700); flash = null } }
     var pendingYes by remember { mutableStateOf<(suspend () -> Noa.Reply)?>(null) }
     val listState = rememberLazyListState()
 
@@ -113,6 +130,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         input = ""
         val yes = pendingYes
         scope.launch {
+            thinking = true
             runCatching {
                 when {
                     yes != null && isYes(text) -> { pendingYes = null; apply(yes()) }
@@ -129,12 +147,14 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                         }
                     }
                 }
-            }.onFailure { say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
+            }.onSuccess { flash = OrbState.SUCCESS }
+                .onFailure { flash = OrbState.ERROR; say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
+            thinking = false
         }
     }
 
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) startListening(listener, { listening = it }) { send(it) }
+        if (ok) startListening(listener, { listening = it; if (!it) { level = 0f; partial = "" } }, { level = it }, { partial = it }) { send(it) }
         else say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
     }
 
@@ -164,33 +184,94 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }
     DisposableEffect(Unit) { onDispose { listener.stop(); NoaVoice.stop() } }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().imePadding()) {
-        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
-            Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        }
-        LazyColumn(state = listState, modifier = Modifier.weight(1f).fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(bubbles) { b -> BubbleRow(b) }
-        }
-        if (pendingYes != null) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { send(t("да")) }) { Text(t("Да")) }
-                TextButton(onClick = { send(t("нет")) }) { Text(t("Нет")) }
+    val orbState = when {
+        flash != null -> flash!!
+        listening -> OrbState.LISTENING
+        thinking -> OrbState.THINKING
+        else -> OrbState.IDLE
+    }
+    val compact = bubbles.size > 2
+    val orbSize by animateDpAsState(if (compact) 96.dp else 210.dp, motion(Motion.EMPHASIZED), label = "orbSize")
+    val examples = listOf(
+        t("Запиши Анну на завтра в 12:00"),
+        t("Позвони маме"),
+        t("Открой календарь"),
+    )
+
+    Column(Modifier.fillMaxSize().heroBackground(glow = Rv.Lavender).statusBarsPadding().imePadding()) {
+        Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), tint = Rv.HeroText) }
+            Column(Modifier.weight(1f)) {
+                Text(t("Ассистент %1\$s", name), style = MaterialTheme.typography.headlineSmall, color = Rv.HeroText)
+                Text(
+                    when (orbState) {
+                        OrbState.LISTENING -> t("Слушаю…")
+                        OrbState.THINKING -> t("Думаю…")
+                        OrbState.ERROR -> t("Не получилось")
+                        OrbState.SUCCESS -> t("Готово")
+                        OrbState.IDLE -> if (brainReady) t("Умный режим 🧠") else t("Ваш личный помощник")
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = Rv.HeroMuted,
+                )
             }
         }
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = input, onValueChange = { input = it }, modifier = Modifier.weight(1f),
-                placeholder = { Text(t("Команда…")) }, singleLine = true,
-            )
-            val scale by animateFloatAsState(if (listening) 1.15f else 1f, label = "mic")
+        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+            NoaOrb(Modifier.size(orbSize), orbState, level)
+        }
+        LazyColumn(
+            state = listState, modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(bubbles) { b -> BubbleRow(b) }
+            if (bubbles.size <= 2 && pendingYes == null) {
+                items(examples) { ex ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Text(
+                            ex, style = MaterialTheme.typography.bodyMedium, color = Rv.HeroText,
+                            modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.07f))
+                                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                                .pressable { send(ex) }.padding(horizontal = 14.dp, vertical = 10.dp),
+                        )
+                    }
+                }
+            }
+        }
+        if (pendingYes != null) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(t("Да"), style = MaterialTheme.typography.labelLarge, color = Rv.Ink,
+                    modifier = Modifier.clip(CircleShape).background(Rv.Peach).pressable { send(t("да")) }.padding(horizontal = 22.dp, vertical = 10.dp))
+                Text(t("Нет"), style = MaterialTheme.typography.labelLarge, color = Rv.HeroText,
+                    modifier = Modifier.clip(CircleShape).background(Rv.HeroSurface).pressable { send(t("нет")) }.padding(horizontal = 22.dp, vertical = 10.dp))
+            }
+        }
+        // Поле ввода-«капсула» с переливающейся кромкой.
+        Row(
+            Modifier.fillMaxWidth().padding(12.dp).clip(CircleShape)
+                .border(1.5.dp, androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Rv.Lavender, Color(0xFF6CE3FF), Rv.Peach)), CircleShape)
+                .background(Rv.HeroSurface).padding(start = 6.dp, end = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val scale by animateFloatAsState(if (listening) 1f + level * 0.25f else 1f, label = "mic")
             MicButton(active = listening, scale = scale) {
                 if (listening) { listener.stop(); listening = false }
                 else if (NoaListener(context).available()) {
                     askMic.launch(Manifest.permission.RECORD_AUDIO)
                 } else say(t("На телефоне нет распознавания речи."))
             }
-            if (input.isNotBlank()) IconButton(onClick = { send(input) }) { Icon(Icons.AutoMirrored.Filled.Send, t("Отправить")) }
+            androidx.compose.material3.TextField(
+                value = if (listening && input.isEmpty()) partial else input,
+                onValueChange = { input = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text(if (listening) t("Слушаю…") else t("Скажите или напишите команду"), color = Rv.HeroMuted) },
+                singleLine = true,
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+                    focusedTextColor = Rv.HeroText, unfocusedTextColor = Rv.HeroText, cursorColor = Rv.Peach,
+                ),
+            )
+            if (input.isNotBlank()) IconButton(onClick = { send(input) }) { Icon(Icons.AutoMirrored.Filled.Send, t("Отправить"), tint = Rv.Peach) }
         }
     }
 }
@@ -198,14 +279,16 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
 @Composable
 private fun BubbleRow(b: Bubble) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (b.mine) Arrangement.End else Arrangement.Start) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (b.mine) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
-        ) {
+        if (b.mine) {
             Text(
-                b.text, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                color = if (b.mine) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
+                b.text, color = Rv.Ink, style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)).background(Rv.Peach).padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+        } else {
+            Text(
+                b.text, color = Rv.HeroText, style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clip(RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)).background(Color.White.copy(alpha = 0.07f))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
     }
@@ -213,19 +296,19 @@ private fun BubbleRow(b: Bubble) {
 
 @Composable
 private fun MicButton(active: Boolean, scale: Float, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick, shape = CircleShape,
-        color = if (active) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size((52 * scale).dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Mic, t("Говорить"), tint = Color.White) }
-    }
+    Box(
+        Modifier.size(44.dp).scale(scale).clip(CircleShape)
+            .background(if (active) Rv.Coral else Rv.Peach)
+            .pressable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(if (active) Icons.Default.GraphicEq else Icons.Default.Mic, t("Говорить"), tint = Rv.Ink) }
 }
 
-private fun startListening(listener: NoaListener, setListening: (Boolean) -> Unit, onText: (String) -> Unit) {
+private fun startListening(listener: NoaListener, setListening: (Boolean) -> Unit, onLevel: (Float) -> Unit, onPartial: (String) -> Unit, onText: (String) -> Unit) {
     setListening(true)
     listener.start(object : NoaListener.Callback {
-        override fun onPartial(text: String) = Unit
+        override fun onLevel(level: Float) = onLevel(level)
+        override fun onPartial(text: String) = onPartial(text)
         override fun onResult(text: String) { if (text.isNotBlank()) onText(text) }
         override fun onError(message: String?) = Unit
         override fun onReady() = Unit

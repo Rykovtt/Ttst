@@ -36,15 +36,13 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -92,6 +90,7 @@ object Routes {
     const val MAP = "map"
     const val SERVICES = "services"
     const val NOA = "noa"
+    const val STATS = "stats"
     const val APPOINTMENT = "appointment/{id}?personId={personId}&date={date}"
 
     fun person(id: Long) = "person/${id}"
@@ -108,10 +107,12 @@ private data class Tab(val route: String, val base: String, val title: String, v
 private val tabs = listOf(
     Tab(Routes.PEOPLE, "people", "Люди", Icons.Default.People),
     Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Default.CalendarMonth),
-    Tab(Routes.MAP, "map", "Карта", Icons.Default.Map),
     Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Filled.Send),
     Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Default.Settings),
 )
+
+/** Разделы, где видна нижняя навигация (карта и статистика открываются с «Людей»). */
+private val barRoutes = listOf("people", "calendar", "broadcast", "settings", "map", "stats")
 
 @Composable
 fun KartotekaRoot(
@@ -125,7 +126,20 @@ fun KartotekaRoot(
     val nav = rememberNavController()
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route.orEmpty()
-    val showBar = tabs.any { route.startsWith(it.base) }
+    val showBar = barRoutes.any { route.startsWith(it) }
+    var quick by remember { mutableStateOf(false) }
+    LaunchedEffect(route) { quick = false }
+    val app = app()
+    val assistantOn by app.settings.assistant.value.collectAsState()
+    // Точка на «Календаре», если сегодня есть записи.
+    val todayAppts by remember {
+        val d = java.time.LocalDate.now()
+        app.repository.observeAppointments(
+            com.kartoteka.app.data.AppointmentLogic.millis(d.atStartOfDay()),
+            com.kartoteka.app.data.AppointmentLogic.millis(d.plusDays(1).atStartOfDay()),
+        )
+    }.collectAsState(initial = emptyList())
+    val hasToday = todayAppts.any { it.appointment.appointmentStatus == com.kartoteka.app.data.AppointmentStatus.PLANNED }
 
     LaunchedEffect(openNoa) {
         if (openNoa) { nav.navigate(Routes.NOA); onNoaOpened() }
@@ -147,35 +161,40 @@ fun KartotekaRoot(
     Scaffold(
         bottomBar = {
             if (showBar) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest, tonalElevation = 0.dp) {
-                    tabs.forEach { tab ->
-                        NavigationBarItem(
-                            selected = route.startsWith(tab.base),
-                            onClick = { nav.switchTab(tab.route) },
-                            icon = { Icon(tab.icon, null) },
-                            label = { Text(t(tab.title), maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall) },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onSurface,
-                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                indicatorColor = Color.Transparent,
-                                unselectedIconColor = MaterialTheme.colorScheme.outline,
-                                unselectedTextColor = MaterialTheme.colorScheme.outline,
-                            ),
-                        )
-                    }
-                }
+                val items = tabs.map { NavItem(it.base, it.title, it.icon, badge = it.base == "calendar" && hasToday) }
+                RvNavBar(
+                    items = items,
+                    selected = tabs.firstOrNull { route.startsWith(it.base) }?.base,
+                    quickOpen = quick,
+                    onSelect = { item -> quick = false; nav.switchTab(tabs.first { it.base == item.key }.route) },
+                    onQuick = { quick = !quick },
+                )
             }
         },
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
+        Box(Modifier.padding(bottom = padding.calculateBottomPadding())) {
         NavHost(
             navController = nav,
             startDestination = Routes.PEOPLE,
-            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
-            enterTransition = { fadeIn() + slideInHorizontally { it / 12 } },
-            exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() },
-            popExitTransition = { fadeOut() + slideOutHorizontally { it / 12 } },
+            modifier = Modifier.fillMaxSize(),
+            // Стандартные переходы 280 мс: новый экран мягко выезжает, старый чуть уходит в глубину.
+            enterTransition = {
+                fadeIn(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD, easing = com.kartoteka.app.ui.theme.Motion.Ease)) +
+                    slideInHorizontally(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD, easing = com.kartoteka.app.ui.theme.Motion.Ease)) { it / 10 }
+            },
+            exitTransition = {
+                fadeOut(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.MICRO)) +
+                    androidx.compose.animation.scaleOut(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD), targetScale = 0.97f)
+            },
+            popEnterTransition = {
+                fadeIn(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD)) +
+                    androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD, easing = com.kartoteka.app.ui.theme.Motion.Ease), initialScale = 0.97f)
+            },
+            popExitTransition = {
+                fadeOut(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.MICRO)) +
+                    slideOutHorizontally(androidx.compose.animation.core.tween(com.kartoteka.app.ui.theme.Motion.STANDARD, easing = com.kartoteka.app.ui.theme.Motion.Ease)) { it / 10 }
+            },
         ) {
             composable(Routes.PEOPLE) {
                 HomeScreen(
@@ -184,6 +203,8 @@ fun KartotekaRoot(
                     onImport = { nav.navigate(Routes.IMPORT) },
                     onGroups = { nav.navigate(Routes.GROUPS) },
                     onNoa = { nav.navigate(Routes.NOA) },
+                    onMap = { nav.navigate(Routes.MAP) },
+                    onStats = { nav.navigate(Routes.STATS) },
                 )
             }
             composable(Routes.GROUPS) {
@@ -193,10 +214,11 @@ fun KartotekaRoot(
                 CalendarScreen(
                     onNew = { nav.navigate(Routes.appointment(date = it.toEpochDay())) },
                     onOpen = { nav.navigate(Routes.appointment(it)) },
+                    onOpenPerson = { nav.navigate(Routes.person(it)) },
                 )
             }
             composable(Routes.MAP) {
-                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) })
+                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) }, onBack = { nav.popBackStack() })
             }
             composable(
                 Routes.APPOINTMENT,
@@ -231,7 +253,7 @@ fun KartotekaRoot(
                 )
             }
             composable(Routes.SETTINGS) {
-                SettingsScreen(onImportContacts = { nav.navigate(Routes.IMPORT) }, onServices = { nav.navigate(Routes.SERVICES) })
+                SettingsScreen(onImportContacts = { nav.navigate(Routes.IMPORT) }, onServices = { nav.navigate(Routes.SERVICES) }, onNoa = { nav.navigate(Routes.NOA) })
             }
             composable(Routes.PERSON, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
                 val id = e.arguments!!.getLong("id")
@@ -304,6 +326,22 @@ fun KartotekaRoot(
             composable(Routes.IMPORT) {
                 ImportContactsScreen(onBack = { nav.popBackStack() })
             }
+            composable(Routes.STATS) {
+                com.kartoteka.app.ui.stats.StatsScreen(onBack = { nav.popBackStack() }, onOpenPerson = { nav.navigate(Routes.person(it)) })
+            }
+        }
+        QuickMenu(
+            visible = quick,
+            actions = buildList {
+                add(QuickAction(t("Новый человек"), t("Карточка с фото, контактами и деталями"), QuickIcons.person, com.kartoteka.app.ui.theme.Rv.PeachDeep) { nav.navigate(Routes.edit()) })
+                add(QuickAction(t("Новая запись"), t("Встреча, сеанс или звонок с напоминанием"), QuickIcons.appointment, com.kartoteka.app.ui.theme.Rv.Lavender) {
+                    nav.navigate(Routes.appointment(date = java.time.LocalDate.now().toEpochDay()))
+                })
+                if (assistantOn) add(QuickAction(t("Ассистент"), t("Скажите, что сделать"), QuickIcons.noa, com.kartoteka.app.ui.theme.Rv.Cobalt) { nav.navigate(Routes.NOA) })
+                add(QuickAction(t("Импорт контактов"), t("Перенести людей из телефонной книги"), QuickIcons.import, com.kartoteka.app.ui.theme.Rv.Lime) { nav.navigate(Routes.IMPORT) })
+            },
+            onDismiss = { quick = false },
+        )
         }
     }
 }

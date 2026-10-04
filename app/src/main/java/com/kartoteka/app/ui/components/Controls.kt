@@ -19,6 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 
 /*
  * Элементы в стиле RVault: выбранный чип — чёрная «таблетка», остальные — светло-серые;
@@ -36,9 +40,10 @@ fun FilterChip(
     leadingIcon: (@Composable () -> Unit)? = null,
 ) {
     val c = MaterialTheme.colorScheme
+    val haptics = com.kartoteka.app.ui.theme.rememberHaptics()
     androidx.compose.material3.FilterChip(
         selected = selected,
-        onClick = onClick,
+        onClick = { haptics.tick(); onClick() },
         label = label,
         modifier = modifier,
         enabled = enabled,
@@ -59,19 +64,23 @@ fun FilterChip(
 
 @Composable
 private fun fieldColors() = TextFieldDefaults.colors(
-    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-    disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    // Поля живут на карточках-«бумаге», поэтому залиты цветом фона — читаются как вдавленные плашки.
+    focusedContainerColor = MaterialTheme.colorScheme.background,
+    unfocusedContainerColor = MaterialTheme.colorScheme.background,
+    disabledContainerColor = MaterialTheme.colorScheme.background,
     errorContainerColor = MaterialTheme.colorScheme.errorContainer,
     focusedIndicatorColor = Color.Transparent,
     unfocusedIndicatorColor = Color.Transparent,
     disabledIndicatorColor = Color.Transparent,
     errorIndicatorColor = Color.Transparent,
     focusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unfocusedPlaceholderColor = MaterialTheme.colorScheme.outline,
+    focusedPlaceholderColor = MaterialTheme.colorScheme.outline,
     cursorColor = MaterialTheme.colorScheme.primary,
 )
 
-private val FieldShape = RoundedCornerShape(14.dp)
+private val FieldShape = RoundedCornerShape(18.dp)
 
 @Composable
 fun OutlinedTextField(
@@ -120,32 +129,36 @@ fun OutlinedTextField(
     )
 }
 
-/** Переключатель вкладок-«таблеток»: выбранная — чёрная. */
+/** Переключатель вкладок-«таблеток»: выбранная — графитовая, индикатор плавно переезжает. */
 @Composable
 fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val c = MaterialTheme.colorScheme
-    androidx.compose.foundation.layout.Row(
+    val haptics = com.kartoteka.app.ui.theme.rememberHaptics()
+    androidx.compose.foundation.layout.BoxWithConstraints(
         modifier
             .clip(CircleShape)
-            .background(c.surfaceContainerHighest)
+            .background(c.surfaceContainerLowest)
             .padding(4.dp),
     ) {
-        options.forEachIndexed { i, title ->
-            val sel = i == selected
-            androidx.compose.foundation.layout.Box(
-                Modifier
-                    .weight(1f)
-                    .clip(CircleShape)
-                    .background(if (sel) c.primary else Color.Transparent)
-                    .clickable { onSelect(i) }
-                    .padding(vertical = 9.dp),
-                contentAlignment = androidx.compose.ui.Alignment.Center,
-            ) {
-                androidx.compose.material3.Text(
-                    title,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (sel) c.onPrimary else c.onSurface,
-                )
+        val w = maxWidth / options.size.coerceAtLeast(1)
+        val x by androidx.compose.animation.core.animateDpAsState(w * selected, com.kartoteka.app.ui.theme.motion(), label = "seg")
+        androidx.compose.foundation.layout.Box(
+            Modifier.offset(x = x).width(w).height(38.dp).clip(CircleShape).background(c.primary)
+        )
+        androidx.compose.foundation.layout.Row {
+            options.forEachIndexed { i, title ->
+                val sel = i == selected
+                val fg by androidx.compose.animation.animateColorAsState(if (sel) c.onPrimary else c.onSurface, com.kartoteka.app.ui.theme.motion(com.kartoteka.app.ui.theme.Motion.MICRO), label = "segfg")
+                androidx.compose.foundation.layout.Box(
+                    Modifier
+                        .weight(1f)
+                        .height(38.dp)
+                        .clip(CircleShape)
+                        .clickable { if (!sel) { haptics.tick(); onSelect(i) } },
+                    contentAlignment = androidx.compose.ui.Alignment.Center,
+                ) {
+                    androidx.compose.material3.Text(title, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+                }
             }
         }
     }

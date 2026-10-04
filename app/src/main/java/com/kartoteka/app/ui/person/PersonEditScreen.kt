@@ -225,23 +225,30 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
     val tryExit = { if (vm.dirty) confirmExit = true else { vm.discard(); onBack() } }
     BackHandler(onBack = tryExit)
 
+    val haptics = com.kartoteka.app.ui.theme.rememberHaptics()
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (personId == 0L) t("Новый человек") else t("Редактирование")) },
+                title = { Text(if (personId == 0L) t("Новый человек") else t("Редактирование"), style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = { IconButton(onClick = tryExit) { Icon(Icons.Default.Close, t("Закрыть")) } },
-                actions = {
-                    Button(
-                        onClick = { vm.save(onSaved) },
-                        enabled = !vm.saving && vm.birthdayError == null,
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) {
-                        Icon(Icons.Default.Check, null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(t("Сохранить"))
-                    }
-                },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
+        },
+        bottomBar = {
+            // Главное действие — внизу, под большим пальцем.
+            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Button(
+                    onClick = { haptics.confirm(); vm.save(onSaved) },
+                    enabled = !vm.saving && vm.birthdayError == null,
+                    shape = CircleShape,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                ) {
+                    Icon(Icons.Default.Check, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(t("Сохранить"), style = MaterialTheme.typography.titleMedium)
+                }
+            }
         },
     ) { padding ->
         if (!vm.loaded) return@Scaffold

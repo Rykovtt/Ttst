@@ -92,6 +92,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.animation.animateContentSize
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import com.kartoteka.app.ui.components.heroBackground
+import com.kartoteka.app.ui.components.pressable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -224,24 +232,16 @@ fun PersonDetailScreen(
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.fillMaxSize()) {
-            item(key = "hero") { Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) }) }
-            item(key = "actions") { QuickActions(pf, onNewAppointment) }
+            item(key = "hero") {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)).background(com.kartoteka.app.ui.theme.Rv.HeroBg)) {
+                    Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) })
+                    QuickActions(pf, onNewAppointment)
+                }
+            }
 
             val bdText = ArchiveLogic.formatBirthday(p)
             if (bdText != null) {
-                item(key = "bd") {
-                    val days = ArchiveLogic.daysUntilBirthday(p)
-                    val turning = ArchiveLogic.turningAge(p)
-                    SectionCard(t("День рождения"), Icons.Default.Cake) {
-                        InfoRow(
-                            label = listOfNotNull(
-                                days?.let { "🎂 " + ArchiveLogic.daysString(it) },
-                                turning?.let { t("исполнится ") + ArchiveLogic.ageString(it) },
-                            ).joinToString(" · "),
-                            value = bdText,
-                        )
-                    }
-                }
+                item(key = "bd") { BirthdayBlock(p, bdText) }
             }
 
             if (pf.contacts.isNotEmpty()) {
@@ -254,6 +254,9 @@ fun PersonDetailScreen(
                                 icon = iconFor(c.contactType),
                                 onClick = { Messaging.openLink(context, c) },
                                 onLongClick = { Messaging.copy(context, c.value) },
+                                trailing = {
+                                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                                },
                             )
                         }
                     }
@@ -389,8 +392,9 @@ fun PersonDetailScreen(
                             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
                         )
                     }
-                    pf.journal.sortedByDescending { it.date }.forEach { e ->
-                        JournalRow(e, onDelete = { vm.deleteJournal(e) })
+                    val entries = pf.journal.sortedByDescending { it.date }
+                    entries.forEachIndexed { i, e ->
+                        JournalRow(e, first = i == 0, last = i == entries.lastIndex, onDelete = { vm.deleteJournal(e) })
                     }
                 }
             }
@@ -469,8 +473,8 @@ private fun overlayButtonColors(scrolled: Boolean) = IconButtonDefaults.filledTo
 @Composable
 private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
     val p = pf.person
-    val bg = MaterialTheme.colorScheme.background
-    Box(Modifier.fillMaxWidth().aspectRatio(0.95f)) {
+    val hero = com.kartoteka.app.ui.theme.Rv.HeroBg
+    Box(Modifier.fillMaxWidth().aspectRatio(0.92f)) {
         if (p.avatarPath != null) {
             AsyncImage(
                 model = File(p.avatarPath),
@@ -479,27 +483,74 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
                 modifier = Modifier.fillMaxSize().clickable(onClick = onOpenPhoto),
             )
         } else {
+            // Без фото — фирменная композиция: крупные инициалы на тёмном фоне со свечением цвета человека.
             val c = accentFor(p.displayName)
             Box(
-                Modifier.fillMaxSize().background(Brush.linearGradient(listOf(c, c.copy(alpha = 0.55f)))),
+                Modifier.fillMaxSize().heroBackground(glow = c, glowAt = androidx.compose.ui.geometry.Offset(0f, 0f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(initials(p), color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.displayLarge, fontWeight = FontWeight.Bold)
+                Text(initials(p), color = c.copy(alpha = 0.85f), style = MaterialTheme.typography.displayLarge.copy(fontSize = 120.sp), fontWeight = FontWeight.ExtraBold)
             }
         }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0.45f to Color.Transparent, 1f to bg)
+        // Затемнение сверху (под кнопки) и плавный переход в тёмный блок снизу.
+        Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to hero)))
+        Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 6.dp)) {
+            // Точка категории идёт сразу за последним словом имени, даже при переносе строки.
+            val dot = pf.groups.firstOrNull()?.let { Color(it.color) } ?: com.kartoteka.app.ui.components.categoryColor(p.relation)
+            Text(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    append(p.fullName)
+                    if (dot != Color.Transparent) {
+                        withStyle(androidx.compose.ui.text.SpanStyle(color = dot, fontSize = 22.sp)) { append(" ●") }
+                    }
+                },
+                style = MaterialTheme.typography.displaySmall.copy(fontSize = if (p.fullName.length > 22) 28.sp else 36.sp),
+                color = com.kartoteka.app.ui.theme.Rv.HeroText, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
-        )
-        Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 8.dp)) {
-            Text(p.fullName, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
-            val sub = listOf(p.nickname.takeIf { it.isNotBlank() }?.let { "«${it}»" }, p.relation.takeIf { it.isNotBlank() }?.let { t(it) })
-                .filterNotNull().joinToString(" · ")
-            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val sub = listOfNotNull(
+                p.nickname.takeIf { it.isNotBlank() }?.let { "«${it}»" },
+                p.relation.takeIf { it.isNotBlank() }?.let { t(it) },
+                p.company.ifBlank { p.position }.takeIf { it.isNotBlank() },
+                p.city.takeIf { it.isNotBlank() },
+            ).joinToString(" · ")
+            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodyMedium, color = com.kartoteka.app.ui.theme.Rv.HeroMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (p.closeness > 0) {
                 Spacer(Modifier.height(4.dp))
-                ClosenessStars(p.closeness, size = 18.dp)
+                ClosenessStars(p.closeness, size = 16.dp, tint = com.kartoteka.app.ui.theme.Rv.Peach)
+            }
+        }
+    }
+}
+
+/** День рождения: дата слева, до него и возраст — крупной цифрой справа. */
+@Composable
+private fun BirthdayBlock(p: com.kartoteka.app.data.Person, bdText: String) {
+    val days = ArchiveLogic.daysUntilBirthday(p)
+    val turning = ArchiveLogic.turningAge(p)
+    com.kartoteka.app.ui.components.Panel {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Cake, null, tint = com.kartoteka.app.ui.theme.Rv.PeachDeep, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(t("День рождения"), style = MaterialTheme.typography.titleSmall)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(bdText, style = MaterialTheme.typography.titleLarge)
+                if (days != null) {
+                    Text(
+                        if (days == 0L) "🎉 " + ArchiveLogic.daysString(days) else ArchiveLogic.daysString(days),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (days <= 7) com.kartoteka.app.ui.theme.Rv.PeachDeep else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (turning != null) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("$turning", style = com.kartoteka.app.ui.theme.NumberStyle.copy(fontSize = 44.sp, lineHeight = 46.sp))
+                    Text(ArchiveLogic.plural(turning.toLong(), "год", "года", "лет").let { t(it) }, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -516,46 +567,69 @@ private fun QuickActions(pf: PersonFull, onNewAppointment: () -> Unit) {
         pf.email?.let { add(Triple(Icons.Default.Email, t("Почта")) { Messaging.email(context, listOf(it)) }) }
         add(Triple(Icons.Default.EventAvailable, t("Записать"), onNewAppointment))
     }
-    if (actions.isEmpty()) return
+    // «Стеклянные» плитки на тёмном: полупрозрачная заливка и тонкая светлая кромка.
     @Composable
-    fun ActionItem(icon: ImageVector, label: String, action: () -> Unit, modifier: Modifier) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-            FilledTonalIconButton(onClick = action, modifier = Modifier.size(52.dp)) { Icon(icon, label) }
-            Spacer(Modifier.height(4.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    fun Tile(icon: ImageVector, label: String, action: () -> Unit, modifier: Modifier) {
+        Column(
+            modifier.clip(RoundedCornerShape(20.dp))
+                .background(Color.White.copy(alpha = 0.08f))
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                .pressable(onClick = action)
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(icon, label, tint = com.kartoteka.app.ui.theme.Rv.HeroText, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.height(6.dp))
+            Text(label, style = MaterialTheme.typography.labelSmall, color = com.kartoteka.app.ui.theme.Rv.HeroText, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
     if (actions.size <= 5) {
-        // Помещаются в ширину — делят её поровну, без пустоты справа.
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
-            actions.forEach { (icon, label, action) -> ActionItem(icon, label, action, Modifier.weight(1f)) }
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            actions.forEach { (icon, label, action) -> Tile(icon, label, action, Modifier.weight(1f)) }
         }
     } else {
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            actions.forEach { (icon, label, action) -> ActionItem(icon, label, action, Modifier.width(72.dp)) }
+            actions.forEach { (icon, label, action) -> Tile(icon, label, action, Modifier.width(76.dp)) }
         }
     }
 }
 
+/** Событие хроники на вертикальной шкале: цвет узла зависит от типа. */
 @Composable
-private fun JournalRow(e: JournalEntry, onDelete: () -> Unit) {
+private fun JournalRow(e: JournalEntry, first: Boolean, last: Boolean, onDelete: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp)) {
-        Box(Modifier.padding(top = 6.dp).size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
+    var expanded by remember { mutableStateOf(false) }
+    val node = journalColor(e.kind)
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Row(
+        Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)
+            .clickable { expanded = !expanded }.padding(start = 18.dp, end = 8.dp),
+    ) {
+        // Шкала: линия и узел.
+        Box(Modifier.width(18.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Box(Modifier.width(2.dp).fillMaxHeight().padding(top = if (first) 14.dp else 0.dp, bottom = if (last) 0.dp else 0.dp)
+                .background(if (last && first) Color.Transparent else line))
+            Box(
+                Modifier.padding(top = 10.dp).size(14.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerLow).padding(2.dp)
+                    .clip(CircleShape).background(node)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text(t(e.kind), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                }
+                Text(t(e.kind), style = MaterialTheme.typography.labelLarge, color = node)
                 Spacer(Modifier.width(8.dp))
                 Text(dateFmt().format(Date(e.date)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Spacer(Modifier.height(4.dp))
-            Text(e.text, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                e.text, style = MaterialTheme.typography.bodyMedium,
+                maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.animateContentSize(com.kartoteka.app.ui.theme.motion()),
+            )
         }
         Box {
             IconButton(onClick = { menu = true }, modifier = Modifier.size(32.dp)) { Icon(Icons.Default.MoreVert, null, Modifier.size(18.dp)) }
@@ -563,6 +637,17 @@ private fun JournalRow(e: JournalEntry, onDelete: () -> Unit) {
                 DropdownMenuItem(text = { Text(t("Удалить запись")) }, onClick = { menu = false; onDelete() })
             }
         }
+    }
+}
+
+private fun journalColor(kind: String): Color {
+    val k = kind.lowercase()
+    return when {
+        k.contains("встреч") || k.contains("зустр") || k.contains("meet") -> com.kartoteka.app.ui.theme.Rv.Lavender
+        k.contains("звон") || k.contains("дзв") || k.contains("call") -> com.kartoteka.app.ui.theme.Rv.Lime
+        k.contains("подар") || k.contains("gift") -> com.kartoteka.app.ui.theme.Rv.PeachDeep
+        k.contains("рассыл") || k.contains("розсил") || k.contains("сообщ") || k.contains("повідом") || k.contains("message") -> com.kartoteka.app.ui.theme.Rv.Cobalt
+        else -> com.kartoteka.app.ui.theme.Rv.Coral
     }
 }
 
