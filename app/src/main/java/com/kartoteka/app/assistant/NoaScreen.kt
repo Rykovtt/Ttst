@@ -112,7 +112,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                 if (yes != null && isYes(text)) { pendingYes = null; apply(yes()) }
                 else if (yes != null && isNo(text)) { pendingYes = null; say(t("Хорошо, отменила.")) }
                 else { pendingYes = null; apply(noa.handle(text)) }
-            }.onFailure { say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
+            }.onFailure { e -> say("⚠ " + (e::class.java.simpleName) + ": " + (e.message ?: "")) }
         }
     }
 

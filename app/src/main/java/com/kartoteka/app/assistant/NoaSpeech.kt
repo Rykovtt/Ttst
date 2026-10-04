@@ -113,9 +113,11 @@ object NoaVoice {
     }
 
     fun speak(context: Context, text: String) {
-        init(context)
-        applyVoice()
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "noa")
+        runCatching {
+            init(context)
+            applyVoice()
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "noa")
+        }
     }
 
     fun stop() { tts?.runCatching { stop() } }
