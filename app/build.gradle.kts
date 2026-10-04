@@ -14,8 +14,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 21
-        versionName = "1.11.1"
+        versionCode = 22
+        versionName = "1.11.2"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

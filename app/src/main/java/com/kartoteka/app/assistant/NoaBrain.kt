@@ -56,8 +56,10 @@ class GeminiNanoBrain(context: Context) {
         val m = build() ?: run { state = State.UNAVAILABLE; return state }
         if (state != State.DOWNLOADING) state = State.PREPARING
         val ok = withTimeoutOrNull(120_000) {
-            runCatching { m.prepareInferenceEngine() }.isSuccess
-        } ?: false
+            runCatching { m.prepareInferenceEngine() }
+                .onFailure { detail = (it::class.java.simpleName + ": " + (it.message ?: "")).take(140) }
+                .isSuccess
+        } ?: run { detail = "timeout"; false }
         state = if (ok) State.READY else if (state == State.DOWNLOADING) State.DOWNLOADING else State.UNAVAILABLE
         return state
     }
