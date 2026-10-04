@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.border
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -105,10 +106,11 @@ data class NavItem(
 
 /** Насколько центр кнопки «+» опущен ниже верхнего края нижней панели — от него раскрывается меню. */
 val QuickFabCenterBelowBarTop: Dp = 18.dp
-private val FabTouch = 84.dp
-private val FabFace = 76.dp
+private val FabTouch = 96.dp
+private val FabFace = 78.dp
 
-private val BarText = Color(0xFFA19C95)
+private val BarText = com.kartoteka.app.ui.theme.Brand.NavInactive
+private val BarActive = com.kartoteka.app.ui.theme.Brand.NavActive
 
 /**
  * Нижняя навигация RVAULT: тёмная панель со стеклянной кромкой; слева два раздела, справа три,
@@ -117,16 +119,20 @@ private val BarText = Color(0xFFA19C95)
 @Composable
 fun RvNavBar(items: List<NavItem>, selected: String?, quickOpen: Boolean, onSelect: (NavItem) -> Unit, onQuick: () -> Unit) {
     val haptics = rememberHaptics()
-    val barShape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+    val barShape = RoundedCornerShape(topStart = 34.dp, topEnd = 34.dp)
     Box(Modifier.fillMaxWidth()) {
         Box(
             Modifier.matchParentSize()
+                .drawBehind {
+                    // Лёгкая тень над панелью.
+                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.12f)), startY = -18.dp.toPx(), endY = 0f), topLeft = Offset(0f, -18.dp.toPx()), size = size.copy(height = 18.dp.toPx()))
+                }
                 .clip(barShape)
-                .background(Brush.verticalGradient(listOf(Color(0xFF1F1E20), Color(0xFF121213))))
-                .sheenBorder(1.dp, barShape, SheenColors.Glass.map { it.copy(alpha = it.alpha * 0.6f) })
+                .background(com.kartoteka.app.ui.theme.Brand.NavBg)
+                .border(1.dp, Color.White.copy(alpha = 0.10f), barShape)
         )
-        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(74.dp).padding(horizontal = 10.dp)) {
-            val gap = FabTouch + 8.dp
+        BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(80.dp).padding(horizontal = 10.dp)) {
+            val gap = 88.dp
             val half = (maxWidth - gap) / 2
             val leftCount = 2
             val rightCount = (items.size - leftCount).coerceAtLeast(1)
@@ -151,13 +157,14 @@ fun RvNavBar(items: List<NavItem>, selected: String?, quickOpen: Boolean, onSele
 
 @Composable
 private fun NavCell(item: NavItem, sel: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val fg by animateColorAsState(if (sel) Rv.HeroText else BarText, motion(Motion.MICRO), label = "navfg")
-    val bgA by animateFloatAsState(if (sel) 1f else 0f, motion(Motion.STANDARD), label = "navbg")
+    val fg by animateColorAsState(if (sel) BarActive else BarText, tween(220), label = "navfg")
+    val bgA by animateFloatAsState(if (sel) 1f else 0f, tween(220), label = "navbg")
+    val iconScale by animateFloatAsState(if (sel) 1.08f else 1f, tween(220, easing = Motion.Ease), label = "navIcon")
+    val dot by animateFloatAsState(if (sel) 1f else 0f, tween(220, easing = Motion.Ease), label = "navDot")
     val cell = RoundedCornerShape(20.dp)
     Box(modifier.padding(horizontal = 2.dp), contentAlignment = Alignment.Center) {
         Column(
-            Modifier.fillMaxWidth().height(60.dp)
-                .graphicsLayer { }
+            Modifier.fillMaxWidth().height(66.dp)
                 .clip(cell)
                 .drawBehind { if (bgA > 0f) drawRect(Color.White.copy(alpha = 0.07f * bgA)) }
                 .then(if (sel) Modifier.sheenBorder(1.dp, cell, SheenColors.Glass) else Modifier)
@@ -167,17 +174,23 @@ private fun NavCell(item: NavItem, sel: Boolean, modifier: Modifier, onClick: ()
             verticalArrangement = Arrangement.Center,
         ) {
             Box {
-                Icon(if (sel) item.selectedIcon else item.icon, null, tint = if (sel) Rv.Peach else fg, modifier = Modifier.size(23.dp))
+                Icon(
+                    if (sel) item.selectedIcon else item.icon, null, tint = fg,
+                    modifier = Modifier.size(26.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale },
+                )
                 if (item.badge) {
                     Box(Modifier.align(Alignment.TopEnd).offset(x = 3.dp, y = (-2).dp).size(7.dp).clip(CircleShape).background(Rv.PeachDeep))
                 }
             }
             Spacer(Modifier.height(3.dp))
             AutoSizeText(
-                t(item.title), color = fg, maxSize = 11.sp, minSize = 8.sp,
-                weight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
+                t(item.title), color = fg, maxSize = 12.sp, minSize = 9.sp,
+                weight = if (sel) FontWeight.SemiBold else FontWeight.Medium,
             )
-            Box(Modifier.padding(top = 3.dp).size(4.dp).clip(CircleShape).background(if (sel) Rv.HeroText else Color.Transparent))
+            Box(
+                Modifier.padding(top = 3.dp).size(4.dp).graphicsLayer { scaleX = dot; scaleY = dot }
+                    .clip(CircleShape).background(com.kartoteka.app.ui.theme.Brand.Glow)
+            )
         }
     }
 }
@@ -193,6 +206,19 @@ fun AutoSizeText(text: String, color: Color, maxSize: TextUnit, minSize: TextUni
         onTextLayout = { r ->
             if (r.didOverflowWidth && size.value > minSize.value) size = (size.value * 0.92f).sp else ready = true
         },
+        modifier = Modifier.drawWithContent { if (ready) drawContent() },
+    )
+}
+
+/** Текст в одну строку, уменьшающийся до [min] sp, чтобы не обрезаться. */
+@Composable
+fun FitText(text: String, color: Color, max: Float, min: Float, weight: FontWeight = FontWeight.Normal, align: TextAlign = TextAlign.Start) {
+    var size by remember(text) { mutableStateOf(max) }
+    var ready by remember(text) { mutableStateOf(false) }
+    Text(
+        text, color = color, maxLines = 1, softWrap = false, textAlign = align,
+        style = TextStyle(fontFamily = com.kartoteka.app.ui.theme.Inter, fontSize = size.sp, fontWeight = weight),
+        onTextLayout = { r -> if (r.didOverflowWidth && size > min) size = (size - 0.5f).coerceAtLeast(min) else ready = true },
         modifier = Modifier.drawWithContent { if (ready) drawContent() },
     )
 }
@@ -219,7 +245,7 @@ fun QuickFab(open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier)
         if (!open) { delay(25_000); idle = false }
     }
     val breath = if (reduced) null else rememberInfiniteTransition(label = "fabIdle")
-        .animateFloat(0f, 1f, infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breath")
+        .animateFloat(0f, 1f, infiniteRepeatable(tween(2000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "breath") // цикл 4 с
     val idleAmt by animateFloatAsState(if (idle && !reduced) 1f else 0f, tween(700), label = "idleAmt")
 
     val scale = remember { Animatable(1f) }
@@ -228,15 +254,15 @@ fun QuickFab(open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier)
     LaunchedEffect(pressed, open) {
         if (pressed) {
             wasPressed = true
-            launch { glow.animateTo(0.10f, tween(100)) }
-            scale.animateTo(0.91f, tween(100, easing = FastOutSlowInEasing))
+            launch { glow.animateTo(0.10f, tween(90)) }
+            scale.animateTo(0.9f, tween(90, easing = FastOutSlowInEasing))
         } else {
             val target = if (open) 1.06f else 1f
             if (wasPressed) {
                 wasPressed = false
                 launch { glow.animateTo(0.8f, tween(140)); glow.animateTo(0.32f, tween(460)) }
             }
-            scale.animateTo(target, if (reduced) snap() else spring(dampingRatio = 0.58f, stiffness = 520f))
+            scale.animateTo(target, if (reduced) snap() else spring(dampingRatio = 0.6f, stiffness = 650f))
         }
     }
     val rot by animateFloatAsState(
@@ -255,13 +281,13 @@ fun QuickFab(open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier)
         modifier.size(FabTouch)
             .drawBehind {
                 val r = FabFace.toPx() / 2
-                val s = scale.value * (1f + 0.025f * (breath?.value ?: 0f) * idleAmt)
+                val s = scale.value * (1f + 0.015f * (breath?.value ?: 0f) * idleAmt)
                 // Мягкая объёмная тень.
                 val sh = center + Offset(0f, 5.dp.toPx())
                 drawCircle(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.55f * s.coerceAtMost(1f)), Color.Transparent), sh, r * 1.35f * s), r * 1.35f * s, sh)
                 // Деликатное тёплое свечение.
                 val g = (glow.value + 0.08f * (breath?.value ?: 0f) * idleAmt).coerceIn(0f, 1f)
-                drawCircle(Brush.radialGradient(listOf(Rv.Peach.copy(alpha = 0.55f * g), Color.Transparent), center, r * 1.75f), r * 1.75f, center)
+                drawCircle(Brush.radialGradient(listOf(com.kartoteka.app.ui.theme.Brand.Glow.copy(alpha = 0.5f * g), Color.Transparent), center, r * 1.6f), r * 1.6f, center)
                 // Световое кольцо при раскрытии.
                 val p = ring.value
                 if (p < 1f) {
@@ -279,13 +305,13 @@ fun QuickFab(open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier)
         Box(
             Modifier.size(FabFace)
                 .graphicsLayer {
-                    val s = scale.value * (1f + 0.025f * (breath?.value ?: 0f) * idleAmt)
+                    val s = scale.value * (1f + 0.015f * (breath?.value ?: 0f) * idleAmt)
                     scaleX = s; scaleY = s
                 }
                 .clip(CircleShape)
                 .drawBehind {
-                    val edge = androidx.compose.ui.graphics.lerp(Color(0xFFEFD8C3), Color(0xFFF2C29E), warm)
-                    drawRect(Brush.radialGradient(listOf(Color(0xFFFFF9F2), Color(0xFFF8EADC), edge), center - Offset(size.width * 0.12f, size.height * 0.16f), size.width * 0.75f))
+                    val edge = androidx.compose.ui.graphics.lerp(Color(0xFFF6DDC2), Color(0xFFF4C9A0), warm)
+                    drawRect(Brush.radialGradient(listOf(Color(0xFFFFF8EF), com.kartoteka.app.ui.theme.Brand.Milk, edge), center - Offset(size.width * 0.12f, size.height * 0.16f), size.width * 0.75f))
                 }
                 .sheenBorder(1.dp, CircleShape, listOf(Color.White, Color(0xFFE9CDB2), Color(0xFFB8957A), Color(0xFFFFF3E6)))
                 .clickable(source, indication = null) {
@@ -297,7 +323,7 @@ fun QuickFab(open: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier)
         ) {
             Icon(
                 Icons.Default.Add, null, tint = Color(0xFF1B1A19),
-                modifier = Modifier.size(32.dp).graphicsLayer { rotationZ = rot },
+                modifier = Modifier.size(42.dp).graphicsLayer { rotationZ = rot },
             )
         }
     }

@@ -6,8 +6,8 @@ import java.time.temporal.ChronoUnit
 
 /** Подсказка-«чип» под именем в списке людей: ближайшее важное о человеке. */
 sealed interface PersonHint {
-    data class Today(val time: String) : PersonHint
-    data class Upcoming(val date: LocalDate, val time: String) : PersonHint
+    data class Today(val time: String, val reminder: Boolean = false) : PersonHint
+    data class Upcoming(val date: LocalDate, val time: String, val reminder: Boolean = false) : PersonHint
     data class Birthday(val days: Long, val day: Int, val month: Int) : PersonHint
     data class LastMet(val days: Long) : PersonHint
 }
@@ -23,13 +23,16 @@ object PeopleHints {
         val live = appts.filter { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
         val next = live.filter { it.appointment.end >= nowMs }.minByOrNull { it.appointment.start }
         val nextAt = next?.let { AppointmentLogic.zoned(it.appointment.start) }
-        if (nextAt != null && nextAt.toLocalDate() == today) return PersonHint.Today(AppointmentLogic.timeText(nextAt))
+        // Напоминание «только для себя»: без канала сообщений человеку.
+        val isReminder = next?.appointment?.notifyChannel == NotifyChannel.NONE &&
+            next.appointment.title.lowercase().let { it.contains("напомин") || it.contains("нагадув") || it.contains("remind") }
+        if (nextAt != null && nextAt.toLocalDate() == today) return PersonHint.Today(AppointmentLogic.timeText(nextAt), isReminder)
 
         val bd = ArchiveLogic.daysUntilBirthday(pf.person, today)
         if (bd != null && bd <= 14) return PersonHint.Birthday(bd, pf.person.birthDay ?: 1, pf.person.birthMonth ?: 1)
 
         if (nextAt != null && ChronoUnit.DAYS.between(today, nextAt.toLocalDate()) <= 7) {
-            return PersonHint.Upcoming(nextAt.toLocalDate(), AppointmentLogic.timeText(nextAt))
+            return PersonHint.Upcoming(nextAt.toLocalDate(), AppointmentLogic.timeText(nextAt), isReminder)
         }
 
         val lastAppt = live.filter { it.appointment.start < nowMs }.maxOfOrNull { it.appointment.start }

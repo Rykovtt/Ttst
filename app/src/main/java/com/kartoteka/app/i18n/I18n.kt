@@ -93,6 +93,15 @@ object I18n {
         else -> "$day ${RU_MONTHS[month - 1]}"
     }
 
+    /** Короткая дата для плашек: «3 лис», «7 окт», «Oct 7». */
+    fun dayMonthShort(day: Int, month: Int): String = when (lang) {
+        UiLang.UK -> "$day ${UK_SHORT[month - 1]}"
+        UiLang.EN -> "${EN_MONTHS[month - 1].take(3)} $day"
+        else -> "$day ${RU_SHORT[month - 1]}"
+    }
+    private val RU_SHORT = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")
+    private val UK_SHORT = listOf("січ", "лют", "бер", "кві", "тра", "чер", "лип", "сер", "вер", "жов", "лис", "гру")
+
     val RU_MONTHS = listOf("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря")
     val UK_MONTHS = listOf("січня", "лютого", "березня", "квітня", "травня", "червня", "липня", "серпня", "вересня", "жовтня", "листопада", "грудня")
     val EN_MONTHS = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")

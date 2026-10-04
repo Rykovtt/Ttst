@@ -121,6 +121,7 @@ private val tabs = listOf(
 /** Разделы, где видна нижняя навигация (карта и статистика открываются с «Людей»). */
 private val barRoutes = listOf("people", "calendar", "broadcast", "settings", "map", "stats")
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun KartotekaRoot(
     openPersonId: Long?,
@@ -182,6 +183,8 @@ fun KartotekaRoot(
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
         Box(Modifier.padding(bottom = padding.calculateBottomPadding())) {
+        androidx.compose.animation.SharedTransitionLayout {
+        androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalSharedScope provides this) {
         NavHost(
             navController = nav,
             startDestination = Routes.PEOPLE,
@@ -205,6 +208,7 @@ fun KartotekaRoot(
             },
         ) {
             composable(Routes.PEOPLE) {
+                androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalNavScope provides this) {
                 HomeScreen(
                     onOpen = { nav.navigate(Routes.person(it)) },
                     onAdd = { nav.navigate(Routes.edit()) },
@@ -215,7 +219,11 @@ fun KartotekaRoot(
                     onCalendar = { nav.switchTab(Routes.CALENDAR) },
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = it)) },
                     onStats = { nav.navigate(Routes.STATS) },
+                    onEdit = { nav.navigate(Routes.edit(it)) },
+                    onOpenPhoto = { pid, i -> nav.navigate(Routes.photos(pid, i)) },
+                    onSettings = { nav.switchTab(Routes.SETTINGS) },
                 )
+                }
             }
             composable(Routes.GROUPS) {
                 GroupsScreen(onOpen = { nav.navigate(Routes.group(it)) }, onBack = { nav.popBackStack() })
@@ -272,6 +280,7 @@ fun KartotekaRoot(
                 navArgument("note") { type = NavType.BoolType; defaultValue = false },
             )) { e ->
                 val id = e.arguments!!.getLong("id")
+                androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalNavScope provides this) {
                 PersonDetailScreen(
                     openNote = e.arguments?.getBoolean("note") ?: false,
                     personId = id,
@@ -282,6 +291,7 @@ fun KartotekaRoot(
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = id)) },
                     onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
                 )
+                }
             }
             composable(Routes.EDIT, arguments = listOf(navArgument("id") { type = NavType.LongType })) { e ->
                 val id = e.arguments!!.getLong("id")
@@ -345,6 +355,8 @@ fun KartotekaRoot(
             composable(Routes.STATS) {
                 com.kartoteka.app.ui.stats.StatsScreen(onBack = { nav.popBackStack() }, onOpenPerson = { nav.navigate(Routes.person(it)) })
             }
+        }
+        }
         }
         QuickActionsOverlay(
             open = quick,

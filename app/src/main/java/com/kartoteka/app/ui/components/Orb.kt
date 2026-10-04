@@ -36,7 +36,7 @@ fun NoaOrb(modifier: Modifier, state: OrbState = OrbState.IDLE, level: Float = 0
         0f, 360f,
         infiniteRepeatable(tween(if (state == OrbState.THINKING) 2400 else 14000, easing = LinearEasing)), label = "spin",
     )
-    val breath by inf.animateFloat(0.97f, 1.03f, infiniteRepeatable(tween(2600), RepeatMode.Reverse), label = "breath")
+    val breath by inf.animateFloat(0.98f, 1.03f, infiniteRepeatable(tween(2600), RepeatMode.Reverse), label = "breath")
     val voice by animateFloatAsState(if (state == OrbState.LISTENING) 1f + level.coerceIn(0f, 1f) * 0.12f else 1f, tween(90), label = "voice")
     val flash by animateFloatAsState(if (state == OrbState.SUCCESS || state == OrbState.ERROR) 1f else 0f, tween(260), label = "flash")
     val scale = if (reduced) 1f else breath * voice

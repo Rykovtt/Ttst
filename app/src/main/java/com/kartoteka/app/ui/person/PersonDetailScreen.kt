@@ -100,6 +100,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import com.kartoteka.app.ui.components.heroBackground
 import com.kartoteka.app.ui.components.pressable
+import com.kartoteka.app.ui.components.sharedPhoto
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -481,7 +482,7 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
                 model = File(p.avatarPath),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().clickable(onClick = onOpenPhoto),
+                modifier = Modifier.fillMaxSize().sharedPhoto(p.id).clickable(onClick = onOpenPhoto),
             )
         } else {
             // Без фото — фирменная композиция: крупные инициалы на тёмном фоне со свечением цвета человека.

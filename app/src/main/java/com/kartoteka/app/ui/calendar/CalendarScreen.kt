@@ -145,6 +145,13 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPer
     val listMode by vm.listMode.collectAsState()
     var weekMode by rememberSaveable { mutableStateOf(true) }
     var filter by rememberSaveable { mutableStateOf(CalFilter.ALL) }
+    // С главного экрана «Дни рождения» — сразу нужный фильтр.
+    LaunchedEffect(Unit) {
+        if (com.kartoteka.app.ui.home.CalendarRequest.birthdays) {
+            com.kartoteka.app.ui.home.CalendarRequest.birthdays = false
+            filter = CalFilter.BIRTHDAYS
+        }
+    }
     val appts by vm.monthAppointments.collectAsState()
     val upcoming by vm.upcoming.collectAsState()
     val people by app.repository.observeAll().collectAsState(initial = emptyList())
