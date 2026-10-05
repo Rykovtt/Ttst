@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -100,15 +102,32 @@ fun CustomBottomNavigation(items: List<NavItem>, selected: String?, menuOpen: Bo
                 .drawBehind { drawRect(ShaderBrush(ImageShader(noise, TileMode.Repeated, TileMode.Repeated))) }
         )
         BoxWithConstraints(Modifier.fillMaxWidth().navigationBarsPadding().height(u(PeopleDims.NavHeight)).padding(horizontal = u(PeopleDims.NavPad))) {
-            val gap = u(PeopleDims.FabGlowLayer + 8)
+            val gap = u(PeopleDims.Fab) + 8.dp // кнопка «+» и немного воздуха; свечение может заходить на соседей
             val half = (maxWidth - gap) / 2
             val leftCount = 2
             val rightCount = (items.size - leftCount).coerceAtLeast(1)
             val labelSize = rememberSharedTextSize(PeopleType.nav.fontSize.value)
+            // Ширина ячейки — по длине подписи (как в макете): «Налаштування» шире, чем «Карта».
+            // Лишнее место делится поровну, нехватка — пропорционально; общий кегль подписей ужимается FitText.
+            val measurer = rememberTextMeasurer()
+            val density = LocalDensity.current
+            val titles = items.map { t(it.title) }
+            val natural = remember(titles, density) {
+                titles.map { title ->
+                    val px = measurer.measure(title, PeopleType.nav.copy(fontWeight = FontWeight.SemiBold)).size.width
+                    with(density) { px.toDp() } + 10.dp
+                }.map { maxOf(it, 44.dp) }
+            }
+            fun slots(range: IntRange): List<androidx.compose.ui.unit.Dp> {
+                val ws = range.map { natural[it] }
+                val sum = ws.fold(0.dp) { acc, w -> acc + w }
+                return if (sum <= half) ws.map { it + (half - sum) / ws.size } else ws.map { it * (half / sum) }
+            }
+            val widths = slots(0 until leftCount) + slots(leftCount until items.size)
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 items.forEachIndexed { i, item ->
                     if (i == leftCount) Spacer(Modifier.width(gap))
-                    val slot = if (i < leftCount) half / leftCount else half / rightCount
+                    val slot = widths[i]
                     NavCell(item, item.key == selected, Modifier.width(slot), labelSize) {
                         if (item.key != selected) haptics.tick()
                         onSelect(item)
