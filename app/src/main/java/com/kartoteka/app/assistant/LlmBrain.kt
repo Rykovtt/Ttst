@@ -61,6 +61,7 @@ class LlmBrain(context: Context) {
 
     /** Процесс модели умер (обычно — не хватило памяти): все ожидающие получают null. */
     private fun died() {
+        if (service != null || connecting?.isCompleted == false) lastDeath = System.currentTimeMillis()
         service = null; prepared = false
         connecting?.complete(null)
         replies.values.forEach { it.complete(null) }; replies.clear()
@@ -90,15 +91,43 @@ class LlmBrain(context: Context) {
     /** Модель уже падала на этом телефоне (не хватило памяти) — не пытаемся снова сами. */
     val crashed: Boolean get() = prefs.getString(KEY_CRASHED, null)?.let { it == currentKind() } ?: false
 
+    /** Что случилось при последнем сбое — для настроек. */
+    val crashDetail: String get() = prefs.getString(KEY_CRASH_DETAIL, null)
+        ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента или выберите быструю модель.")
+
     /** Попробовать запустить модель ещё раз (после смены модели или по кнопке). */
-    fun clearCrash() { prefs.edit().remove(KEY_CRASHED).apply() }
+    fun clearCrash() { prefs.edit().remove(KEY_CRASHED).remove(KEY_CRASH_DETAIL).apply() }
 
     private fun currentKind() = runCatching { kindFile.readText().trim() }.getOrDefault(KIND_QWEN)
 
+    @Volatile private var lastDeath = 0L
+
     init {
-        // Прошлый запуск умер во время загрузки модели — считаем, что ей не хватает памяти.
-        prefs.getString(KEY_LOADING, null)?.let { prefs.edit().putString(KEY_CRASHED, it).remove(KEY_LOADING).apply() }
+        // Модель работает в отдельном процессе, так что смерть приложения во время загрузки — не её вина
+        // (свернули, закрыли). Старую пометку «не хватило памяти» из версий, где модель жила в приложении, снимаем.
+        prefs.edit().remove(KEY_LOADING).apply()
+        if (!prefs.getBoolean(KEY_CRASH_RESET, false)) prefs.edit().remove(KEY_CRASHED).putBoolean(KEY_CRASH_RESET, true).apply()
     }
+
+    /** Почему система закрыла процесс модели — по журналу выходов (Android 11+). */
+    private fun brainExitReason(since: Long): String? {
+        if (android.os.Build.VERSION.SDK_INT < 30) return null
+        val am = app.getSystemService(android.app.ActivityManager::class.java) ?: return null
+        val info = runCatching { am.getHistoricalProcessExitReasons(app.packageName, 0, 10) }.getOrNull()
+            ?.firstOrNull { it.processName.endsWith(":brain") && it.timestamp >= since - 5_000 } ?: return null
+        return when (info.reason) {
+            android.app.ApplicationExitInfo.REASON_LOW_MEMORY ->
+                t("Телефону не хватило памяти для этой модели. Закройте тяжёлые приложения и попробуйте снова или выберите быструю модель.")
+            android.app.ApplicationExitInfo.REASON_CRASH_NATIVE, android.app.ApplicationExitInfo.REASON_CRASH ->
+                t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Выберите быструю модель.")
+            android.app.ApplicationExitInfo.REASON_SIGNALED ->
+                if (info.status == 9) t("Система остановила модель, чтобы освободить память. Попробуйте снова, когда закроете другие приложения.")
+                else t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Выберите быструю модель.")
+            else -> null
+        }
+    }
+
+    private fun t(s: String) = com.kartoteka.app.i18n.t(s)
 
     val supported: Boolean get() = true
 
@@ -253,20 +282,27 @@ class LlmBrain(context: Context) {
         if (file == null) { state = State.NEEDS_MODEL; return@withContext state }
         if (isReady) { state = State.READY; return@withContext state }
         if (crashed) {
-            detail = com.kartoteka.app.i18n.t("Телефону не хватило памяти для этой модели. Выберите быструю модель в настройках ассистента.")
+            detail = prefs.getString(KEY_CRASH_DETAIL, null) ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента или выберите быструю модель.")
             state = State.UNAVAILABLE; return@withContext state
         }
         state = State.PREPARING
-        // Пометка «загружаем»: если процесс модели умрёт, в следующий раз сами пробовать не будем.
-        prefs.edit().putString(KEY_LOADING, currentKind()).commit()
+        val started = System.currentTimeMillis()
         val reply = request(BrainService.MSG_PREPARE, 0, android.os.Bundle().apply {
             putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 1280)
         }, 240_000)
-        prefs.edit().remove(KEY_LOADING).apply()
         when {
+            reply == null && lastDeath >= started -> {
+                // Процесс модели умер — узнаём у системы почему, и сами больше не пробуем (кнопка «Попробовать снова»).
+                kotlinx.coroutines.delay(1500)
+                detail = brainExitReason(started)
+                    ?: t("Процесс модели закрылся при загрузке. Попробуйте снова или выберите быструю модель.")
+                prefs.edit().putString(KEY_CRASHED, currentKind()).putString(KEY_CRASH_DETAIL, detail).apply()
+                state = State.UNAVAILABLE
+            }
             reply == null -> {
-                prefs.edit().putString(KEY_CRASHED, currentKind()).apply()
-                detail = com.kartoteka.app.i18n.t("Телефону не хватило памяти для этой модели. Выберите быструю модель в настройках ассистента.")
+                // Не успела загрузиться за отведённое время — это не поломка, в следующий раз попробуем снова.
+                detail = t("Модель загружается слишком долго. Попробую ещё раз при следующем открытии ассистента.")
+                close()
                 state = State.UNAVAILABLE
             }
             reply.getBoolean(BrainService.KEY_OK) -> { prepared = true; state = State.READY }
@@ -315,6 +351,8 @@ class LlmBrain(context: Context) {
         private const val KEY_PENDING_KIND = "pending_kind"
         private const val KEY_CRASHED = "crashed_kind"
         private const val KEY_LOADING = "loading_kind"
+        private const val KEY_CRASH_DETAIL = "crashed_detail"
+        private const val KEY_CRASH_RESET = "crash_reset_294"
 
         fun kindOf(fileName: String): String = when {
             fileName.contains("gemma", true) -> KIND_GEMMA

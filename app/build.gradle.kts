@@ -15,8 +15,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "2.9.3"
+        versionCode = 41
+        versionName = "2.9.4"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -90,7 +90,7 @@ dependencies {
 
     implementation("androidx.biometric:biometric:1.1.0")
     // Офлайн-ИИ «мозг» Ноа: MediaPipe LLM + скачиваемая модель Gemma (открыт для любых приложений)
-    implementation("com.google.mediapipe:tasks-genai:0.10.24")
+    implementation("com.google.mediapipe:tasks-genai:0.10.35")
     // Тихий снимок фронтальной камерой при неверном PIN-коде
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")

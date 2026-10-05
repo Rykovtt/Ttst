@@ -209,7 +209,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
             else -> {
                 // Модель не запустилась (чаще всего — не хватило памяти): объясняем один раз, работаем на правилах.
                 app.brain.detail.takeIf { it.isNotBlank() }?.let { bubbles.add(Bubble(it, mine = false)) }
-                if (app.brain.crashed) t("Мало памяти · быстрые команды") else t("Быстрые команды")
+                if (app.brain.crashed) t("Модель не запустилась · быстрые команды") else t("Быстрые команды")
             }
         }
     }

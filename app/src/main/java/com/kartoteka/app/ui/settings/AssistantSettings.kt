@@ -157,7 +157,7 @@ private fun BrainModelRow() {
             var crashed by remember { mutableStateOf(brain.crashed) }
             if (crashed) {
                 Text(
-                    t("Телефону не хватило памяти для этой модели. Выберите быструю модель в настройках ассистента."),
+                    brain.crashDetail,
                     color = androidx.compose.material3.MaterialTheme.colorScheme.error,
                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
