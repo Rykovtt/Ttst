@@ -119,13 +119,12 @@ private data class Tab(val route: String, val base: String, val title: String, v
 private val tabs = listOf(
     Tab(Routes.PEOPLE, "people", "Люди", Icons.Outlined.People, Icons.Default.People),
     Tab(Routes.CALENDAR, "calendar", "Календарь", Icons.Outlined.CalendarMonth, Icons.Default.CalendarMonth),
-    Tab(Routes.MAP, "map", "Карта", Icons.Outlined.Map, Icons.Default.Map),
     Tab(Routes.broadcast(), "broadcast", "Рассылка", Icons.AutoMirrored.Outlined.Send, Icons.AutoMirrored.Filled.Send),
     Tab(Routes.SETTINGS, "settings", "Настройки", Icons.Outlined.Settings, Icons.Default.Settings),
 )
 
-/** Разделы, где видна нижняя навигация (карта и статистика открываются с «Людей»). */
-private val barRoutes = listOf("people", "calendar", "broadcast", "settings", "map", "stats")
+/** Разделы, где видна нижняя навигация. Карта — отдельным экраном с главной (не вкладка). */
+private val barRoutes = listOf("people", "calendar", "broadcast", "settings", "stats")
 
 @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
@@ -221,7 +220,7 @@ fun KartotekaRoot(
                     onImport = { nav.navigate(Routes.IMPORT) },
                     onGroups = { nav.navigate(Routes.GROUPS) },
                     onNoa = { nav.navigate(Routes.NOA) },
-                    onMap = { nav.switchTab(Routes.MAP) },
+                    onMap = { nav.navigate(Routes.MAP) { launchSingleTop = true } },
                     onCalendar = { nav.switchTab(Routes.CALENDAR) },
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = it)) },
                     onStats = { nav.navigate(Routes.STATS) },
@@ -242,7 +241,7 @@ fun KartotekaRoot(
                 )
             }
             composable(Routes.MAP) {
-                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) })
+                MapScreen(onOpenPerson = { nav.navigate(Routes.person(it)) }, onBack = { nav.popBackStack() })
             }
             composable(
                 Routes.APPOINTMENT,

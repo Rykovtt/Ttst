@@ -71,10 +71,7 @@ import com.kartoteka.app.ui.theme.u
 @Composable
 fun MountainBackdrop(modifier: Modifier = Modifier) {
     Box(modifier) {
-        Image(
-            painterResource(R.drawable.hero_mountain), null, contentScale = ContentScale.Crop,
-            alignment = BiasAlignment(0.2f, -0.2f), modifier = Modifier.matchParentSize(),
-        )
+        HeroImage(Modifier.matchParentSize())
         Box(
             Modifier.matchParentSize().drawBehind {
                 drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.75f), 0.6f to Color.Transparent))
@@ -99,6 +96,7 @@ fun ScreenHero(
     backIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
     backDescription: String = t("Назад"),
     compact: Boolean = false,
+    backgroundButton: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
@@ -113,6 +111,7 @@ fun ScreenHero(
             ) {
                 if (onBack != null) HeroButton(backIcon, backDescription, onBack)
                 Spacer(Modifier.weight(1f))
+                if (backgroundButton) HeroBackgroundButton(Modifier.padding(end = 10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
             }
             Row(

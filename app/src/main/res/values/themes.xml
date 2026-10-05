@@ -3,4 +3,14 @@
     <style name="Theme.Kartoteka" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_bg</item>
     </style>
+    <!-- Сфера ассистента поверх других окон: прозрачное окно без заголовка и анимации открытия. -->
+    <style name="Theme.Kartoteka.Overlay" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

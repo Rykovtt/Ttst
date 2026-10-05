@@ -60,6 +60,14 @@ fun AssistantSettings() {
             s.assistantLauncher.set(v)
             setLauncher(context, v)
         }
+        if (launcher) {
+            val overlay by s.assistantOverlay.value.collectAsState()
+            ToggleRow(
+                Icons.Default.AutoAwesome, t("Сфера поверх экрана"),
+                t("Иконка вызывает ассистента прямо поверх рабочего стола, без входа в приложение. Он может зачитывать данные из картотеки без PIN — выключите, если телефоном пользуются другие."),
+                overlay, s.assistantOverlay::set,
+            )
+        }
     }
 
     if (rename) {

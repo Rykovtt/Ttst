@@ -73,7 +73,7 @@
             android:noHistory="true"
             android:roundIcon="@mipmap/ic_launcher_noa"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:theme="@style/Theme.Kartoteka.Overlay">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

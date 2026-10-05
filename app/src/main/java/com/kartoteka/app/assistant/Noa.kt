@@ -36,6 +36,9 @@ class Noa(private val app: KartotekaApp) {
     /** Последний человек, о котором шла речь: «…и добавь ей заметку», «а где она живёт?». */
     var lastPerson: PersonFull? = null
         private set
+    /** Последняя созданная запись — для «отправь ему об этом». */
+    var lastAppointmentId: Long? = null
+        private set
 
     suspend fun handle(text: String, now: LocalDateTime = LocalDateTime.now()): Reply =
         handleIntent(NoaParser.parse(text, now), now)
@@ -56,6 +59,7 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Message -> message(intent)
             is NoaIntent.AddNote -> addNote(intent)
             is NoaIntent.CreateAppointment -> createAppointment(intent, now)
+            is NoaIntent.Select -> withPerson(intent.personQuery) { Reply.Say("") }
             is NoaIntent.OpenContact -> openContact(intent)
             is NoaIntent.Route -> route(intent)
             is NoaIntent.Agenda -> agenda(intent.date, now.toLocalDate())
@@ -187,7 +191,8 @@ class Noa(private val app: KartotekaApp) {
         val channelName = when (intent.channel) {
             NoaIntent.Channel.WHATSAPP -> "WhatsApp"; NoaIntent.Channel.TELEGRAM -> "Telegram"; NoaIntent.Channel.SMS -> "SMS"
         }
-        NoaActions.pendingMessage = NoaActions.Message(pf.person.id, intent.channel, intent.text.orEmpty())
+        val text = if (intent.aboutAppointment) confirmationText(pf) ?: intent.text.orEmpty() else intent.text.orEmpty()
+        NoaActions.pendingMessage = NoaActions.Message(pf.person.id, intent.channel, text)
         Reply.Say2Open(t("Открываю %1\$s для %2\$s.", channelName, pf.person.displayName), personId = pf.person.id)
     }
 
@@ -217,6 +222,7 @@ class Noa(private val app: KartotekaApp) {
                 val clientOffsets = AppointmentLogic.offsetsFromString(service?.clientOffsets?.ifBlank { null } ?: app.settings.apptClientOffsets.value.value)
                 val myOffsets = AppointmentLogic.offsetsFromString(service?.myOffsets?.ifBlank { null } ?: app.settings.apptMyOffsets.value.value)
                 val (id, reminders) = repo.saveAppointment(appt, clientOffsets, myOffsets)
+                lastAppointmentId = id
                 com.kartoteka.app.reminders.ReminderScheduler.schedule(app, reminders)
                 Reply.Say2Open(t("Готово, записала %1\$s.", pf.person.displayName), appointmentId = id)
             }
@@ -284,6 +290,21 @@ class Noa(private val app: KartotekaApp) {
             hits.size > 1 && sameName(hits, q) -> pick(hits[0])
             else -> Reply.Choose(t("Кого именно: %1\$s?", hits.take(5).joinToString(", ") { it.person.displayName }), hits.take(5))
         }
+    }
+
+    /** Текст подтверждения записи по шаблону приложения (своему для услуги или общему) — на языке человека. */
+    private suspend fun confirmationText(pf: PersonFull): String? {
+        val now = System.currentTimeMillis()
+        val af = lastAppointmentId?.let { repo.getAppointment(it) }?.takeIf { it.appointment.personId == pf.person.id }
+            ?: repo.appointmentsBetween(now, now + 365L * 86_400_000).filter { it.appointment.personId == pf.person.id }.minByOrNull { it.appointment.start }
+            ?: return null
+        val lang = app.settings.langFor(pf.person)
+        val service = repo.getService(af.appointment.serviceId)
+        val template = AppointmentLogic.messageTemplate(
+            service, com.kartoteka.app.data.TemplateKind.CONFIRM,
+            app.settings.template(com.kartoteka.app.data.TemplateKind.CONFIRM, lang).value.value,
+        )
+        return AppointmentLogic.fill(template, af.appointment, pf.person, lang)
     }
 
     /** Имена из картотеки — подсказка модели, чтобы она называла людей так, как они записаны. */

@@ -15,7 +15,10 @@ sealed interface NoaIntent {
     data class Open(val personQuery: String) : NoaIntent
     data class OpenScreen(val section: Section) : NoaIntent
     data class Call(val personQuery: String) : NoaIntent
-    data class Message(val personQuery: String, val channel: Channel, val text: String?) : NoaIntent
+    /** [aboutAppointment] — «отправь ему об этом / подтверждение»: текст берём из шаблона подтверждения записи. */
+    data class Message(val personQuery: String, val channel: Channel, val text: String?, val aboutAppointment: Boolean = false) : NoaIntent
+    /** «Возьми контакт Илья Рыков…» — просто выбрать человека для следующих шагов. */
+    data class Select(val personQuery: String) : NoaIntent
     data class AddNote(val personQuery: String, val text: String) : NoaIntent
     /** Открыть контакт человека в приложении: Instagram, Facebook, Viber, почта, сайт… */
     data class OpenContact(val personQuery: String, val type: com.kartoteka.app.data.ContactType) : NoaIntent
@@ -47,8 +50,9 @@ object NoaParser {
 
     /** Союз + глагол команды: место, где одна команда заканчивается и начинается следующая. */
     private val CHAIN = Regex(
-        "\\s*(?:,\\s*)?(?:\\s(?:и|і|й|та|а|потом|потім|затем|после|then|and)\\s+)+(?:потом\\s|потім\\s|затем\\s|then\\s)?" +
-            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|надішл|відкрий|открой|покажи|проклад|построй|прокласти|найди|знайди|нажми|натисн|зайди|перейди|add|call|write|open|show|route)\\S*)",
+        "\\s*(?:,\\s*)?(?:\\s(?:и|і|й|та|а|потом|потім|затем|после|then|and)\\s+)+" +
+            "(?:(?:потом|потім|затем|then|также|тоже|сразу|ещё|еще|також|теж|одразу|відразу|заодно|also|ну)\\s+)*" +
+            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|построй|прокласти|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
         RegexOption.IGNORE_CASE,
     )
     val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "him", "her", "them")
@@ -62,8 +66,8 @@ object NoaParser {
         var person = ""
         val steps = parts.map { part ->
             val step = parseOne(part, now)
-            val p = personOf(step)
-            if (p.isNotBlank()) { person = p; step } else withPerson(step, person)
+            val p = personOf(step).split(" ").filter { it.isNotBlank() && it.lowercase() !in PRONOUNS }.joinToString(" ")
+            if (p.isNotBlank()) { person = p; withPerson(step, p) } else withPerson(step, person)
         }
         return NoaIntent.Sequence(steps)
     }
@@ -73,7 +77,7 @@ object NoaParser {
         is NoaIntent.Call -> i.personQuery; is NoaIntent.Message -> i.personQuery
         is NoaIntent.AddNote -> i.personQuery; is NoaIntent.OpenContact -> i.personQuery
         is NoaIntent.Route -> i.personQuery; is NoaIntent.PersonInfo -> i.personQuery
-        is NoaIntent.Favorite -> i.personQuery
+        is NoaIntent.Favorite -> i.personQuery; is NoaIntent.Select -> i.personQuery
         else -> ""
     }
 
@@ -82,7 +86,7 @@ object NoaParser {
         is NoaIntent.Call -> i.copy(personQuery = p); is NoaIntent.Message -> i.copy(personQuery = p)
         is NoaIntent.AddNote -> i.copy(personQuery = p); is NoaIntent.OpenContact -> i.copy(personQuery = p)
         is NoaIntent.Route -> i.copy(personQuery = p); is NoaIntent.PersonInfo -> i.copy(personQuery = p)
-        is NoaIntent.Favorite -> i.copy(personQuery = p)
+        is NoaIntent.Favorite -> i.copy(personQuery = p); is NoaIntent.Select -> i.copy(personQuery = p)
         else -> i
     }
 
@@ -94,6 +98,11 @@ object NoaParser {
         // блокировка / копия — без человека
         if (has(s, "заблокируй", "заблокуй", "закрой приложение", "lock")) return NoaIntent.Lock
         if (has(s, "резервную копию", "бэкап", "бекап", "backup", "копію", "копию")) return NoaIntent.Backup
+
+        // «возьми контакт Илья Рыков» — выбрать человека для следующих команд
+        if (has(s, "возьми", "візьми", "выбери", "обери", "вибери", "бери", "take", "select") && !has(s, "запиш", "напиш", "позвон", "подзвон", "отправ", "надішл")) {
+            return NoaIntent.Select(extractPerson(s))
+        }
 
         // заметка в хронику — раньше записи на приём («запиши в хронику»)
         if (has(s, "заметк", "нотатк", "хроник", "хронік", "note")) return note(original, s)
@@ -145,15 +154,16 @@ object NoaParser {
             return NoaIntent.Call(extractPerson(s))
         }
         // написать / отправить
-        if (has(s, "напиши", "сообщение", "отправь", "напиши смс", "смс", "sms", "message", "напис", "повідомл", "whatsapp", "вотсап", "телеграм", "telegram")) {
+        if (has(s, "напиши", "сообщение", "отправь", "відправ", "надішли", "скинь", "напиши смс", "смс", "sms", "message", "напис", "повідомл", "whatsapp", "вотсап", "телеграм", "telegram")) {
             val channel = when {
-                has(s, "whatsapp", "вотсап", "ватсап") -> NoaIntent.Channel.WHATSAPP
+                has(s, "whatsapp", "вотсап", "ватсап", "вацап", "вотс", "ватс") -> NoaIntent.Channel.WHATSAPP
                 has(s, "телеграм", "telegram", "тг") -> NoaIntent.Channel.TELEGRAM
                 has(s, "смс", "sms") -> NoaIntent.Channel.SMS
                 else -> NoaIntent.Channel.WHATSAPP
             }
-            val text = extractQuoted(original)
-            return NoaIntent.Message(extractPerson(s), channel, text)
+            val about = isAboutAppointment(s)
+            val text = if (about) null else extractQuoted(original)
+            return NoaIntent.Message(extractPerson(s), channel, text, aboutAppointment = about)
         }
         // открыть раздел приложения
         screenSection(s)?.let { return NoaIntent.OpenScreen(it) }
@@ -193,6 +203,8 @@ object NoaParser {
         "когда","коли","день","рождения","народження","какой","який","яка","номер","телефон","телефона","адрес","адреса","где","де","живет","живе","живёт",
         "работает","працює","сколько","скільки","лет","років","что","що","я","знаю","расскажи","розкажи","о","об","про","кто","хто","такой","такая","такий","така",
         "у","него","неё","нього","неї","мой","мій","моя",
+        "об","этом","это","этим","це","цим","подтверждение","подтверждения","підтвердження","также","тоже","сразу","еще","ещё","також","теж","одразу","відразу","заодно",
+        "возьми","візьми","выбери","обери","вибери","бери","take","select","вацап","вотс","ватс","скинь","відправ","відправити","надішли","надіслати","отправить","ним","ему","йому",
     )
 
     /** «Открой/зайди/покажи …» раздел приложения. */
@@ -236,6 +248,13 @@ object NoaParser {
         has(s, "маникюр", "манікюр", "manicure") -> "маникюр"
         has(s, "стрижк", "haircut") -> "стрижк"
         else -> null
+    }
+
+    /** «Об этом», «подтверждение», «про запись» — сообщение о только что созданной записи. */
+    fun isAboutAppointment(text: String): Boolean {
+        val s = " " + text.lowercase() + " "
+        return has(s, "об этом", "о этом", "про это", "про неё", "подтвержд", "про запис", "о записи", "про це", "про нього", "підтвердж",
+            "нагадуван", "напоминан", "о встрече", "про зустріч", "about it", "confirmation")
     }
 
     /** Тип контакта, если он назван во фразе. Telegram/WhatsApp — это «написать», их здесь нет. */

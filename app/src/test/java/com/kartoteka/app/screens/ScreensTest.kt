@@ -215,10 +215,13 @@ class ScreensTest {
         compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
+        // Карта больше не вкладка — открывается с главной.
+        compose.onNodeWithText("Люди").performClick()
+        settle()
         compose.onNodeWithText("Карта").performClick()
         settle()
         shot("14_map")
-        compose.onNodeWithText("Люди").performClick()
+        compose.onNodeWithContentDescription("Назад").performClick()
         settle()
         compose.onNodeWithContentDescription("Профиль").performClick()
         settle()

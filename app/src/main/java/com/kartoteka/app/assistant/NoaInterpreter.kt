@@ -55,7 +55,11 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 NoaIntent.CreateAppointment(person, dt?.dateTime, dt?.hadTime ?: false, str("service")?.lowercase(), false)
             }
             "call" -> NoaIntent.Call(person)
-            "message" -> NoaIntent.Message(person, channel(str("channel")), str("text"))
+            "message" -> {
+                // «Отправь ему об этом» — текст из шаблона подтверждения, а не выдумка модели.
+                val about = NoaParser.isAboutAppointment(userText) || o.optBoolean("about_appointment", false)
+                NoaIntent.Message(person, channel(str("channel")), if (about) null else str("text"), aboutAppointment = about)
+            }
             "add_note" -> NoaIntent.AddNote(person, str("text") ?: str("note") ?: "")
             "find" -> NoaIntent.Find(str("query") ?: person)
             "open_person" -> NoaIntent.Open(person)
@@ -77,6 +81,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 else -> NoaIntent.Topic.SUMMARY
             }, str("question") ?: userText)
             "favorite" -> NoaIntent.Favorite(person, o.optBoolean("on", true))
+            "select" -> NoaIntent.Select(person)
             "lock" -> NoaIntent.Lock
             "backup" -> NoaIntent.Backup
             else -> null

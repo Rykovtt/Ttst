@@ -153,8 +153,8 @@ fun MountainHeader(
         Modifier.fillMaxWidth().clip(PeopleShapes.header()).background(RvColors.HeaderBottom)
             .onGloballyPositioned { headerCoords = it; headerSize = it.size },
     ) {
-        Image(
-            painterResource(R.drawable.hero_mountain), null, contentScale = ContentScale.Crop, alignment = focus,
+        HeroImage(
+            alignment = focus,
             modifier = Modifier.matchParentSize().graphicsLayer {
                 alpha = photoAlpha.value
                 translationY = if (reduced) 0f else scrollOffset() * 0.25f
@@ -171,8 +171,8 @@ fun MountainHeader(
             // Логотип · аватар · фильтр.
             Row(Modifier.fillMaxWidth().padding(start = pad, end = pad - u(10), top = u(PeopleDims.ControlsTop)), verticalAlignment = Alignment.CenterVertically) {
                 HeaderLogo(com.kartoteka.app.AppIcons.title(context, title), intro, Modifier.weight(1f))
+                HeroBackgroundButton(Modifier.padding(end = u(18)))
                 OwnerAvatar(onGroups, onStats, onSettings)
-                HeaderFilterButton(filtersOpen, t("Фильтры"), onOpenFilters)
             }
             // Заголовок и счётчик.
             Row(Modifier.padding(start = pad, end = pad, top = u(PeopleDims.TitleTop)), verticalAlignment = Alignment.CenterVertically) {
@@ -249,8 +249,8 @@ fun MountainHeader(
 /** Размытая копия фото шапки ровно под стеклянным полем (backdrop blur 18 ед.). */
 @Composable
 private fun BoxScope.BlurredBackdrop(headerSize: IntSize, pos: Offset, focus: Alignment, alpha: () -> Float, parallax: () -> Float) {
-    Image(
-        painterResource(R.drawable.hero_mountain), null, contentScale = ContentScale.Crop, alignment = focus,
+    HeroImage(
+        alignment = focus,
         modifier = Modifier.matchParentSize()
             .layout { m, c ->
                 val p = m.measure(Constraints.fixed(headerSize.width.coerceAtLeast(1), headerSize.height.coerceAtLeast(1)))

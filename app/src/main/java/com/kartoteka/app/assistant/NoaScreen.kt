@@ -77,7 +77,6 @@ import com.kartoteka.app.ui.app
 import com.kartoteka.app.ui.components.OutlinedTextField
 import kotlinx.coroutines.launch
 
-private data class Bubble(val text: String, val mine: Boolean)
 
 /** Ноа открыли ярлыком с рабочего стола — начать слушать сразу. */
 object NoaLaunch {
@@ -95,221 +94,56 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     val app = app()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val noa = remember { Noa(app) }
-    val session = remember { VoiceSession(context) }
+    val ctl = remember { NoaController(app, context, scope) }
     val name = app.settings.assistantName.value.collectAsState().value.ifBlank { "Ноа" }
-    val voiceOn by app.settings.assistantVoice.value.collectAsState()
-
     val brainOn by app.settings.assistantBrain.value.collectAsState()
-    val interpreter = remember { NoaInterpreter(app.brain) }
-    var brainReady by remember { mutableStateOf(false) }
-    var brainStatus by remember { mutableStateOf("") }
-
     var voiceMode by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
-    val bubbles = remember { mutableListOf<Bubble>().toMutableStateList() }
     var input by remember { mutableStateOf("") }
-    var listening by remember { mutableStateOf(false) }
-    var thinking by remember { mutableStateOf(false) }
-    var speaking by remember { mutableStateOf(false) }
-    var level by remember { mutableStateOf(0f) }
-    var live by remember { mutableStateOf("") }
-    var answer by remember { mutableStateOf("") }
-    var flash by remember { mutableStateOf<OrbState?>(null) }
-    LaunchedEffect(flash) { if (flash != null) { kotlinx.coroutines.delay(700); flash = null } }
-    var pendingYes by remember { mutableStateOf<(suspend () -> Noa.Reply)?>(null) }
     val listState = rememberLazyListState()
-    var alive by remember { mutableStateOf(true) }
 
-    // Разговор: последняя фраза была голосом → после ответа снова слушаем (пока не уходим с экрана).
-    var byVoice by remember { mutableStateOf(false) }
-    var leaving by remember { mutableStateOf(false) }
-    var startVoice: () -> Unit = {}
-
-    fun say(text: String, expectAnswer: Boolean = false) {
-        if (text.isBlank()) return
-        bubbles.add(Bubble(text, mine = false))
-        answer = text
-        val again = byVoice && (voiceMode || expectAnswer)
-        if (voiceOn) {
-            speaking = true
-            NoaVoice.speak(context, text) {
-                speaking = false
-                if (again && alive && !leaving && !listening) startVoice()
-            }
-        } else if (again && !leaving) startVoice()
-    }
-
-    // Переход на экран в цепочке откладываем до конца: экран Ноа должен дожить до последнего шага.
-    var deferredNav: (() -> Unit)? = null
-    var chain = false
-
-    suspend fun apply(reply: Noa.Reply) {
-        fun go(block: () -> Unit) { leaving = true; if (chain) deferredNav = block else block() }
-        when (reply) {
-            is Noa.Reply.Say -> say(reply.text)
-            is Noa.Reply.Say2Open -> {
-                if (reply.personId != null || reply.appointmentId != null) leaving = true
-                say(reply.text)
-                NoaActions.pendingCall?.let { Messaging.dial(context, it); NoaActions.pendingCall = null }
-                NoaActions.pendingMessage?.let { m ->
-                    val pf = app.repository.getPerson(m.personId)
-                    sendMessage(context, pf, m)
-                    NoaActions.pendingMessage = null
-                }
-                reply.personId?.let { id -> go { onOpenPerson(id) } }
-                reply.appointmentId?.let { id -> go { onOpenAppointment(id) } }
-            }
-            is Noa.Reply.Do -> { leaving = true; say(reply.text); runCatching { reply.effect(context) } }
-            is Noa.Reply.Choose -> { say(reply.text, expectAnswer = true); pendingYes = null }
-            is Noa.Reply.Navigate -> { leaving = true; say(reply.text); go { onNavigate(reply.section) } }
-            is Noa.Reply.Confirm -> { say(reply.text + "  " + t("Скажите «да» или «нет»."), expectAnswer = true); pendingYes = reply.onYes }
-        }
-    }
-
-    /** Выполнить команду; цепочку — по шагам. Подтверждение ставит цепочку на паузу до «да». */
-    suspend fun run(intent: NoaIntent, modelReply: String? = null) {
-        val steps = (intent as? NoaIntent.Sequence)?.steps ?: listOf(intent)
-        chain = steps.size > 1
-        deferredNav = null
-        for ((i, step) in steps.withIndex()) {
-            var reply = noa.handleIntent(step)
-            // Подтверждение действия своими словами модели звучит живее шаблона.
-            if (steps.size == 1 && !modelReply.isNullOrBlank()) reply = when (reply) {
-                is Noa.Reply.Do -> reply.copy(text = modelReply)
-                is Noa.Reply.Navigate -> reply.copy(text = modelReply)
-                else -> reply
-            }
-            if (reply is Noa.Reply.Confirm && i < steps.lastIndex) {
-                val rest = NoaIntent.Sequence(steps.drop(i + 1))
-                apply(reply)
-                val onYes = reply.onYes
-                pendingYes = { val r = onYes(); apply(r); run(rest); Noa.Reply.Say("") }
-                deferredNav?.invoke(); deferredNav = null
-                return
-            }
-            apply(reply)
-            if (reply is Noa.Reply.Choose || reply is Noa.Reply.Confirm) break
-        }
-        chain = false
-        deferredNav?.invoke(); deferredNav = null
-    }
-
-    fun send(textRaw: String, voice: Boolean = false) {
-        val text = textRaw.trim()
-        if (text.isBlank()) return
-        byVoice = voice
-        leaving = false
-        bubbles.add(Bubble(text, mine = true))
-        live = text
-        answer = ""
-        input = ""
-        val yes = pendingYes
-        scope.launch {
-            thinking = true
-            runCatching {
-                when {
-                    yes != null && isYes(text) -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
-                    yes != null && isNo(text) -> { pendingYes = null; say(t("Хорошо, отменила.")) }
-                    else -> {
-                        pendingYes = null
-                        // Чёткую короткую команду выполняем сразу правилами — без ожидания модели.
-                        // Свободную речь, длинные фразы и разговор понимает модель.
-                        val rules = NoaParser.parse(text)
-                        val short = text.split(Regex("\\s+")).size <= 9
-                        if (rules !is NoaIntent.Unknown && (short || !brainReady)) {
-                            run(rules)
-                        } else {
-                            val smart = if (brainReady) runCatching { interpreter.interpret(text, names = noa.knownNames()) }.getOrNull() else null
-                            when {
-                                smart?.intent != null -> run(smart.intent, smart.reply)
-                                rules !is NoaIntent.Unknown -> run(rules)
-                                !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
-                                else -> run(rules)
-                            }
-                        }
-                    }
-                }
-            }.onSuccess { flash = OrbState.SUCCESS }
-                .onFailure { flash = OrbState.ERROR; say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
-            thinking = false
-        }
-    }
-
-    val events = remember {
-        object : VoiceSession.Events {
-            override fun onText(text: String) { live = text }
-            override fun onLevel(l: Float) { level = l }
-            override fun onListening(on: Boolean) { listening = on }
-            override fun onPhrase(text: String) {
-                if (text.isBlank()) { if (live.isBlank()) live = "" ; return }
-                send(text, voice = true)
-            }
-        }
-    }
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) { NoaVoice.stop(); speaking = false; live = ""; session.start(events) }
-        else say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
+        if (ok) ctl.startListening() else ctl.say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
     }
-    startVoice = {
-        if (!session.available()) say(t("На телефоне нет распознавания речи."))
-        else if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            NoaVoice.stop(); speaking = false; live = ""; session.start(events)
-        } else askMic.launch(Manifest.permission.RECORD_AUDIO)
-    }
-    /** Касание сферы: договорил — отправить; говорит — перебить и слушать; тишина — слушать. */
-    fun orbTap() {
-        when {
-            listening -> session.finishNow()
-            else -> startVoice()
-        }
-    }
+    ctl.conversational = { voiceMode }
+    ctl.onOpenPerson = onOpenPerson
+    ctl.onOpenAppointment = onOpenAppointment
+    ctl.onNavigate = onNavigate
+    ctl.requestMic = { askMic.launch(Manifest.permission.RECORD_AUDIO) }
+
+    val bubbles = ctl.bubbles
+    val listening = ctl.listening
+    val level = ctl.level
+    val live = ctl.live
+    val pendingYes = ctl.pendingYes
+    val brainStatus = ctl.brainStatus
+    val orbState = ctl.orbState
+    fun send(text: String, voice: Boolean = false) { input = ""; ctl.send(text, voice) }
+    fun orbTap() = ctl.orbTap()
 
     LaunchedEffect(Unit) {
-        if (voiceOn) NoaVoice.init(context)
+        if (app.settings.assistantVoice.value.value) NoaVoice.init(context)
         if (bubbles.isEmpty()) bubbles.add(Bubble(t("Привет! Я %1\$s. Могу записать человека, позвонить, проложить маршрут, открыть его инстаграм, добавить заметку, рассказать, что у вас сегодня, — и выполнить несколько команд подряд.", name), mine = false))
     }
-    // Готовим модель в фоне; состояние — короткой строкой, без лишних реплик.
-    LaunchedEffect(brainOn) {
-        brainReady = false
-        if (!brainOn || !app.brain.supported) { brainStatus = t("Быстрые команды"); return@LaunchedEffect }
-        if (app.brain.hasModel()) brainStatus = t("Просыпаюсь…")
-        brainStatus = when (app.brain.prepare()) {
-            LlmBrain.State.READY -> { brainReady = true; t("ИИ на устройстве") }
-            LlmBrain.State.NEEDS_MODEL -> {
-                val dl = app.brain.syncDownload()
-                if (dl is LlmBrain.Download.Running) t("Модель скачивается · %1\$s", "${dl.percent}%") else t("Без ИИ · скачайте модель")
-            }
-            else -> t("Быстрые команды")
-        }
-    }
-    // Запуск с ярлыка «Ассистент» — сразу слушаем.
+    LaunchedEffect(brainOn) { ctl.prepareBrain(brainOn) }
+    // Запуск с ярлыка «Ассистент» внутри приложения — сразу слушаем.
     LaunchedEffect(NoaLaunch.listenOnOpen) {
         if (NoaLaunch.listenOnOpen) {
             NoaLaunch.listenOnOpen = false
             voiceMode = true
             kotlinx.coroutines.delay(300)
-            startVoice()
+            ctl.startVoice()
         }
     }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty() && !voiceMode) listState.animateScrollToItem(bubbles.lastIndex) }
-    // Уходим с экрана — перестаём слушать; начатую фразу ответа даём договорить.
-    DisposableEffect(Unit) { onDispose { alive = false; session.stop() } }
-
-    val orbState = when {
-        flash != null -> flash!!
-        listening -> OrbState.LISTENING
-        thinking -> OrbState.THINKING
-        else -> OrbState.IDLE
-    }
+    DisposableEffect(Unit) { onDispose { ctl.dispose() } }
 
     if (voiceMode) {
         VoiceMode(
             name = name, status = brainStatus, orbState = orbState, level = level,
-            listening = listening, thinking = thinking, speaking = speaking,
-            live = live, answer = answer, confirm = pendingYes != null,
-            onOrb = ::orbTap, onBack = onBack, onChat = { session.stop(); voiceMode = false },
-            onYes = { send(t("да"), voice = byVoice) }, onNo = { send(t("нет"), voice = byVoice) },
+            listening = listening, thinking = ctl.thinking, speaking = ctl.speaking,
+            live = live, answer = ctl.answer, confirm = pendingYes != null,
+            onOrb = ::orbTap, onBack = onBack, onChat = { ctl.stopListening(); voiceMode = false },
+            onYes = { send(t("да"), voice = true) }, onNo = { send(t("нет"), voice = true) },
         )
         return
     }
@@ -471,7 +305,7 @@ private fun VoiceMode(
 }
 
 @Composable
-private fun YesNo(onYes: () -> Unit, onNo: () -> Unit, modifier: Modifier = Modifier) {
+internal fun YesNo(onYes: () -> Unit, onNo: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(t("Да"), style = MaterialTheme.typography.labelLarge, color = com.kartoteka.app.ui.theme.RvColors.ChipActiveText,
             modifier = Modifier.clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipActiveBg).pressable(onClick = onYes).padding(horizontal = 26.dp, vertical = 11.dp))
@@ -511,20 +345,4 @@ private fun MicButton(active: Boolean, scale: Float, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) { Icon(if (active) Icons.Default.GraphicEq else Icons.Default.Mic, t("Говорить"), tint = com.kartoteka.app.ui.theme.RvColors.DarkSurface) }
 }
-
-private fun sendMessage(context: android.content.Context, pf: PersonFull?, m: NoaActions.Message) {
-    pf ?: return
-    when (m.channel) {
-        NoaIntent.Channel.WHATSAPP -> pf.whatsapp?.let { Messaging.whatsapp(context, it, m.text) }
-        NoaIntent.Channel.TELEGRAM -> pf.telegram?.let { Messaging.telegram(context, it, m.text) }
-        NoaIntent.Channel.SMS -> pf.phone?.let { Messaging.sms(context, listOf(it), m.text) }
-    }
-}
-
-// Без \b — на Android он не ловит кириллические границы. Сравниваем по словам.
-private val YES = listOf("да", "ага", "давай", "подтвер", "так", "yes", "yeah", "ok", "окей", "добре")
-private val NO = listOf("нет", "отмен", "ні", "no", "cancel", "скасуй", "неа")
-private fun words(s: String) = s.lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotBlank() }
-private fun isYes(s: String) = words(s).any { w -> YES.any { w == it || w.startsWith(it) } }
-private fun isNo(s: String) = words(s).any { w -> NO.any { w == it || w.startsWith(it) } }
 

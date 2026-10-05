@@ -37,6 +37,11 @@ class Settings(context: Context) {
 
     /** Показывать число людей в фильтрах на главном экране. */
     val homeCounts = BoolPref("home_counts", true)
+    /** Своё фото фона шапок (путь к зашифрованному файлу) — пусто: стандартные горы. */
+    val heroImage = StringPref("hero_image", "")
+    /** Масштаб интерфейса (элементы и текст вместе) и отдельно текста: 0.85 … 1.3. */
+    val uiScale = StringPref("ui_scale", "1.0")
+    val textScale = StringPref("text_scale", "1.0")
 
     // --- ассистент «Ноа» ---
     val assistant = BoolPref("assistant", true)
@@ -44,6 +49,8 @@ class Settings(context: Context) {
     val assistantVoice = BoolPref("assistant_voice", true)
     /** Показывать отдельную иконку ассистента на рабочем столе. */
     val assistantLauncher = BoolPref("assistant_launcher", false)
+    /** Иконка ассистента открывает сферу поверх экрана без входа в приложение (иначе — приложение с PIN). */
+    val assistantOverlay = BoolPref("assistant_overlay", true)
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 

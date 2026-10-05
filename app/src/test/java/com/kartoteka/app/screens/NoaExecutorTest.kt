@@ -93,4 +93,20 @@ class NoaExecutorTest {
         assertTrue(phone.text.contains("67"))
         assertTrue(noa.handle("що в мене завтра", now) is Noa.Reply.Say)
     }
+
+    @Test fun bookThenSendConfirmationFromTemplate() = runBlocking {
+        app.repository.savePerson(Person(firstName = "Илья", lastName = "Рыков"),
+            listOf(ContactItem(type = "PHONE", value = "+380731018582")), emptyList(), emptyList())
+        val noa = Noa(app)
+        val seq = com.kartoteka.app.assistant.NoaParser.parse(
+            "возьми контакт Илья Рыков и запиши его на завтра на 12:00 и сразу отправь ему об этом в вотсап", now,
+        ) as com.kartoteka.app.assistant.NoaIntent.Sequence
+        noa.handleIntent(seq.steps[0], now)
+        val confirm = noa.handleIntent(seq.steps[1], now) as Noa.Reply.Confirm
+        confirm.onYes()
+        noa.handleIntent(seq.steps[2], now)
+        val m = com.kartoteka.app.assistant.NoaActions.pendingMessage!!
+        assertTrue("text=${m.text}", m.text.contains("12:00") && m.text.contains("Илья"))
+        com.kartoteka.app.assistant.NoaActions.pendingMessage = null
+    }
 }

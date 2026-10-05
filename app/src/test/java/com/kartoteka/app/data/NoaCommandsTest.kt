@@ -74,4 +74,16 @@ class NoaCommandsTest {
         assertTrue(p("запиши Анну на завтра в 12:00") is NoaIntent.CreateAppointment)
         assertTrue(p("добавь Олега в избранное") is NoaIntent.Favorite)
     }
+
+    @Test fun userPhraseBookAndConfirmInWhatsApp() {
+        val seq = p("а возьми контакт Илья рыков и запиши его на завтра на 12:00 и также сразу Отправь ему об этом в вотсап") as NoaIntent.Sequence
+        assertEquals(3, seq.steps.size)
+        assertTrue(seq.steps[0] is NoaIntent.Select)
+        val appt = seq.steps[1] as NoaIntent.CreateAppointment
+        assertEquals("илья рыков", appt.personQuery.lowercase())
+        assertEquals(12, appt.dateTime!!.hour); assertEquals(now.toLocalDate().plusDays(1), appt.dateTime!!.toLocalDate())
+        val msg = seq.steps[2] as NoaIntent.Message
+        assertTrue(msg.aboutAppointment); assertEquals(NoaIntent.Channel.WHATSAPP, msg.channel)
+        assertEquals("илья рыков", msg.personQuery.lowercase())
+    }
 }

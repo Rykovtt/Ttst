@@ -18,6 +18,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -229,11 +231,20 @@ fun KartotekaTheme(content: @Composable () -> Unit) {
             .getOrDefault(false)
     }
     CompositionLocalProvider(LocalReducedMotion provides reduced) {
-        MaterialTheme(
-            colorScheme = if (isSystemInDarkTheme()) Dark else Light,
-            typography = AppTypography,
-            shapes = AppShapes,
-        ) { ProvideLayoutScale { com.kartoteka.app.ui.components.ProvideSheen(content) } }
+        // Масштаб из настроек: «интерфейс» увеличивает всё (плотность), «текст» — только шрифт.
+        val settings = (context.applicationContext as? com.kartoteka.app.KartotekaApp)?.settings
+        val ui = settings?.uiScale?.value?.collectAsState()?.value?.toFloatOrNull()?.coerceIn(0.8f, 1.4f) ?: 1f
+        val text = settings?.textScale?.value?.collectAsState()?.value?.toFloatOrNull()?.coerceIn(0.8f, 1.5f) ?: 1f
+        val base = androidx.compose.ui.platform.LocalDensity.current
+        CompositionLocalProvider(
+            androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(base.density * ui, base.fontScale * text),
+        ) {
+            MaterialTheme(
+                colorScheme = if (isSystemInDarkTheme()) Dark else Light,
+                typography = AppTypography,
+                shapes = AppShapes,
+            ) { ProvideLayoutScale { com.kartoteka.app.ui.components.ProvideSheen(content) } }
+        }
     }
 }
 

@@ -26,6 +26,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Cake
@@ -116,6 +117,9 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
     val iso by settings.country.value.collectAsState()
     val phoneSub = com.kartoteka.app.data.PhoneFormat.byIso(iso).let { "${it.flag} ${t(it.name)} (+${it.code})" }
     val uiLangCode by settings.uiLang.value.collectAsState()
+    val uiScaleNow by app.settings.uiScale.value.collectAsState()
+    val textScaleNow by app.settings.textScale.value.collectAsState()
+    val scaleSub = t("Интерфейс %1\$s · текст %2\$s", pct(uiScaleNow), pct(textScaleNow))
     val uiLangSub = com.kartoteka.app.i18n.UiLang.entries.firstOrNull { it.code == uiLangCode }?.let { if (it == com.kartoteka.app.i18n.UiLang.AUTO) t(it.title) else it.title }.orEmpty()
     val msgLang by settings.messageLang.value.collectAsState()
     val msgLangSub = com.kartoteka.app.data.MessageLang.entries.firstOrNull { it.name == msgLang }?.title.orEmpty()
@@ -156,6 +160,9 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
             }
         })
 
+        add(SettingEntry(t("Размер интерфейса"), Icons.Default.FormatSize, scaleSub, "масштаб размер текст шрифт крупнее мельче масштабування розмір") {
+            ScaleSettings(app.settings)
+        })
         add(SettingEntry(t("Язык приложения"), Icons.Default.Language, uiLangSub, "язык мова language") {
             val uiLang by settings.uiLang.value.collectAsState()
             androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -381,5 +388,37 @@ private fun InfoLine(icon: ImageVector, text: String) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(16.dp))
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+
+private fun pct(v: String) = "${((v.toFloatOrNull() ?: 1f) * 100).toInt()}%"
+
+/** Размер интерфейса (всё вместе) и отдельно текста — сразу применяется во всём приложении. */
+@Composable
+private fun ScaleSettings(settings: com.kartoteka.app.data.Settings) {
+    val ui by settings.uiScale.value.collectAsState()
+    val text by settings.textScale.value.collectAsState()
+    val uiSteps = listOf("0.9", "1.0", "1.1", "1.25")
+    val textSteps = listOf("0.9", "1.0", "1.15", "1.3")
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Text(t("Элементы и текст"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
+        com.kartoteka.app.ui.components.Segmented(
+            uiSteps.map(::pct), uiSteps.indexOfFirst { it.toFloat() == ui.toFloatOrNull() }.coerceAtLeast(0),
+            { settings.uiScale.set(uiSteps[it]) }, Modifier.fillMaxWidth(),
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 14.dp))
+        Text(t("Только текст"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
+        com.kartoteka.app.ui.components.Segmented(
+            textSteps.map(::pct), textSteps.indexOfFirst { it.toFloat() == text.toFloatOrNull() }.coerceAtLeast(0),
+            { settings.textScale.set(textSteps[it]) }, Modifier.fillMaxWidth(),
+        )
+        Text(
+            t("Применяется сразу во всём приложении."),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
