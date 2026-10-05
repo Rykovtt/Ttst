@@ -76,7 +76,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 "home" -> com.kartoteka.app.data.PlaceKind.HOME
                 "work" -> com.kartoteka.app.data.PlaceKind.WORK
                 else -> null
-            })
+            }, str("app")?.lowercase()?.let { if ("waze" in it) "waze" else if ("google" in it) "google" else null })
             "agenda" -> NoaIntent.Agenda(
                 NoaDateTime.parse(userText, now)?.dateTime?.toLocalDate()
                     ?: if (str("day") == "tomorrow") now.toLocalDate().plusDays(1) else now.toLocalDate()
@@ -155,7 +155,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             call {person}; message {person, channel: whatsapp|telegram|sms, text};
             add_note {person, text}; open_person {person}; find {query};
             open_contact {person, contact: instagram|facebook|viber|email|website|telegram|whatsapp};
-            route {person, place: home|work|""}; agenda {day: today|tomorrow};
+            route {person, place: home|work|"", app: waze|google|""}; agenda {day: today|tomorrow};
             person_info {person, topic: birthday|phone|address|summary, question};
             favorite {person, on: true|false}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
             Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек.

@@ -111,7 +111,7 @@ class Noa(private val app: KartotekaApp) {
             ?: return@withPerson Reply.Say(t("У %1\$s нет адреса. Добавьте его в карточке — и я проложу маршрут.", pf.person.displayName))
         val where = place.label.ifBlank { place.placeKind.title.lowercase() }
         Reply.Do(t("Прокладываю маршрут: %1\$s, %2\$s.", pf.person.displayName, where)) { ctx ->
-            com.kartoteka.app.messaging.Messaging.navigate(ctx, place)
+            com.kartoteka.app.messaging.Messaging.navigate(ctx, place, intent.app)
         }
     }
 

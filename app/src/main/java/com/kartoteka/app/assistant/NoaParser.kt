@@ -23,7 +23,7 @@ sealed interface NoaIntent {
     /** Открыть контакт человека в приложении: Instagram, Facebook, Viber, почта, сайт… */
     data class OpenContact(val personQuery: String, val type: com.kartoteka.app.data.ContactType) : NoaIntent
     /** Проложить маршрут к адресу человека (дом / работа / любой). */
-    data class Route(val personQuery: String, val kind: com.kartoteka.app.data.PlaceKind?) : NoaIntent
+    data class Route(val personQuery: String, val kind: com.kartoteka.app.data.PlaceKind?, val app: String? = null) : NoaIntent
     /** Что запланировано на день: записи и дни рождения. */
     data class Agenda(val date: java.time.LocalDate) : NoaIntent
     /** Вопрос о человеке: ответ из его карточки. */
@@ -56,10 +56,10 @@ object NoaParser {
     private val CHAIN = Regex(
         "\\s*(?:,\\s*)?(?:\\s(?:и|і|й|та|а|потом|потім|затем|после|then|and)\\s+)+" +
             "(?:(?:потом|потім|затем|then|также|тоже|сразу|ещё|еще|також|теж|одразу|відразу|заодно|also|ну)\\s+)*" +
-            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|построй|прокласти|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
+            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|пролож|построй|прокласти|маршрут|удал|видал|отмен|скасу|перенес|расскаж|розкаж|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
         RegexOption.IGNORE_CASE,
     )
-    val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "him", "her", "them")
+    val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "нему", "ньому", "him", "her", "them")
 
     fun parse(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
         // Кавычки сохраняем как есть (в них текст), остальное — без знаков препинания.
@@ -148,7 +148,12 @@ object NoaParser {
                 has(s, "дом", "додому", "дому", "home") -> com.kartoteka.app.data.PlaceKind.HOME
                 else -> null
             }
-            return NoaIntent.Route(extractPerson(s), kind)
+            val app = when {
+                has(s, "waze", "вейз", "вэйз", "вейс", "уэйз") -> "waze"
+                has(s, "google", "гугл") -> "google"
+                else -> null
+            }
+            return NoaIntent.Route(extractPerson(s), kind, app)
         }
 
         // открыть контакт в другом приложении: «нажми на инстаграм Ани», «відкрий фейсбук Олега»
@@ -238,6 +243,8 @@ object NoaParser {
         "сеанса","визит","візит","appointment","booking","meeting","удалить","видалити","отмени","отменить","скасуй","скасувати","відміни",
         "сотри","зітри","delete","remove","cancel","перенеси","перенести","перенос","передвинь","пересунь","зсунь","посунь","reschedule","move",
         "с","з","со","із","from","ближайшую","найближчу","next",
+        "карте","карті","картах","мапі","мапу","мапа","мапах","через","waze","вейз","вэйз","вейс","уэйз","google","гугл","гугле","maps","мапс",
+        "мне","мені","нему","ньому","маршрутом","маршрута","на","к","по",
         "возьми","візьми","выбери","обери","вибери","бери","take","select","вацап","вотс","ватс","скинь","відправ","відправити","надішли","надіслати","отправить","ним","ему","йому",
     )
 

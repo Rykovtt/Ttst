@@ -107,8 +107,22 @@ object Messaging {
     }
 
     /** Открывает адрес в навигаторе / картах телефона. */
-    fun navigate(context: Context, place: com.kartoteka.app.data.Place) {
+    fun navigate(context: Context, place: com.kartoteka.app.data.Place, app: String? = null) {
         val q = Uri.encode(place.address)
+        // Названный навигатор («через Waze», «в гугл картах»); нет его на телефоне — обычные карты.
+        val direct = when (app) {
+            "waze" -> Intent(Intent.ACTION_VIEW, Uri.parse(
+                if (place.hasCoords) "https://waze.com/ul?ll=${place.lat},${place.lng}&navigate=yes" else "https://waze.com/ul?q=$q&navigate=yes"
+            )).setPackage("com.waze")
+            "google" -> Intent(Intent.ACTION_VIEW, Uri.parse(
+                if (place.hasCoords) "google.navigation:q=${place.lat},${place.lng}" else "google.navigation:q=$q"
+            )).setPackage("com.google.android.apps.maps")
+            else -> null
+        }
+        if (direct != null) {
+            if (context !is android.app.Activity) direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { context.startActivity(direct) }.isSuccess) return
+        }
         val uri = if (place.hasCoords) "geo:${place.lat},${place.lng}?q=${place.lat},${place.lng}(${Uri.encode(place.address.ifBlank { place.placeKind.title })})"
         else "geo:0,0?q=${q}"
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse(uri)))

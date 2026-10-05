@@ -111,4 +111,11 @@ class NoaCommandsTest {
         val move = p("перенеси Аню на пятницу в 15:00") as NoaIntent.MoveAppointment
         assertEquals("аню", move.personQuery); assertEquals(15, move.dateTime!!.hour); assertTrue(move.hadDate && move.hadTime)
     }
+
+    @Test fun openProfileThenRouteViaWaze() {
+        val seq = p("Открой профиль Илья рыков и проложи мне на карте через Waze к нему маршрут") as NoaIntent.Sequence
+        assertEquals("илья рыков", (seq.steps[0] as NoaIntent.Open).personQuery)
+        val route = seq.steps[1] as NoaIntent.Route
+        assertEquals("илья рыков", route.personQuery); assertEquals("waze", route.app)
+    }
 }
