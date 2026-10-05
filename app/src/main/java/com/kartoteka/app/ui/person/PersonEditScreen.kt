@@ -230,7 +230,7 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             com.kartoteka.app.ui.components.ScreenHero(
-                if (personId == 0L) t("Новый человек") else t("Редактирование"), compact = true,
+                if (personId == 0L) t("Новый человек") else t("Редактирование"), compact = true, backgroundButton = false,
                 onBack = tryExit, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
             )
         },
@@ -590,7 +590,7 @@ private fun DetailEditor(d: DetailField, onChange: (DetailField) -> Unit, onRemo
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
                 Text(
-                    d.category.ifBlank { t("Разное") },
+                    t(d.category.ifBlank { "Разное" }),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                 )

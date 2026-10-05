@@ -154,7 +154,7 @@ fun MountainHeader(
             .onGloballyPositioned { headerCoords = it; headerSize = it.size },
     ) {
         HeroImage(
-            alignment = focus,
+            alignment = focus, key = "people",
             modifier = Modifier.matchParentSize().graphicsLayer {
                 alpha = photoAlpha.value
                 translationY = if (reduced) 0f else scrollOffset() * 0.25f
@@ -171,7 +171,7 @@ fun MountainHeader(
             // Логотип · аватар · фильтр.
             Row(Modifier.fillMaxWidth().padding(start = pad, end = pad - u(10), top = u(PeopleDims.ControlsTop)), verticalAlignment = Alignment.CenterVertically) {
                 HeaderLogo(com.kartoteka.app.AppIcons.title(context, title), intro, Modifier.weight(1f))
-                HeroBackgroundButton(Modifier.padding(end = u(18)))
+                HeroBackgroundButton("people", Modifier.padding(end = u(18)))
                 OwnerAvatar(onGroups, onStats, onSettings)
             }
             // Заголовок и счётчик.
@@ -250,7 +250,7 @@ fun MountainHeader(
 @Composable
 private fun BoxScope.BlurredBackdrop(headerSize: IntSize, pos: Offset, focus: Alignment, alpha: () -> Float, parallax: () -> Float) {
     HeroImage(
-        alignment = focus,
+        alignment = focus, key = "people",
         modifier = Modifier.matchParentSize()
             .layout { m, c ->
                 val p = m.measure(Constraints.fixed(headerSize.width.coerceAtLeast(1), headerSize.height.coerceAtLeast(1)))

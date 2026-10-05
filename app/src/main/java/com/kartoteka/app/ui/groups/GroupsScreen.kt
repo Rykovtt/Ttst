@@ -80,7 +80,7 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
 
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
         item {
-            ScreenHero(
+            ScreenHero(backgroundKey = "groups", title = 
                 t("Группы"),
                 count = groups?.size,
                 subtitle = t("Семья, работа, друзья — для быстрого поиска и рассылок"),

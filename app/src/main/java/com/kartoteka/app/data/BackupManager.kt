@@ -38,7 +38,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
         val appointments = repo.rawDao.allAppointments()
         val services = repo.getServices()
         val voices = repo.allVoiceNotes().filter { repo.voices.exists(it.file) }
-        val out = context.contentResolver.openOutputStream(uri) ?: error("Не удалось открыть файл")
+        val out = context.contentResolver.openOutputStream(uri) ?: error(com.kartoteka.app.i18n.t("Не удалось открыть файл"))
         out.use { raw ->
             val stream = wrapOutput(raw, password)
             ZipOutputStream(stream).use { zip ->
@@ -68,7 +68,7 @@ class BackupManager(private val context: Context, private val repo: Repository) 
 
     /** @param replace true — стереть текущую картотеку перед восстановлением. */
     suspend fun import(uri: Uri, password: String, replace: Boolean): Int {
-        val input = context.contentResolver.openInputStream(uri) ?: error("Не удалось открыть файл")
+        val input = context.contentResolver.openInputStream(uri) ?: error(com.kartoteka.app.i18n.t("Не удалось открыть файл"))
         val tmpDir = File(context.cacheDir, "restore").apply { deleteRecursively(); mkdirs() }
         val voiceTmp = File(tmpDir, "voice").apply { mkdirs() }
         var json: String? = null

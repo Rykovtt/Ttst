@@ -197,6 +197,7 @@ fun PersonDetailScreen(
     onNewAppointment: () -> Unit = {},
     onOpenAppointment: (Long) -> Unit = {},
     openNote: Boolean = false,
+    onOpenGroup: (Long) -> Unit = {},
 ) {
     val app = app()
     val vm: PersonDetailViewModel = viewModel(key = "person_${personId}") { PersonDetailViewModel(app, personId) }
@@ -284,7 +285,7 @@ fun PersonDetailScreen(
                         FlowRow(Modifier.padding(horizontal = 18.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             pf.groups.forEach { g ->
                                 AssistChip(
-                                    onClick = {},
+                                    onClick = { onOpenGroup(g.id) },
                                     label = { Text(listOf(g.emoji, g.name).filter { it.isNotBlank() }.joinToString(" ")) },
                                     leadingIcon = { ColorDot(g.color) },
                                 )
@@ -336,12 +337,12 @@ fun PersonDetailScreen(
                 AppointmentsSection(appointments, onNew = onNewAppointment, onOpen = onOpenAppointment)
             }
 
-            val byCategory = pf.details.sortedBy { it.position }.groupBy { it.category.ifBlank { t("Разное") } }
+            val byCategory = pf.details.sortedBy { it.position }.groupBy { it.category.ifBlank { "Разное" }.let { c -> t(c) } }
             byCategory.forEach { (cat, fields) ->
                 item(key = "cat_${cat}") {
                     SectionCard(cat, Icons.Default.Checklist) {
                         fields.forEach { f ->
-                            InfoRow(f.name.ifBlank { "—" }, f.value, onLongClick = { Messaging.copy(context, f.value) })
+                            InfoRow(f.name.ifBlank { "—" }.let { n -> t(n) }, f.value, onLongClick = { Messaging.copy(context, f.value) })
                         }
                     }
                 }

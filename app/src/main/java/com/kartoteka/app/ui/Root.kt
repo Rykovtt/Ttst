@@ -295,6 +295,7 @@ fun KartotekaRoot(
                     onOpenPerson = { nav.navigate(Routes.person(it)) },
                     onNewAppointment = { nav.navigate(Routes.appointment(personId = id)) },
                     onOpenAppointment = { nav.navigate(Routes.appointment(it)) },
+                    onOpenGroup = { nav.navigate(Routes.group(it)) },
                 )
                 }
             }

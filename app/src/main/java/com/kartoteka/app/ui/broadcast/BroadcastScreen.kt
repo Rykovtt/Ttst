@@ -225,7 +225,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
 
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            com.kartoteka.app.ui.components.ScreenHero(
+            com.kartoteka.app.ui.components.ScreenHero(backgroundKey = "broadcast", title = 
                 t("Рассылка"),
                 subtitle = t("Сообщения для клиентов и близких — каждому лично"),
                 count = selected.size.takeIf { it > 0 },

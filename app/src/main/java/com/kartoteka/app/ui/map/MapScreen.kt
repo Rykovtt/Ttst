@@ -104,7 +104,7 @@ fun MapScreen(onOpenPerson: (Long) -> Unit, onBack: (() -> Unit)? = null) {
             modifier = Modifier.fillMaxSize(),
         )
         // Шапка как на главном: горы, заголовок со счётчиком, стеклянные фильтры.
-        com.kartoteka.app.ui.components.ScreenHero(t("Карта"), count = markers.size, onBack = onBack, compact = true) {
+        com.kartoteka.app.ui.components.ScreenHero(t("Карта"), backgroundKey = "map", count = markers.size, onBack = onBack, compact = true) {
             com.kartoteka.app.ui.components.HeroChipRow {
                 com.kartoteka.app.ui.components.CategoryChip(t("Все адреса"), kind == null, { kind = null })
                 com.kartoteka.app.ui.components.CategoryChip(t("Где живут"), kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, dot = com.kartoteka.app.ui.theme.RvColors.Green)

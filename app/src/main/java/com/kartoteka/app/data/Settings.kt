@@ -37,8 +37,17 @@ class Settings(context: Context) {
 
     /** Показывать число людей в фильтрах на главном экране. */
     val homeCounts = BoolPref("home_counts", true)
-    /** Своё фото фона шапок (путь к зашифрованному файлу) — пусто: стандартные горы. */
-    val heroImage = StringPref("hero_image", "")
+    /** Устаревшее: один фон на все шапки (до 2.9). Переносится на «Люди». */
+    private val heroImageLegacy = StringPref("hero_image", "")
+    private val heroImages = HashMap<String, StringPref>()
+
+    /** Своё фото фона шапки конкретного раздела (путь к зашифрованному файлу); пусто — стандартные горы. */
+    fun heroImage(key: String): StringPref = heroImages.getOrPut(key) {
+        StringPref("hero_image_$key", "").also { pref ->
+            val old = heroImageLegacy.value.value
+            if (key == "people" && old.isNotBlank() && pref.value.value.isBlank()) { pref.set(old); heroImageLegacy.set("") }
+        }
+    }
     /** Масштаб интерфейса (элементы и текст вместе) и отдельно текста: 0.85 … 1.3. */
     val uiScale = StringPref("ui_scale", "1.0")
     val textScale = StringPref("text_scale", "1.0")
@@ -89,8 +98,13 @@ class Settings(context: Context) {
     val apptMyOffsets = StringPref("appt_my_offsets", "60")
     val apptSendConfirm = StringPref("appt_send_confirm", "true")
     /** Язык сообщений по умолчанию. */
-    val messageLang = StringPref("msg_lang", MessageLang.RU.name)
-    val defaultLang: MessageLang get() = MessageLang.of(messageLang.value.value) ?: MessageLang.RU
+    /** Язык сообщений людям; пока не выбран вручную — тот же, что язык интерфейса (украинский → українською). */
+    val messageLang = StringPref("msg_lang", "")
+    val defaultLang: MessageLang get() = MessageLang.of(messageLang.value.value) ?: when (com.kartoteka.app.i18n.I18n.lang) {
+        com.kartoteka.app.i18n.UiLang.UK -> MessageLang.UK
+        com.kartoteka.app.i18n.UiLang.EN -> MessageLang.EN
+        else -> MessageLang.RU
+    }
 
     private val templates = HashMap<String, StringPref>()
 

@@ -175,7 +175,11 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         val rules = NoaParser.parse(text)
                         if (rules !is NoaIntent.Unknown) run(rules)
                         else {
-                            val smart = if (brainReady) runCatching { interpreter.interpret(text, names = noa.knownNames()) }.getOrNull() else null
+                            val smart = if (brainReady) runCatching {
+                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    interpreter.interpret(text, names = noa.knownNames(), context = noa.contextFor(text))
+                                }
+                            }.getOrNull() else null
                             when {
                                 smart?.intent != null -> run(smart.intent, smart.reply)
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)

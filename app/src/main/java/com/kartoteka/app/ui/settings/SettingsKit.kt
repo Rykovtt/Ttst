@@ -77,7 +77,7 @@ fun SettingsHero(settings: Settings, people: Int, search: String, onSearch: (Str
     val context = LocalContext.current
     val custom by settings.appTitle.value.collectAsState()
     val lock by settings.lockEnabled.collectAsState()
-    com.kartoteka.app.ui.components.ScreenHero(
+    com.kartoteka.app.ui.components.ScreenHero(backgroundKey = "settings", title = 
         t("Настройки"),
         subtitle = t("%1\$s — ваш порядок в людях, встречах и важных деталях.", com.kartoteka.app.AppIcons.title(context, custom)),
     ) {

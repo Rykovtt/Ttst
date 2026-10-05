@@ -157,7 +157,7 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
 
     // Текстовый чат: шапка с горами, история, поле ввода.
     Column(Modifier.fillMaxSize().background(com.kartoteka.app.ui.theme.RvColors.NoaBg).imePadding()) {
-        com.kartoteka.app.ui.components.ScreenHero(
+        com.kartoteka.app.ui.components.ScreenHero(backgroundKey = "noa", title = 
             t("Ассистент %1\$s", name), compact = true, onBack = onBack,
             subtitle = when (orbState) {
                 OrbState.LISTENING -> t("Слушаю…")
@@ -229,7 +229,7 @@ private fun VoiceMode(
         label = "pulse",
     )
     Box(Modifier.fillMaxSize().background(com.kartoteka.app.ui.theme.RvColors.NoaBg)) {
-        com.kartoteka.app.ui.components.MountainBackdrop(Modifier.fillMaxSize().alpha(0.32f))
+        com.kartoteka.app.ui.components.MountainBackdrop(Modifier.fillMaxSize().alpha(0.32f), key = "noa")
         Column(
             Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,

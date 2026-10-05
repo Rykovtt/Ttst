@@ -13,8 +13,8 @@ data class Interpreted(val intent: NoaIntent?, val reply: String?)
  */
 class NoaInterpreter(private val brain: LlmBrain?) {
 
-    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList()): Interpreted? {
-        val raw = brain?.ask(prompt(userText, now, names)) ?: return null
+    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList(), context: String = ""): Interpreted? {
+        val raw = brain?.ask(prompt(userText, now, names, context)) ?: return null
         return fromJson(raw, userText, now)
     }
 
@@ -131,14 +131,15 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         return null
     }
 
-    private fun prompt(user: String, now: LocalDateTime, names: List<String>): String {
+    private fun prompt(user: String, now: LocalDateTime, names: List<String>, context: String = ""): String {
         val date = "%04d-%02d-%02d".format(now.year, now.monthValue, now.dayOfMonth)
         val lang = when (com.kartoteka.app.i18n.I18n.lang) {
             com.kartoteka.app.i18n.UiLang.UK -> "українською"
             com.kartoteka.app.i18n.UiLang.EN -> "in English"
             else -> "по-русски"
         }
-        val people = names.take(60).joinToString(", ").ifBlank { "—" }
+        val people = names.take(if (context.isBlank()) 60 else 30).joinToString(", ").ifBlank { "—" }
+        val data = if (context.isBlank()) "" else "\nДанные из записной книжки (отвечай на вопросы ТОЛЬКО по ним, не выдумывай):\n$context\n"
         return """
             Ты — голосовой ассистент в личной записной книжке людей. Переведи запрос в JSON. Только JSON, без пояснений.
             Формат: {"actions":[{...},{...}],"reply":"короткий ответ $lang"}
@@ -149,8 +150,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             route {person, place: home|work|""}; agenda {day: today|tomorrow};
             person_info {person, topic: birthday|phone|address|summary, question};
             favorite {person, on: true|false}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
-            Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек. Обычный разговор — "actions":[] и ответ в reply.
-            Люди в книжке: $people
+            Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек.
+            Вопрос о людях, встречах, планах — "actions":[] и подробный полезный ответ в reply по данным ниже. Обычный разговор — "actions":[] и живой ответ в reply.
+            Люди в книжке: $people$data
             Примеры:
             «зайди в профиль Ани и добавь заметку купила новый телефон» → {"actions":[{"action":"open_person","person":"Аня"},{"action":"add_note","person":"Аня","text":"купила новый телефон"}],"reply":"Готово"}
             «відкрий інстаграм Олега» → {"actions":[{"action":"open_contact","person":"Олег","contact":"instagram"}],"reply":"Відкриваю"}

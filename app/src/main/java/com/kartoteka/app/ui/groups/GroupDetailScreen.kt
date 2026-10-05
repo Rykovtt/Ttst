@@ -77,7 +77,7 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
     val g = group ?: return
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 32.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
             item {
-                ScreenHero(
+                ScreenHero(backgroundKey = "group", title = 
                     g.name,
                     count = members.size,
                     subtitle = t("Группа · %1\$s", "${members.size} ${ArchiveLogic.plural(members.size.toLong(), "человек", "человека", "человек")}"),

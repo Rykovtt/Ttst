@@ -57,15 +57,40 @@ class LlmBrain(context: Context) {
 
     // ---- скачивание одной кнопкой ----
 
+    /** Модели на выбор: быстрая (лёгкая) и умная (крупнее, нужен телефон помощнее). */
+    enum class Model(val id: String, val title: String, val url: String, val bytes: Long, val kind: String, val minRamGb: Int) {
+        FAST("qwen", "Qwen2.5 1.5B", MODEL_URL, MODEL_BYTES, KIND_QWEN, 4),
+        SMART(
+            "phi4", "Phi-4 mini 3.8B",
+            "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
+            3_944_275_882L, KIND_PHI, 8,
+        ),
+    }
+
+    /** Какая модель установлена (по пометке рядом с файлом). */
+    fun installed(): Model? {
+        if (!hasModel()) return null
+        val kind = runCatching { kindFile.readText().trim() }.getOrDefault(KIND_QWEN)
+        return Model.entries.firstOrNull { it.kind == kind }
+    }
+
+    /** Оперативная память телефона, ГБ — чтобы подсказать, потянет ли умная модель. */
+    fun ramGb(): Double = runCatching {
+        val mi = android.app.ActivityManager.MemoryInfo()
+        app.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(mi)
+        mi.totalMem / 1024.0 / 1024.0 / 1024.0
+    }.getOrDefault(0.0)
+
     /** Начать загрузку модели. false — если места мало или загрузчик недоступен. */
-    fun startDownload(): Boolean = runCatching {
+    fun startDownload(model: Model = Model.FAST): Boolean = runCatching {
         val dm = app.getSystemService(DownloadManager::class.java) ?: return false
         cancelDownload()
         val part = partFile ?: return false
         part.delete()
-        val req = DownloadManager.Request(Uri.parse(MODEL_URL))
-            .setTitle("RVault — " + MODEL_NAME)
-            .setDescription(MODEL_NAME)
+        prefs.edit().putString(KEY_PENDING_KIND, model.kind).apply()
+        val req = DownloadManager.Request(Uri.parse(model.url))
+            .setTitle("RVault — " + model.title)
+            .setDescription(model.title)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
             .setDestinationUri(Uri.fromFile(part))
             .setAllowedOverMetered(true)
@@ -75,7 +100,7 @@ class LlmBrain(context: Context) {
     }.getOrDefault(false)
 
     /** Хватает ли места под модель (с запасом). */
-    fun enoughSpace(): Boolean = (extDir?.usableSpace ?: 0L) > MODEL_BYTES + 200L * 1024 * 1024
+    fun enoughSpace(model: Model = Model.FAST): Boolean = (extDir?.usableSpace ?: 0L) > model.bytes + 200L * 1024 * 1024
 
     fun cancelDownload() {
         val id = prefs.getLong(KEY_ID, -1L)
@@ -109,14 +134,19 @@ class LlmBrain(context: Context) {
                 val ok = part != null && target != null && part.big() &&
                     run { target.delete(); part.renameTo(target) }
                 prefs.edit().remove(KEY_ID).apply()
-                if (ok) { kindFile.writeText(KIND_QWEN); state = State.UNKNOWN; Download.Done } else Download.Failed(-1)
+                if (ok) {
+                    close()
+                    importedFile.delete()
+                    kindFile.writeText(prefs.getString(KEY_PENDING_KIND, KIND_QWEN) ?: KIND_QWEN)
+                    state = State.UNKNOWN; Download.Done
+                } else Download.Failed(-1)
             }
             DownloadManager.STATUS_FAILED -> {
                 prefs.edit().remove(KEY_ID).apply(); partFile?.delete()
                 Download.Failed(reason)
             }
             else -> {
-                val t = if (total > 0) total else MODEL_BYTES
+                val t = if (total > 0) total else Model.entries.firstOrNull { it.kind == prefs.getString(KEY_PENDING_KIND, "") }?.bytes ?: MODEL_BYTES
                 Download.Running(
                     ((done * 100) / t).toInt().coerceIn(0, 100), done / MB, t / MB,
                     waiting = status == DownloadManager.STATUS_PAUSED || status == DownloadManager.STATUS_PENDING,
@@ -187,8 +217,11 @@ class LlmBrain(context: Context) {
         // Файл без пометки — модель, выбранная в прошлых версиях (там была только Gemma).
         val kind = runCatching { kindFile.readText().trim() }
             .getOrDefault(if (importedFile.big()) KIND_GEMMA else KIND_QWEN)
-        return if (kind == KIND_GEMMA) "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n"
-        else "<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n"
+        return when (kind) {
+            KIND_GEMMA -> "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n"
+            KIND_PHI -> "<|user|>\n$prompt<|end|>\n<|assistant|>\n"
+            else -> "<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n"
+        }
     }
 
     fun close() { runCatching { llm?.close() }; llm = null }
@@ -203,7 +236,13 @@ class LlmBrain(context: Context) {
         private const val KEY_ID = "download_id"
         private const val KIND_QWEN = "qwen"
         private const val KIND_GEMMA = "gemma"
+        private const val KIND_PHI = "phi4"
+        private const val KEY_PENDING_KIND = "pending_kind"
 
-        fun kindOf(fileName: String): String = if (fileName.contains("gemma", true)) KIND_GEMMA else KIND_QWEN
+        fun kindOf(fileName: String): String = when {
+            fileName.contains("gemma", true) -> KIND_GEMMA
+            fileName.contains("phi", true) -> KIND_PHI
+            else -> KIND_QWEN
+        }
     }
 }

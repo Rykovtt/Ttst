@@ -49,8 +49,8 @@ import java.io.File
 
 /** Фото шапки: своё (выбрано пользователем, хранится зашифрованным) или стандартные горы. */
 @Composable
-fun HeroImage(modifier: Modifier, alignment: Alignment = BiasAlignment(0.2f, -0.2f)) {
-    val path by app().settings.heroImage.value.collectAsState()
+fun HeroImage(modifier: Modifier, alignment: Alignment = BiasAlignment(0.2f, -0.2f), key: String = "default") {
+    val path by app().settings.heroImage(key).value.collectAsState()
     if (path.isNotBlank() && File(path).exists()) {
         AsyncImage(File(path), null, contentScale = ContentScale.Crop, alignment = Alignment.Center, modifier = modifier)
     } else {
@@ -58,21 +58,22 @@ fun HeroImage(modifier: Modifier, alignment: Alignment = BiasAlignment(0.2f, -0.
     }
 }
 
-/** Маленькая стеклянная кнопка на шапке: заменить фон своим фото или вернуть горы. Фон общий для всех разделов. */
+/** Маленькая стеклянная кнопка на шапке: заменить фон этого раздела своим фото или вернуть стандартный. */
 @Composable
-fun HeroBackgroundButton(modifier: Modifier = Modifier) {
+fun HeroBackgroundButton(key: String, modifier: Modifier = Modifier) {
     val app = app()
     val scope = rememberCoroutineScope()
     val haptics = rememberHaptics()
-    val path by app.settings.heroImage.value.collectAsState()
+    val pref = app.settings.heroImage(key)
+    val path by pref.value.collectAsState()
     var menu by remember { mutableStateOf(false) }
     val picker = rememberPhotoPicker(multiple = false) { uris ->
         val uri = uris.firstOrNull() ?: return@rememberPhotoPicker
         scope.launch {
             val saved = withContext(Dispatchers.IO) { app.repository.photos.import(uri) }
             if (saved != null) {
-                val old = app.settings.heroImage.value.value
-                app.settings.heroImage.set(saved)
+                val old = pref.value.value
+                pref.set(saved)
                 if (old.isNotBlank() && old != saved) withContext(Dispatchers.IO) { runCatching { File(old).delete() } }
             }
         }
@@ -93,12 +94,12 @@ fun HeroBackgroundButton(modifier: Modifier = Modifier) {
                 onClick = { menu = false; picker.gallery() },
             )
             if (path.isNotBlank()) DropdownMenuItem(
-                text = { Text(t("Стандартный фон")) },
+                text = { Text(t("Вернуть стандартный фон")) },
                 leadingIcon = { Icon(Icons.Outlined.Landscape, null) },
                 onClick = {
                     menu = false
                     val old = path
-                    app.settings.heroImage.set("")
+                    pref.set("")
                     scope.launch(Dispatchers.IO) { runCatching { File(old).delete() } }
                 },
             )

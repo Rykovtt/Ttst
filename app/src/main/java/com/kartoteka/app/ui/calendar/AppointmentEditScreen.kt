@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -325,15 +327,24 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
         topBar = {
             com.kartoteka.app.ui.components.ScreenHero(
                 if (vm.isNew) t("Новая запись") else t("Запись"), compact = true,
-                onBack = onBack, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
-                actions = {
-                    com.kartoteka.app.ui.components.HeroPillButton(Icons.Default.Check, t("Сохранить"), enabled = vm.person != null && !vm.saving, primary = true) {
-                        vm.save { _, kind ->
-                            if (kind != null) { message = kind; closeAfterMessage = true } else onBack()
-                        }
-                    }
-                },
+                onBack = onBack, backIcon = Icons.Default.Close, backDescription = t("Закрыть"), backgroundButton = false,
             )
+        },
+        bottomBar = {
+            // Главное действие — внизу, под большим пальцем, всегда на виду.
+            androidx.compose.foundation.layout.Box(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                com.kartoteka.app.ui.components.GradientButton(
+                    if (vm.person == null) t("Выберите человека") else t("Сохранить"),
+                    icon = Icons.Default.Check, enabled = vm.person != null && !vm.saving,
+                ) {
+                    vm.save { _, kind ->
+                        if (kind != null) { message = kind; closeAfterMessage = true } else onBack()
+                    }
+                }
+            }
         },
     ) { padding ->
         if (!vm.loaded) return@Scaffold

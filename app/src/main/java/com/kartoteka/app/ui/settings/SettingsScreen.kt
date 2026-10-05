@@ -122,7 +122,8 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
     val scaleSub = t("Интерфейс %1\$s · текст %2\$s", pct(uiScaleNow), pct(textScaleNow))
     val uiLangSub = com.kartoteka.app.i18n.UiLang.entries.firstOrNull { it.code == uiLangCode }?.let { if (it == com.kartoteka.app.i18n.UiLang.AUTO) t(it.title) else it.title }.orEmpty()
     val msgLang by settings.messageLang.value.collectAsState()
-    val msgLangSub = com.kartoteka.app.data.MessageLang.entries.firstOrNull { it.name == msgLang }?.title.orEmpty()
+    val msgLangSub = com.kartoteka.app.data.MessageLang.entries.firstOrNull { it.name == msgLang }?.title
+        ?: t("Как в интерфейсе (%1\$s)", settings.defaultLang.title)
     val autoOn = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
     val assistantOn by settings.assistant.value.collectAsState()
     val assistantName by settings.assistantName.value.collectAsState()
@@ -196,6 +197,7 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
                 modifier = Modifier.padding(horizontal = 18.dp),
             )
             androidx.compose.foundation.layout.FlowRow(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.kartoteka.app.ui.components.FilterChip(lang.isBlank(), { settings.messageLang.set("") }, label = { Text(t("Как в интерфейсе")) })
                 com.kartoteka.app.data.MessageLang.entries.forEach { l ->
                     com.kartoteka.app.ui.components.FilterChip(lang == l.name, { settings.messageLang.set(l.name) }, label = { Text(l.title) })
                 }

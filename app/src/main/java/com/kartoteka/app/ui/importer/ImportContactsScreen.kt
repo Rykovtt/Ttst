@@ -90,7 +90,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             com.kartoteka.app.ui.components.ScreenHero(
-                t("Импорт контактов"), compact = true, onBack = onBack,
+                t("Импорт контактов"), compact = true, backgroundButton = false, onBack = onBack,
                 count = contacts?.size,
                 actions = {
                     val list = contacts

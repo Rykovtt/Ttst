@@ -40,7 +40,7 @@ data class Person(
 ) {
     val displayName: String
         get() = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
-            .ifBlank { nickname.ifBlank { "Без имени" } }
+            .ifBlank { nickname.ifBlank { com.kartoteka.app.i18n.t("Без имени") } }
 
     val fullName: String
         get() = listOf(lastName, firstName, middleName).filter { it.isNotBlank() }.joinToString(" ")

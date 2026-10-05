@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,7 +85,7 @@ fun ServicesScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            com.kartoteka.app.ui.components.ScreenHero(t("Услуги"), compact = true, subtitle = t("Тексты, длительность и напоминания по умолчанию"), onBack = onBack)
+            com.kartoteka.app.ui.components.ScreenHero(t("Услуги"), backgroundKey = "services", compact = true, subtitle = t("Тексты, длительность и напоминания по умолчанию"), onBack = onBack)
         },
         floatingActionButton = {
             Button(
@@ -180,12 +182,19 @@ fun ServiceEditor(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(
                     if (service.id == 0L) t("Новая услуга") else t("Услуга"), compact = true,
-                    onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
+                    onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"), backgroundButton = false,
                     actions = {
                         if (onDelete != null) com.kartoteka.app.ui.components.HeroButton(Icons.Default.Delete, t("Удалить"), { confirmDelete = true })
-                        com.kartoteka.app.ui.components.HeroPillButton(Icons.Default.Check, t("Сохранить"), enabled = s.name.isNotBlank(), primary = true) { onSave(result()) }
                     },
                 )
+            },
+            bottomBar = {
+                androidx.compose.foundation.layout.Box(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                        .navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                ) {
+                    com.kartoteka.app.ui.components.GradientButton(t("Сохранить"), icon = Icons.Default.Check, enabled = s.name.isNotBlank()) { onSave(result()) }
+                }
             },
         ) { padding ->
             LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(bottom = 40.dp)) {

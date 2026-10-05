@@ -34,7 +34,7 @@ class NoaExecutorTest {
         val reply = Noa(app).handle("запиши Марию Фролову на тату на 12-е в 12:00", now)
         assertTrue(reply is Noa.Reply.Confirm)
         val done = (reply as Noa.Reply.Confirm).onYes()
-        assertTrue(done is Noa.Reply.Say2Open)
+        assertTrue(done is Noa.Reply.Say)
         val appts = app.repository.appointmentsBetween(0, Long.MAX_VALUE)
         assertEquals(1, appts.size)
         val a = appts[0].appointment
@@ -56,8 +56,7 @@ class NoaExecutorTest {
     @Test fun addsNoteRightAway() = runBlocking {
         seed()
         // Заметка добавляется сразу (её можно удалить в хронике) и открывается карточка человека.
-        val reply = Noa(app).handle("добавь заметку Ане «переехала во Львов»", now) as Noa.Reply.Say2Open
-        assertTrue(reply.personId != null)
+        Noa(app).handle("добавь заметку Ане «переехала во Львов»", now) as Noa.Reply.Say
         val anya = app.repository.getAll().first { it.person.nickname == "Аня" }
         assertEquals(1, anya.journal.size)
         assertEquals("переехала во Львов", anya.journal[0].text)
@@ -105,8 +104,11 @@ class NoaExecutorTest {
         val confirm = noa.handleIntent(seq.steps[1], now) as Noa.Reply.Confirm
         confirm.onYes()
         noa.handleIntent(seq.steps[2], now)
-        val m = com.kartoteka.app.assistant.NoaActions.pendingMessage!!
+        val m = com.kartoteka.app.assistant.NoaActions.lastMessage!!
         assertTrue("text=${m.text}", m.text.contains("12:00") && m.text.contains("Илья"))
-        com.kartoteka.app.assistant.NoaActions.pendingMessage = null
+        com.kartoteka.app.assistant.NoaActions.lastMessage = null
+        // Имя, слитое распознаванием речи в одно слово, всё равно находится.
+        val fused = noa.handle("напиши ильерикову в вотсап", now)
+        assertTrue("reply=$fused", fused is Noa.Reply.Do)
     }
 }

@@ -191,7 +191,7 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPer
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp)) {
         item(key = "header") {
             val todayCount = byDay[today].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
-            com.kartoteka.app.ui.components.ScreenHero(
+            com.kartoteka.app.ui.components.ScreenHero(backgroundKey = "calendar", title = 
                 t("Календарь"),
                 count = todayCount.takeIf { it > 0 },
                 subtitle = if (todayCount == 0) t("Сегодня записей нет") else t("Сегодня %1\$s %2\$s", todayCount, com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")),

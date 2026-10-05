@@ -54,7 +54,7 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.OpenScreen -> Reply.Navigate(t("Открываю %1\$s.", sectionName(intent.section)), intent.section)
             is NoaIntent.Call -> withPerson(intent.personQuery) {
                 val phone = it.phone ?: return@withPerson Reply.Say(t("У %1\$s нет номера телефона.", it.person.displayName))
-                Reply.Say2Open(t("Звоню %1\$s.", it.person.displayName), personId = it.person.id).also { NoaActions.pendingCall = phone }
+                Reply.Do(t("Звоню %1\$s.", it.person.displayName)) { ctx -> com.kartoteka.app.messaging.Messaging.dial(ctx, phone) }
             }
             is NoaIntent.Message -> message(intent)
             is NoaIntent.AddNote -> addNote(intent)
@@ -192,15 +192,16 @@ class Noa(private val app: KartotekaApp) {
             NoaIntent.Channel.WHATSAPP -> "WhatsApp"; NoaIntent.Channel.TELEGRAM -> "Telegram"; NoaIntent.Channel.SMS -> "SMS"
         }
         val text = if (intent.aboutAppointment) confirmationText(pf) ?: intent.text.orEmpty() else intent.text.orEmpty()
-        NoaActions.pendingMessage = NoaActions.Message(pf.person.id, intent.channel, text)
-        Reply.Say2Open(t("Открываю %1\$s для %2\$s.", channelName, pf.person.displayName), personId = pf.person.id)
+        val m = NoaActions.Message(pf.person.id, intent.channel, text)
+        NoaActions.lastMessage = m
+        Reply.Do(t("Открываю %1\$s для %2\$s.", channelName, pf.person.displayName)) { ctx -> sendMessage(ctx, pf, m) }
     }
 
     private suspend fun addNote(intent: NoaIntent.AddNote): Reply {
         if (intent.text.isBlank()) return Reply.Say(t("Что записать в заметку?"))
         return withPerson(intent.personQuery) { pf ->
             repo.addJournal(JournalEntry(personId = pf.person.id, kind = "Заметка", text = intent.text))
-            Reply.Say2Open(t("Добавила в хронику %1\$s: «%2\$s».", pf.person.displayName, intent.text), personId = pf.person.id)
+            Reply.Say(t("Добавила в хронику %1\$s: «%2\$s».", pf.person.displayName, intent.text))
         }
     }
 
@@ -224,7 +225,7 @@ class Noa(private val app: KartotekaApp) {
                 val (id, reminders) = repo.saveAppointment(appt, clientOffsets, myOffsets)
                 lastAppointmentId = id
                 com.kartoteka.app.reminders.ReminderScheduler.schedule(app, reminders)
-                Reply.Say2Open(t("Готово, записала %1\$s.", pf.person.displayName), appointmentId = id)
+                Reply.Say(t("Готово, записала %1\$s.", pf.person.displayName))
             }
         }
     }
@@ -243,8 +244,50 @@ class Noa(private val app: KartotekaApp) {
             val first = stem(p.firstName.lowercase()); val nick = stem(p.nickname.lowercase())
             return if (q.any { stemMatch(it, first) || (nick.isNotEmpty() && stemMatch(it, nick)) }) 2 else 1
         }
-        return all.map { it to score(it.person) }.filter { it.second > 0 }
+        val exact = all.map { it to score(it.person) }.filter { it.second > 0 }
             .sortedByDescending { it.second }.map { it.first }
+        return exact.ifEmpty { fuzzy(query, all) }
+    }
+
+    /**
+     * Нечёткий поиск — когда распознавание речи исказило имя: «ильерикову» (имя и фамилия слитно),
+     * «Рыкову/Рикову», пропущенная буква. Сравниваем склеенные основы слов с вариантами имени по расстоянию правки.
+     */
+    private fun fuzzy(query: String, all: List<PersonFull>): List<PersonFull> {
+        val qj = query.lowercase().split(" ").filter { it.length > 1 }.joinToString("") { squash(stem(it)) }
+        if (qj.length < 3) return emptyList()
+        fun variants(p: Person): List<String> {
+            val f = squash(stem(p.firstName.lowercase())); val l = squash(stem(p.lastName.lowercase()))
+            val m = squash(stem(p.middleName.lowercase())); val n = squash(stem(p.nickname.lowercase()))
+            return listOf(f + l, l + f, f, l, n, n + l, f + m).filter { it.length >= 2 }.distinct()
+        }
+        return all.mapNotNull { pf ->
+            val best = variants(pf.person).minOfOrNull { v ->
+                val d = lev(qj, v)
+                if (d <= maxOf(1, (v.length * 0.3f).toInt())) d else Int.MAX_VALUE
+            } ?: Int.MAX_VALUE
+            if (best == Int.MAX_VALUE) null else pf to best
+        }.sortedBy { it.second }.let { list ->
+            // Один явный лучший — только он; иначе — несколько кандидатов на выбор.
+            val top = list.firstOrNull()?.second ?: return emptyList()
+            list.filter { it.second == top }.map { it.first }
+        }
+    }
+
+    /** Схлопываем двойные буквы («Ілля» → «иля»). */
+    private fun squash(w: String) = w.replace(Regex("(.)\\1+"), "$1")
+
+    private fun lev(a: String, b: String): Int {
+        val dp = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            var prev = dp[0]; dp[0] = i
+            for (j in 1..b.length) {
+                val tmp = dp[j]
+                dp[j] = minOf(dp[j] + 1, dp[j - 1] + 1, prev + if (a[i - 1] == b[j - 1]) 0 else 1)
+                prev = tmp
+            }
+        }
+        return dp[b.length]
     }
 
     /**
@@ -307,6 +350,39 @@ class Noa(private val app: KartotekaApp) {
         return AppointmentLogic.fill(template, af.appointment, pf.person, lang)
     }
 
+    /**
+     * Данные для модели по запросу: карточки упомянутых людей (или того, о ком говорили), план на сегодня и завтра.
+     * Так модель отвечает по вашей картотеке, а не выдумывает.
+     */
+    suspend fun contextFor(text: String): String {
+        val words = text.lowercase().split(Regex("[^\\p{L}]+")).filter { it.length > 2 }.map(::stem)
+        val all = repo.getAll()
+        val named = all.filter { pf ->
+            val p = pf.person
+            listOf(p.firstName, p.lastName, p.nickname).filter { it.length > 1 }.map { stem(it.lowercase()) }
+                .any { nw -> words.any { stemMatch(it, nw) && it.length >= 3 } }
+        }.take(2)
+        val people = named.ifEmpty { if (words.any { it in NoaParser.PRONOUNS }) listOfNotNull(lastPerson) else emptyList() }
+        val today = java.time.LocalDate.now()
+        suspend fun dayLine(d: java.time.LocalDate, label: String): String? {
+            val from = AppointmentLogic.millis(d.atStartOfDay()); val to = AppointmentLogic.millis(d.plusDays(1).atStartOfDay())
+            val list = repo.appointmentsBetween(from, to)
+                .filter { it.appointment.appointmentStatus != com.kartoteka.app.data.AppointmentStatus.CANCELLED }
+                .sortedBy { it.appointment.start }
+            if (list.isEmpty()) return null
+            return label + ": " + list.joinToString("; ") {
+                AppointmentLogic.timeText(AppointmentLogic.zoned(it.appointment.start)) + " " + it.person?.displayName.orEmpty() +
+                    it.appointment.title.takeIf { t -> t.isNotBlank() }?.let { t -> " ($t)" }.orEmpty()
+            }
+        }
+        return buildList {
+            people.forEach { add(cardText(it).take(500)) }
+            dayLine(today, t("Сегодня"))?.let(::add)
+            dayLine(today.plusDays(1), t("Завтра"))?.let(::add)
+            add(t("Людей в книжке: %1\$s", all.size))
+        }.joinToString("\n---\n")
+    }
+
     /** Имена из картотеки — подсказка модели, чтобы она называла людей так, как они записаны. */
     suspend fun knownNames(limit: Int = 60): List<String> =
         repo.getAll().sortedByDescending { it.person.lastContactAt ?: 0L }.take(limit).map { it.person.displayName }
@@ -326,4 +402,6 @@ object NoaActions {
     data class Message(val personId: Long, val channel: NoaIntent.Channel, val text: String)
     var pendingCall: String? = null
     var pendingMessage: Message? = null
+    /** Последнее подготовленное сообщение (для проверки и повтора). */
+    var lastMessage: Message? = null
 }

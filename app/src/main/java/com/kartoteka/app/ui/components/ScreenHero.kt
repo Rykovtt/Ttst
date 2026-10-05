@@ -69,9 +69,9 @@ import com.kartoteka.app.ui.theme.u
 
 /** Фон шапки: фото гор (фокус 60/40) + затемнения слева, снизу и общее — как на главном. */
 @Composable
-fun MountainBackdrop(modifier: Modifier = Modifier) {
+fun MountainBackdrop(modifier: Modifier = Modifier, key: String = "default") {
     Box(modifier) {
-        HeroImage(Modifier.matchParentSize())
+        HeroImage(Modifier.matchParentSize(), key = key)
         Box(
             Modifier.matchParentSize().drawBehind {
                 drawRect(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.75f), 0.6f to Color.Transparent))
@@ -97,13 +97,15 @@ fun ScreenHero(
     backDescription: String = t("Назад"),
     compact: Boolean = false,
     backgroundButton: Boolean = true,
+    /** Ключ фона: у каждого раздела свой (меняется кнопкой на шапке). */
+    backgroundKey: String = title,
     actions: @Composable RowScope.() -> Unit = {},
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val pad = u(PeopleDims.HeaderPad)
     StatusBarOverDark(true)
     Box(modifier.fillMaxWidth().clip(PeopleShapes.header()).background(RvColors.HeaderBottom)) {
-        MountainBackdrop(Modifier.matchParentSize())
+        MountainBackdrop(Modifier.matchParentSize(), key = backgroundKey)
         Column(Modifier.fillMaxWidth().statusBarsPadding().padding(bottom = u(34))) {
             Row(
                 Modifier.fillMaxWidth().padding(start = pad - u(8), end = pad - u(8), top = u(PeopleDims.ControlsTop) - 6.dp),
@@ -111,7 +113,7 @@ fun ScreenHero(
             ) {
                 if (onBack != null) HeroButton(backIcon, backDescription, onBack)
                 Spacer(Modifier.weight(1f))
-                if (backgroundButton) HeroBackgroundButton(Modifier.padding(end = 10.dp))
+                if (backgroundButton) HeroBackgroundButton(backgroundKey, Modifier.padding(end = 10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, content = actions)
             }
             Row(

@@ -87,7 +87,7 @@ fun StatsScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
     Column(
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
     ) {
-        ScreenHero(t("Статистика"), onBack = onBack, subtitle = t("Встречи, люди и напоминания за период")) {
+        ScreenHero(t("Статистика"), backgroundKey = "stats", onBack = onBack, subtitle = t("Встречи, люди и напоминания за период")) {
             HeroChipRow {
                 listOf(
                     StatsLogic.Period.MONTH to t("Этот месяц"),

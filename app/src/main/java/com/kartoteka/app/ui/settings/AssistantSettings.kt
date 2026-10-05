@@ -106,7 +106,9 @@ private fun BrainModelRow() {
     var has by remember { mutableStateOf(brain.hasModel()) }
     var dl by remember { mutableStateOf(brain.syncDownload()) }
     var importing by remember { mutableStateOf(-1) }
-    var confirm by remember { mutableStateOf(false) }
+    var confirm by remember { mutableStateOf<LlmBrain.Model?>(null) }
+    val ram = remember { brain.ramGb() }
+    fun sizeGb(m: LlmBrain.Model) = "%.1f".format(m.bytes / 1e9)
 
     // Следим за загрузкой, пока открыт экран; по окончании модель подключается сама.
     LaunchedEffect(dl is LlmBrain.Download.Running) {
@@ -151,7 +153,23 @@ private fun BrainModelRow() {
             }
         }
         has -> {
-            ActionRow(Icons.Default.AutoAwesome, t("Модель установлена"), t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb())) {}
+            val m = brain.installed()
+            ActionRow(
+                Icons.Default.AutoAwesome, t("Модель установлена: %1\$s", m?.title ?: t("своя")),
+                t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb()),
+            ) {}
+            if (m == LlmBrain.Model.FAST) {
+                ActionRow(
+                    Icons.Default.Download, t("Перейти на умную модель"),
+                    t("%1\$s — заметно умнее, ~%2\$s ГБ. В телефоне %3\$s ГБ памяти (нужно от %4\$s).",
+                        LlmBrain.Model.SMART.title, sizeGb(LlmBrain.Model.SMART), "%.0f".format(ram), LlmBrain.Model.SMART.minRamGb),
+                ) { confirm = LlmBrain.Model.SMART }
+            }
+            if (m == LlmBrain.Model.SMART) {
+                ActionRow(Icons.Default.Download, t("Перейти на быструю модель"), t("%1\$s — легче и быстрее, ~%2\$s ГБ.", LlmBrain.Model.FAST.title, sizeGb(LlmBrain.Model.FAST))) {
+                    confirm = LlmBrain.Model.FAST
+                }
+            }
             ActionRow(Icons.Default.Delete, t("Удалить модель"), t("Освободить место")) {
                 brain.deleteModel(); has = false
             }
@@ -165,31 +183,38 @@ private fun BrainModelRow() {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            ActionRow(Icons.Default.Download, t("Скачать модель"), t("Один раз, ~1.6 ГБ. Лучше по Wi‑Fi. Дальше работает без интернета.")) {
-                confirm = true
-            }
+            val smartOk = ram >= LlmBrain.Model.SMART.minRamGb - 0.6
+            ActionRow(
+                Icons.Default.AutoAwesome, t("Скачать умную модель") + if (smartOk) " · " + t("рекомендуется") else "",
+                t("%1\$s, ~%2\$s ГБ. Лучше понимает речь и отвечает по вашим данным. В телефоне %3\$s ГБ памяти (нужно от %4\$s).",
+                    LlmBrain.Model.SMART.title, sizeGb(LlmBrain.Model.SMART), "%.0f".format(ram), LlmBrain.Model.SMART.minRamGb),
+            ) { confirm = LlmBrain.Model.SMART }
+            ActionRow(
+                Icons.Default.Download, t("Скачать быструю модель") + if (!smartOk) " · " + t("рекомендуется") else "",
+                t("%1\$s, ~%2\$s ГБ. Легче и быстрее, для любого телефона.", LlmBrain.Model.FAST.title, sizeGb(LlmBrain.Model.FAST)),
+            ) { confirm = LlmBrain.Model.FAST }
             ActionRow(Icons.Default.FileOpen, t("Свой файл модели"), t("Для опытных: файл .task с телефона")) {
                 pick.launch(arrayOf("*/*"))
             }
         }
     }
 
-    if (confirm) {
+    confirm?.let { model ->
         AlertDialog(
-            onDismissRequest = { confirm = false },
-            title = { Text(t("Скачать модель")) },
-            text = { Text(t("Будет скачано около 1.6 ГБ. Загрузка идёт в фоне — можно пользоваться телефоном и закрыть приложение. Когда закончится, умный режим включится сам.")) },
+            onDismissRequest = { confirm = null },
+            title = { Text(t("Скачать %1\$s", model.title)) },
+            text = { Text(t("Будет скачано около %1\$s ГБ. Загрузка идёт в фоне — можно пользоваться телефоном и закрыть приложение. Когда закончится, умный режим включится сам.", sizeGb(model))) },
             confirmButton = {
                 TextButton(onClick = {
-                    confirm = false
+                    confirm = null
                     when {
-                        !brain.enoughSpace() -> android.widget.Toast.makeText(context, t("Не хватает места: нужно около 1.8 ГБ свободной памяти"), android.widget.Toast.LENGTH_LONG).show()
-                        brain.startDownload() -> dl = brain.syncDownload()
+                        !brain.enoughSpace(model) -> android.widget.Toast.makeText(context, t("Не хватает места: нужно около %1\$s ГБ свободной памяти", "%.1f".format(model.bytes / 1e9 + 0.2)), android.widget.Toast.LENGTH_LONG).show()
+                        brain.startDownload(model) -> dl = brain.syncDownload()
                         else -> android.widget.Toast.makeText(context, t("Не удалось скачать модель"), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }) { Text(t("Скачать")) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text(t("Отмена")) } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(t("Отмена")) } },
         )
     }
 }
