@@ -17,8 +17,8 @@ data class Interpreted(val intent: NoaIntent?, val reply: String?)
  */
 class NoaInterpreter(private val brain: LlmBrain?) {
 
-    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList(), context: String = ""): Interpreted? {
-        val raw = brain?.ask(prompt(userText, now, names, context)) ?: return null
+    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList(), context: String = "", history: String = ""): Interpreted? {
+        val raw = brain?.ask(prompt(userText, now, names, context, history)) ?: return null
         return runCatching { fromJson(raw, userText, now) }.getOrNull()
     }
 
@@ -235,12 +235,14 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         else -> null
     }
 
-    private fun prompt(user: String, now: LocalDateTime, names: List<String>, context: String = ""): String {
+    private fun prompt(user: String, now: LocalDateTime, names: List<String>, context: String = "", history: String = ""): String {
         val people = names.take(if (context.isBlank()) 30 else 15).joinToString(", ").ifBlank { "—" }
         val data = if (context.isBlank()) "" else "\nData:\n$context"
+        // Пара последних реплик — чтобы модель поняла «а ему то же», «а когда?»; обрезаем, чтобы не раздувать окно.
+        val hist = history.trim().takeIf { it.isNotBlank() }?.let { "\nEarlier:\n${it.take(240)}" }.orEmpty()
         val date = "%04d-%02d-%02d %s".format(now.year, now.monthValue, now.dayOfMonth, now.dayOfWeek.name.lowercase())
         return staticPrompt(langFor(user)) +
-            "\nPeople: $people$data\nToday: $date\nCommand: \"${user.replace("\"", "'")}\"\nJSON:"
+            "\nPeople: $people$data$hist\nToday: $date\nCommand: \"${user.replace("\"", "'")}\"\nJSON:"
     }
 
     companion object {

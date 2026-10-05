@@ -159,6 +159,10 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         deferredNav?.invoke(); deferredNav = null
     }
 
+    /** Последний обмен (моя реплика и фраза человека до текущей) — короткая память для модели. */
+    private fun recentDialogue(): String =
+        bubbles.dropLast(1).takeLast(2).joinToString("\n") { (if (it.mine) "User" else "Noa") + ": " + it.text }
+
     fun send(textRaw: String, voice: Boolean = false) {
         val text = textRaw.trim()
         if (text.isBlank()) return
@@ -192,7 +196,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         else {
                             val smart = if (brainReady) runCatching {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    interpreter.interpret(text, names = noa.knownNames(), context = noa.contextFor(text))
+                                    interpreter.interpret(text, names = noa.knownNames(), context = noa.contextFor(text), history = recentDialogue())
                                 }
                             }.getOrNull() else null
                             when {
