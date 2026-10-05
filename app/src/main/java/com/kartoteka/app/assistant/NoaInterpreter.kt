@@ -13,21 +13,43 @@ data class Interpreted(val intent: NoaIntent?, val reply: String?)
  */
 class NoaInterpreter(private val brain: LlmBrain?) {
 
-    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now()): Interpreted? {
-        val raw = brain?.ask(prompt(userText, now)) ?: return null
+    suspend fun interpret(userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList()): Interpreted? {
+        val raw = brain?.ask(prompt(userText, now, names)) ?: return null
         return fromJson(raw, userText, now)
     }
 
-    /** Разбор ответа модели в команду (чистая логика, тестируется отдельно). */
+    /** Разбор ответа модели в команду (чистая логика, тестируется отдельно). Понимает и список действий. */
     fun fromJson(raw: String, userText: String, now: LocalDateTime = LocalDateTime.now()): Interpreted? {
         val json = extractJson(raw) ?: return null
         val o = runCatching { JSONObject(json) }.getOrNull() ?: return null
+        val reply = o.optString("reply").trim().ifBlank { null }
+        val arr = o.optJSONArray("actions")
+        if (arr != null && arr.length() > 0) {
+            var person = ""
+            val steps = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull { a ->
+                val step = action(a, userText, now) ?: return@mapNotNull null
+                val p = NoaParser.personOf(step)
+                if (p.isNotBlank()) { person = p; step } else NoaParser.withPerson(step, person)
+            }
+            return when {
+                steps.size > 1 -> Interpreted(NoaIntent.Sequence(steps), reply)
+                steps.size == 1 -> Interpreted(steps[0], reply)
+                reply != null -> Interpreted(null, reply)
+                else -> null
+            }
+        }
+        val action = o.optString("action").lowercase().trim()
+        val intent = action(o, userText, now)
+        // Разговор без действия: отвечаем репликой модели.
+        if (intent == null && action != "chat" && reply == null) return null
+        return Interpreted(intent, reply)
+    }
+
+    private fun action(o: JSONObject, userText: String, now: LocalDateTime): NoaIntent? {
         val action = o.optString("action").lowercase().trim()
         val person = o.optString("person").trim()
-        val reply = o.optString("reply").trim().ifBlank { null }
         fun str(key: String) = o.optString(key).trim().ifBlank { null }
-
-        val intent: NoaIntent? = when (action) {
+        return when (action) {
             "create_appointment" -> {
                 val dt = NoaDateTime.parse(userText, now)
                 NoaIntent.CreateAppointment(person, dt?.dateTime, dt?.hadTime ?: false, str("service")?.lowercase(), false)
@@ -38,14 +60,40 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             "find" -> NoaIntent.Find(str("query") ?: person)
             "open_person" -> NoaIntent.Open(person)
             "open_screen" -> section(str("section"))?.let { NoaIntent.OpenScreen(it) }
+            "open_contact" -> contactType(str("contact"))?.let { NoaIntent.OpenContact(person, it) }
+            "route" -> NoaIntent.Route(person, when (str("place")?.lowercase()) {
+                "home" -> com.kartoteka.app.data.PlaceKind.HOME
+                "work" -> com.kartoteka.app.data.PlaceKind.WORK
+                else -> null
+            })
+            "agenda" -> NoaIntent.Agenda(
+                NoaDateTime.parse(userText, now)?.dateTime?.toLocalDate()
+                    ?: if (str("day") == "tomorrow") now.toLocalDate().plusDays(1) else now.toLocalDate()
+            )
+            "person_info" -> NoaIntent.PersonInfo(person, when (str("topic")?.lowercase()) {
+                "birthday" -> NoaIntent.Topic.BIRTHDAY
+                "phone" -> NoaIntent.Topic.PHONE
+                "address" -> NoaIntent.Topic.ADDRESS
+                else -> NoaIntent.Topic.SUMMARY
+            }, str("question") ?: userText)
+            "favorite" -> NoaIntent.Favorite(person, o.optBoolean("on", true))
             "lock" -> NoaIntent.Lock
             "backup" -> NoaIntent.Backup
-            "chat" -> null
             else -> null
         }
-        // Разговор без действия: отвечаем репликой модели.
-        if (intent == null && action != "chat" && reply == null) return null
-        return Interpreted(intent, reply)
+    }
+
+    private fun contactType(s: String?): com.kartoteka.app.data.ContactType? = when (s?.lowercase()) {
+        "instagram" -> com.kartoteka.app.data.ContactType.INSTAGRAM
+        "facebook" -> com.kartoteka.app.data.ContactType.FACEBOOK
+        "viber" -> com.kartoteka.app.data.ContactType.VIBER
+        "email", "mail" -> com.kartoteka.app.data.ContactType.EMAIL
+        "website", "site" -> com.kartoteka.app.data.ContactType.WEBSITE
+        "vk" -> com.kartoteka.app.data.ContactType.VK
+        "telegram" -> com.kartoteka.app.data.ContactType.TELEGRAM
+        "whatsapp" -> com.kartoteka.app.data.ContactType.WHATSAPP
+        "phone" -> com.kartoteka.app.data.ContactType.PHONE
+        else -> null
     }
 
     private fun channel(s: String?): NoaIntent.Channel = when (s?.lowercase()) {
@@ -78,20 +126,32 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         return null
     }
 
-    private fun prompt(user: String, now: LocalDateTime): String {
+    private fun prompt(user: String, now: LocalDateTime, names: List<String>): String {
         val date = "%04d-%02d-%02d".format(now.year, now.monthValue, now.dayOfMonth)
+        val lang = when (com.kartoteka.app.i18n.I18n.lang) {
+            com.kartoteka.app.i18n.UiLang.UK -> "українською"
+            com.kartoteka.app.i18n.UiLang.EN -> "in English"
+            else -> "по-русски"
+        }
+        val people = names.take(60).joinToString(", ").ifBlank { "—" }
         return """
-            Ты — Ноа, ассистент в приложении-архиве контактов. Преобразуй запрос пользователя в ОДНУ строку JSON без пояснений.
-            Поля:
-            action: одно из [create_appointment, call, message, add_note, find, open_person, open_screen, lock, backup, chat]
-            person: имя человека как в запросе (или "")
-            service: тату | консультация | маникюр | стрижка | ""
-            channel: whatsapp | sms | telegram
-            section: people | calendar | map | broadcast | settings | services
-            text: текст заметки или сообщения
-            query: что искать
-            reply: короткий дружелюбный ответ по-русски
-            Если это обычный разговор, а не команда — action="chat" и ответь в reply.
+            Ты — голосовой ассистент в личной записной книжке людей. Переведи запрос в JSON. Только JSON, без пояснений.
+            Формат: {"actions":[{...},{...}],"reply":"короткий ответ $lang"}
+            Действия (поле action):
+            create_appointment {person, service}; call {person}; message {person, channel: whatsapp|telegram|sms, text};
+            add_note {person, text}; open_person {person}; find {query};
+            open_contact {person, contact: instagram|facebook|viber|email|website|telegram|whatsapp};
+            route {person, place: home|work|""}; agenda {day: today|tomorrow};
+            person_info {person, topic: birthday|phone|address|summary, question};
+            favorite {person, on: true|false}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
+            Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек. Обычный разговор — "actions":[] и ответ в reply.
+            Люди в книжке: $people
+            Примеры:
+            «зайди в профиль Ани и добавь заметку купила новый телефон» → {"actions":[{"action":"open_person","person":"Аня"},{"action":"add_note","person":"Аня","text":"купила новый телефон"}],"reply":"Готово"}
+            «відкрий інстаграм Олега» → {"actions":[{"action":"open_contact","person":"Олег","contact":"instagram"}],"reply":"Відкриваю"}
+            «проклади маршрут до мами на роботу» → {"actions":[{"action":"route","person":"мама","place":"work"}],"reply":"Прокладаю"}
+            «що в мене завтра» → {"actions":[{"action":"agenda","day":"tomorrow"}],"reply":""}
+            «коли день народження в Ілля» → {"actions":[{"action":"person_info","person":"Ілля","topic":"birthday","question":"коли день народження"}],"reply":""}
             Сегодня: $date.
             Запрос: "${user.replace("\"", "'")}"
             JSON:

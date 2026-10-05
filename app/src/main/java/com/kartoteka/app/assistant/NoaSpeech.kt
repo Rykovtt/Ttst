@@ -126,12 +126,24 @@ object NoaVoice {
         }
     }
 
-    fun speak(context: Context, text: String) {
-        runCatching {
+    private var onDone: (() -> Unit)? = null
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /** Сказать вслух; [done] — когда договорит (или сразу, если озвучка недоступна). */
+    fun speak(context: Context, text: String, done: (() -> Unit)? = null) {
+        val ok = runCatching {
             init(context)
             applyVoice()
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "noa")
-        }
+            onDone = done
+            tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) = Unit
+                override fun onDone(utteranceId: String?) { val d = onDone; onDone = null; if (d != null) main.post(d) }
+                @Deprecated("Deprecated in Java")
+                override fun onError(utteranceId: String?) { val d = onDone; onDone = null; if (d != null) main.post(d) }
+            })
+            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "noa") == TextToSpeech.SUCCESS
+        }.getOrDefault(false)
+        if (!ok && done != null) { onDone = null; main.post(done) }
     }
 
     fun stop() { tts?.runCatching { stop() } }

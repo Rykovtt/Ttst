@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.groups
 
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.background
 import com.kartoteka.app.ui.components.HeroButton
 import com.kartoteka.app.ui.components.HeroPillButton
@@ -73,7 +75,7 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
     var adding by remember { mutableStateOf(false) }
 
     val g = group ?: return
-    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 32.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
             item {
                 ScreenHero(
                     g.name,

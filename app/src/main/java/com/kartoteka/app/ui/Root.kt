@@ -157,7 +157,7 @@ fun KartotekaRoot(
     val hasToday = todayAppts.any { it.appointment.appointmentStatus == com.kartoteka.app.data.AppointmentStatus.PLANNED }
 
     LaunchedEffect(openNoa) {
-        if (openNoa) { nav.navigate(Routes.NOA); onNoaOpened() }
+        if (openNoa) { nav.navigate(Routes.NOA) { launchSingleTop = true }; onNoaOpened() }
     }
     LaunchedEffect(openPersonId) {
         if (openPersonId != null) {

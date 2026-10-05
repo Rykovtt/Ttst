@@ -63,19 +63,22 @@
 
         <!-- Варианты значка и названия на рабочем столе. Включён ровно один (см. AppIcons). -->
         <!-- Отдельная иконка ассистента «Ноа» на рабочем столе (включается в настройках). -->
-        <activity-alias
+<activity
             android:name=".assistant.NoaLauncher"
             android:enabled="false"
             android:exported="true"
-            android:icon="@mipmap/ic_launcher"
+            android:excludeFromRecents="true"
+            android:icon="@mipmap/ic_launcher_noa"
             android:label="@string/noa_label"
-            android:targetActivity=".MainActivity">
+            android:noHistory="true"
+            android:roundIcon="@mipmap/ic_launcher_noa"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <meta-data android:name="open_noa" android:value="true" />
-        </activity-alias>
+        </activity>
 
         <activity-alias
             android:name=".alias.Default"

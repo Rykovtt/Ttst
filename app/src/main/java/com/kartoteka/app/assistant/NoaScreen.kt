@@ -73,6 +73,11 @@ import kotlinx.coroutines.launch
 
 private data class Bubble(val text: String, val mine: Boolean)
 
+/** Ноа открыли ярлыком с рабочего стола — начать слушать сразу. */
+object NoaLaunch {
+    var listenOnOpen by androidx.compose.runtime.mutableStateOf(false)
+}
+
 /** Экран ассистента Ноа: голос и текст. [onOpenPerson]/[onOpenAppointment] — переход по результату. */
 @Composable
 fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointment: (Long) -> Unit, onNavigate: (NoaIntent.Section) -> Unit = {}) {
@@ -99,12 +104,23 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     var pendingYes by remember { mutableStateOf<(suspend () -> Noa.Reply)?>(null) }
     val listState = rememberLazyListState()
 
-    fun say(text: String) {
+    // Голосовой диалог: если спрашиваем «да/нет» или «кого именно», а человек говорил голосом — снова слушаем.
+    var byVoice by remember { mutableStateOf(false) }
+    var listenAgain by remember { mutableStateOf(0) }
+
+    fun say(text: String, expectAnswer: Boolean = false) {
         bubbles.add(Bubble(text, mine = false))
-        if (voiceOn) NoaVoice.speak(context, text)
+        val again = expectAnswer && byVoice
+        if (voiceOn) NoaVoice.speak(context, text) { if (again) listenAgain++ }
+        else if (again) listenAgain++
     }
 
+    // Переход на экран в цепочке откладываем до конца: экран Ноа должен дожить до последнего шага.
+    var deferredNav: (() -> Unit)? = null
+    var chain = false
+
     suspend fun apply(reply: Noa.Reply) {
+        fun go(block: () -> Unit) { if (chain) deferredNav = block else block() }
         when (reply) {
             is Noa.Reply.Say -> say(reply.text)
             is Noa.Reply.Say2Open -> {
@@ -115,18 +131,42 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                     sendMessage(context, pf, m)
                     NoaActions.pendingMessage = null
                 }
-                reply.personId?.let(onOpenPerson)
-                reply.appointmentId?.let(onOpenAppointment)
+                reply.personId?.let { id -> go { onOpenPerson(id) } }
+                reply.appointmentId?.let { id -> go { onOpenAppointment(id) } }
             }
-            is Noa.Reply.Choose -> { say(reply.text); pendingYes = null }
-            is Noa.Reply.Navigate -> { say(reply.text); onNavigate(reply.section) }
-            is Noa.Reply.Confirm -> { say(reply.text + "  " + t("Скажите «да» или «нет».")); pendingYes = reply.onYes }
+            is Noa.Reply.Do -> { say(reply.text); runCatching { reply.effect(context) } }
+            is Noa.Reply.Choose -> { say(reply.text, expectAnswer = true); pendingYes = null }
+            is Noa.Reply.Navigate -> { say(reply.text); go { onNavigate(reply.section) } }
+            is Noa.Reply.Confirm -> { say(reply.text + "  " + t("Скажите «да» или «нет»."), expectAnswer = true); pendingYes = reply.onYes }
         }
     }
 
-    fun send(textRaw: String) {
+    /** Выполнить команду; цепочку — по шагам. Подтверждение ставит цепочку на паузу до «да». */
+    suspend fun run(intent: NoaIntent) {
+        val steps = (intent as? NoaIntent.Sequence)?.steps ?: listOf(intent)
+        chain = steps.size > 1
+        deferredNav = null
+        for ((i, step) in steps.withIndex()) {
+            val reply = noa.handleIntent(step)
+            if (reply is Noa.Reply.Confirm && i < steps.lastIndex) {
+                val rest = NoaIntent.Sequence(steps.drop(i + 1))
+                apply(reply)
+                val onYes = reply.onYes
+                pendingYes = { val r = onYes(); apply(r); run(rest); Noa.Reply.Say("") }
+                deferredNav?.invoke(); deferredNav = null
+                return
+            }
+            apply(reply)
+            if (reply is Noa.Reply.Choose || reply is Noa.Reply.Confirm) break
+        }
+        chain = false
+        deferredNav?.invoke(); deferredNav = null
+    }
+
+    fun send(textRaw: String, voice: Boolean = false) {
         val text = textRaw.trim()
         if (text.isBlank()) return
+        byVoice = voice
         bubbles.add(Bubble(text, mine = true))
         input = ""
         val yes = pendingYes
@@ -134,17 +174,19 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
             thinking = true
             runCatching {
                 when {
-                    yes != null && isYes(text) -> { pendingYes = null; apply(yes()) }
+                    yes != null && isYes(text) -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
                     yes != null && isNo(text) -> { pendingYes = null; say(t("Хорошо, отменила.")) }
                     else -> {
                         pendingYes = null
-                        // Сначала «мозг» (Gemini Nano), если включён и готов; иначе — быстрые команды.
-                        val smart = if (brainReady) runCatching { interpreter.interpret(text) }.getOrNull() else null
-                        if (smart != null) {
-                            if (smart.intent != null) apply(noa.handleIntent(smart.intent))
-                            else say(smart.reply ?: t("Не поняла команду."))
-                        } else {
-                            apply(noa.handle(text))
+                        // Правила понимают короткие команды мгновенно; модель — свободную речь и цепочки.
+                        val rules = NoaParser.parse(text)
+                        val smart = if (brainReady) runCatching { interpreter.interpret(text, names = noa.knownNames()) }.getOrNull() else null
+                        val intent = smart?.intent
+                        when {
+                            intent != null && !(rules is NoaIntent.Sequence && intent !is NoaIntent.Sequence) -> run(intent)
+                            rules !is NoaIntent.Unknown -> run(rules)
+                            smart?.reply != null -> say(smart.reply)
+                            else -> run(rules)
                         }
                     }
                 }
@@ -155,13 +197,13 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     }
 
     val askMic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) startListening(listener, { listening = it; if (!it) { level = 0f; partial = "" } }, { level = it }, { partial = it }) { send(it) }
+        if (ok) startListening(listener, { listening = it; if (!it) { level = 0f; partial = "" } }, { level = it }, { partial = it }) { send(it, voice = true) }
         else say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
     }
 
     LaunchedEffect(Unit) {
         if (voiceOn) NoaVoice.init(context)
-        if (bubbles.isEmpty()) bubbles.add(Bubble(t("Привет! Я %1\$s. Скажите или напишите, что сделать: записать человека, позвонить, найти, добавить заметку.", name), mine = false))
+        if (bubbles.isEmpty()) bubbles.add(Bubble(t("Привет! Я %1\$s. Могу записать человека, позвонить, проложить маршрут, открыть его инстаграм, добавить заметку, рассказать, что у вас сегодня, — и выполнить несколько команд подряд.", name), mine = false))
     }
     // Готовим мозг в фоне и показываем его состояние, чтобы было видно, работает ли ИИ.
     LaunchedEffect(brainOn) {
@@ -182,6 +224,17 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
             else -> bubbles.add(Bubble(t("Не удалось запустить умный режим — работают быстрые команды.") + "\n" + app.brain.detail, mine = false))
         }
     }
+    // Запуск с ярлыка «Ассистент» — сразу слушаем, как голосовой помощник.
+    LaunchedEffect(NoaLaunch.listenOnOpen) {
+        if (NoaLaunch.listenOnOpen) {
+            NoaLaunch.listenOnOpen = false
+            kotlinx.coroutines.delay(350)
+            if (NoaListener(context).available()) askMic.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+    LaunchedEffect(listenAgain) {
+        if (listenAgain > 0 && !listening && NoaListener(context).available()) askMic.launch(Manifest.permission.RECORD_AUDIO)
+    }
     LaunchedEffect(bubbles.size) { if (bubbles.isNotEmpty()) listState.animateScrollToItem(bubbles.lastIndex) }
     DisposableEffect(Unit) { onDispose { listener.stop(); NoaVoice.stop() } }
 
@@ -194,9 +247,10 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     val compact = bubbles.size > 2
     val orbSize by animateDpAsState(if (compact) 96.dp else 210.dp, motion(Motion.EMPHASIZED), label = "orbSize")
     val examples = listOf(
-        t("Запиши Анну на завтра в 12:00"),
-        t("Позвони маме"),
-        t("Открой календарь"),
+        t("Что у меня сегодня?"),
+        t("Зайди в профиль Ани и добавь заметку: любит латте"),
+        t("Проложи маршрут к маме"),
+        t("Открой инстаграм Олега"),
     )
 
     // Тёмный экран как плитка «Ноа» на главном: шапка с горами, сфера, стеклянные реплики.

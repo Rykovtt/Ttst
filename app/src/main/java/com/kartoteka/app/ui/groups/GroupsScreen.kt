@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.groups
 
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.itemsIndexed
 import com.kartoteka.app.ui.animations.pressScale
 import com.kartoteka.app.ui.components.HeroButton
@@ -76,7 +78,7 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Group?>(null) }
 
-    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
         item {
             ScreenHero(
                 t("Группы"),

@@ -53,10 +53,11 @@ class NoaExecutorTest {
         assertTrue((call as Noa.Reply.Say).text.contains("номера"))
     }
 
-    @Test fun addsNoteAfterConfirmation() = runBlocking {
+    @Test fun addsNoteRightAway() = runBlocking {
         seed()
-        val reply = Noa(app).handle("добавь заметку Ане «переехала во Львов»", now) as Noa.Reply.Confirm
-        reply.onYes()
+        // Заметка добавляется сразу (её можно удалить в хронике) и открывается карточка человека.
+        val reply = Noa(app).handle("добавь заметку Ане «переехала во Львов»", now) as Noa.Reply.Say2Open
+        assertTrue(reply.personId != null)
         val anya = app.repository.getAll().first { it.person.nickname == "Аня" }
         assertEquals(1, anya.journal.size)
         assertEquals("переехала во Львов", anya.journal[0].text)
@@ -73,5 +74,23 @@ class NoaExecutorTest {
     @Test fun unknownCommandIsHandledGracefully() = runBlocking {
         val r = Noa(app).handle("расскажи анекдот", now)
         assertTrue(r is Noa.Reply.Say)
+    }
+
+    @Test fun instagramRouteInfoAndLastPerson() = runBlocking {
+        app.repository.savePerson(
+            Person(firstName = "Олег", birthDay = 7, birthMonth = 10, birthYear = 1990),
+            listOf(ContactItem(type = "INSTAGRAM", value = "oleg.ig"), ContactItem(type = "PHONE", value = "+380671234567")),
+            emptyList(), emptyList(),
+        )
+        val noa = Noa(app)
+        assertTrue(noa.handle("відкрий інстаграм Олега", now) is Noa.Reply.Do)
+        // Адреса нет — честно говорим об этом, а не открываем пустую карту.
+        assertTrue(noa.handle("проклади маршрут до Олега", now) is Noa.Reply.Say)
+        val bd = noa.handle("коли день народження в Олега", now)
+        assertTrue("reply=$bd", bd is Noa.Reply.Say2Open && bd.text.contains("7"))
+        // «ей/йому» — тот же человек, что в прошлой команде.
+        val phone = noa.handle("який номер у нього", now) as Noa.Reply.Say
+        assertTrue(phone.text.contains("67"))
+        assertTrue(noa.handle("що в мене завтра", now) is Noa.Reply.Say)
     }
 }

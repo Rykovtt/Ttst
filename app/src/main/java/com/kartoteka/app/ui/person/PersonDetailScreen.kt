@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.person
 
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import com.kartoteka.app.i18n.t
 
 import androidx.compose.foundation.background
@@ -233,7 +235,7 @@ fun PersonDetailScreen(
     val p = pf.person
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.fillMaxSize()) {
+        LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") {
                 Column(Modifier.fillMaxWidth().clip(com.kartoteka.app.ui.theme.PeopleShapes.header()).background(com.kartoteka.app.ui.theme.RvColors.HeaderBottom)) {
                     Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) })

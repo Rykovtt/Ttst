@@ -43,6 +43,9 @@ class LlmBrain(context: Context) {
 
     val supported: Boolean get() = true
 
+    /** Модель загружена в движок и отвечает. */
+    val isReady: Boolean get() = llm != null
+
     /** Текущий файл модели (свой выбранный файл в приоритете). */
     val modelFile: File?
         get() = importedFile.takeIf { it.big() } ?: downloadedFile?.takeIf { it.big() }
@@ -162,7 +165,7 @@ class LlmBrain(context: Context) {
         val ok = runCatching {
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(file.absolutePath)
-                .setMaxTokens(1024)
+                .setMaxTokens(1280)
                 .setMaxTopK(40)
                 .build()
             llm = LlmInference.createFromOptions(app, options)

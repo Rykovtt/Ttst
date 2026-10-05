@@ -1,5 +1,6 @@
 package com.kartoteka.app.ui.stats
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.border
 import com.kartoteka.app.ui.components.CategoryChip
 import com.kartoteka.app.ui.components.HeroChipRow
@@ -84,7 +85,7 @@ fun StatsScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
     val r = remember(appts, people, period) { StatsLogic.compute(period, appts, people) }
 
     Column(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
     ) {
         ScreenHero(t("Статистика"), onBack = onBack, subtitle = t("Встречи, люди и напоминания за период")) {
             HeroChipRow {
