@@ -90,13 +90,20 @@ private val noise: ImageBitmap by lazy {
 fun CustomBottomNavigation(items: List<NavItem>, selected: String?, menuOpen: Boolean, onSelect: (NavItem) -> Unit, onFab: () -> Unit) {
     val haptics = rememberHaptics()
     val shape = PeopleShapes.nav()
+    val cornerDp = u(PeopleDims.NavRadius)
     Box(Modifier.fillMaxWidth()) {
         Box(
             Modifier.matchParentSize()
                 .drawBehind {
-                    // Тень 0 −8 30 #00000025 над панелью.
+                    // Тень 0 −8 30 #00000025 над панелью. Продолжаем её вниз под скруглёнными углами,
+                    // иначе в углах остаётся фон без тени — «светлые треугольники».
                     val h = 30.dp.toPx()
-                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, RvColors.NavShadow), startY = -h - 8.dp.toPx(), endY = 0f), topLeft = Offset(0f, -h - 8.dp.toPx()), size = size.copy(height = h + 8.dp.toPx()))
+                    val top = -h - 8.dp.toPx()
+                    val corner = cornerDp.toPx()
+                    drawRect(
+                        Brush.verticalGradient(listOf(Color.Transparent, RvColors.NavShadow), startY = top, endY = 0f),
+                        topLeft = Offset(0f, top), size = size.copy(height = -top + corner),
+                    )
                 }
                 .clip(shape).background(RvColors.NavBg)
                 .drawBehind { drawRect(ShaderBrush(ImageShader(noise, TileMode.Repeated, TileMode.Repeated))) }

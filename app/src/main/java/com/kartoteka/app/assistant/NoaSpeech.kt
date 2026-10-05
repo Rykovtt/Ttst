@@ -79,6 +79,9 @@ class NoaListener(private val context: Context) {
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, NoaVoice.localeTag())
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
         runCatching { r.startListening(intent) }.onFailure { finish { safe { cb.onError(null) } } }
     }
 
@@ -116,15 +119,26 @@ object NoaVoice {
         val engine = tts ?: return
         runCatching {
             engine.language = locale()
-            // Выбираем женский голос, если система его помечает.
-            val female = engine.voices?.filter { it.locale.language == locale().language && !it.isNetworkConnectionRequired }
-                ?.firstOrNull { v -> v.name.contains("female", true) || v.features?.any { it.contains("female", true) } == true }
-                ?: engine.voices?.firstOrNull { it.locale.language == locale().language && it.quality >= Voice.QUALITY_NORMAL }
-            if (female != null) engine.voice = female
-            engine.setPitch(1.05f)
-            engine.setSpeechRate(1.0f)
+            // Самый качественный установленный голос языка (без интернета); при равенстве — с меньшей задержкой.
+            val best = engine.voices
+                ?.filter { it.locale.language == locale().language && !it.isNetworkConnectionRequired &&
+                    it.features?.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) != true }
+                ?.sortedWith(compareByDescending<Voice> { it.quality }.thenBy { it.latency })
+                ?.firstOrNull()
+            if (best != null) engine.voice = best
+            engine.setPitch(1.0f)
+            engine.setSpeechRate(1.03f)
         }
     }
+
+    /** То, что читаем вслух: без эмодзи, кавычек-ёлочек и служебных символов. */
+    fun spoken(text: String): String = text
+        .replace(Regex("[\\p{So}\\p{Cn}\\x{1F000}-\\x{1FAFF}\\x{2600}-\\x{27BF}\\x{FE0F}]"), "")
+        .replace(Regex("[«»\"“”•]"), "")
+        .replace(Regex("\\s+"), " ").trim()
+
+    @Volatile var speaking = false
+        private set
 
     private var onDone: (() -> Unit)? = null
     private val main = android.os.Handler(android.os.Looper.getMainLooper())
@@ -136,17 +150,104 @@ object NoaVoice {
             applyVoice()
             onDone = done
             tts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) = Unit
-                override fun onDone(utteranceId: String?) { val d = onDone; onDone = null; if (d != null) main.post(d) }
+                override fun onStart(utteranceId: String?) { speaking = true }
+                override fun onDone(utteranceId: String?) { speaking = false; val d = onDone; onDone = null; if (d != null) main.post(d) }
                 @Deprecated("Deprecated in Java")
-                override fun onError(utteranceId: String?) { val d = onDone; onDone = null; if (d != null) main.post(d) }
+                override fun onError(utteranceId: String?) { speaking = false; val d = onDone; onDone = null; if (d != null) main.post(d) }
             })
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "noa") == TextToSpeech.SUCCESS
+            tts?.speak(spoken(text), TextToSpeech.QUEUE_FLUSH, null, "noa") == TextToSpeech.SUCCESS
         }.getOrDefault(false)
         if (!ok && done != null) { onDone = null; main.post(done) }
     }
 
-    fun stop() { tts?.runCatching { stop() } }
+    fun stop() { speaking = false; onDone = null; tts?.runCatching { stop() } }
 
     fun shutdown() { tts?.runCatching { shutdown() }; tts = null; ready = false }
+}
+
+
+/**
+ * Разговорное прослушивание: не обрывает фразу на первой паузе. Куски речи склеиваются, а фраза
+ * считается законченной после [silenceMs] тишины (или по [finishNow] — нажатию на сферу).
+ */
+class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
+    interface Events {
+        fun onText(live: String)
+        fun onLevel(level: Float)
+        fun onListening(on: Boolean)
+        /** Фраза закончена; пустая строка — ничего не услышали. */
+        fun onPhrase(text: String)
+    }
+
+    private val listener = NoaListener(context)
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var events: Events? = null
+    private val buffer = StringBuilder()
+    private var partial = ""
+    private var active = false
+    private val finishTask = Runnable { finish() }
+
+    fun available() = listener.available()
+
+    fun start(e: Events) {
+        stop()
+        events = e; active = true
+        buffer.clear(); partial = ""
+        e.onListening(true)
+        segment()
+    }
+
+    private fun current() = (buffer.toString() + " " + partial).trim()
+
+    private fun segment() {
+        if (!active) return
+        listener.start(object : NoaListener.Callback {
+            override fun onPartial(text: String) {
+                partial = text
+                main.removeCallbacks(finishTask)
+                events?.onText(current())
+            }
+            override fun onResult(text: String) {
+                if (text.isNotBlank()) { buffer.append(' ').append(text.trim()) }
+                partial = ""
+                events?.onText(current())
+                // Ждём продолжения: если человек заговорит снова — допишем, если нет — фраза готова.
+                main.removeCallbacks(finishTask)
+                main.postDelayed(finishTask, silenceMs)
+                main.post { segment() }
+            }
+            override fun onError(message: String?) {
+                // Тишина/нет совпадения: если что-то уже сказано — заканчиваем фразу, иначе — «ничего не услышали».
+                main.removeCallbacks(finishTask)
+                finish()
+            }
+            override fun onReady() = Unit
+            override fun onEnd() = Unit
+            override fun onLevel(level: Float) { events?.onLevel(level) }
+        })
+    }
+
+    /** Закончить фразу сейчас (нажали на сферу). */
+    fun finishNow() { main.removeCallbacks(finishTask); finish() }
+
+    private fun finish() {
+        if (!active) return
+        active = false
+        listener.stop()
+        val text = current()
+        val e = events
+        events = null
+        e?.onListening(false)
+        e?.onLevel(0f)
+        e?.onPhrase(text)
+    }
+
+    fun stop() {
+        main.removeCallbacks(finishTask)
+        val wasActive = active
+        active = false
+        listener.stop()
+        if (wasActive) { events?.onListening(false); events?.onLevel(0f) }
+        events = null
+    }
 }
