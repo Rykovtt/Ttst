@@ -145,6 +145,17 @@ object Messaging {
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$q")))
     }
 
+    /** «Домой» / «на работу» — сохранённые места навигатора (Waze: избранное Home/Work; Google Maps понимает «Home»/«Work»). */
+    fun navigateSaved(context: Context, home: Boolean, app: String? = null) {
+        val name = if (home) "Home" else "Work"
+        if (app == "waze" || (app == null && runCatching { context.packageManager.getLaunchIntentForPackage("com.waze") != null }.getOrDefault(false))) {
+            val i = Intent(Intent.ACTION_VIEW, Uri.parse("waze://?favorite=$name&navigate=yes")).setPackage("com.waze")
+            if (context !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { context.startActivity(i) }.isSuccess) return
+        }
+        navigateTo(context, name, if (app == "waze") null else app ?: "google")
+    }
+
     fun web(context: Context, url: String) = start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
     /** Копирование с пометкой «секретно» и автоочисткой буфера через 30 секунд. */

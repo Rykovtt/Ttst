@@ -137,6 +137,14 @@ class Noa(private val app: KartotekaApp) {
     private suspend fun route(intent: NoaIntent.Route): Reply {
         intent.app?.let { lastNavApp = it }
         val navApp = intent.app ?: lastNavApp
+        // «Поехали домой / на работу» без человека — моё место из сохранённых в навигаторе («Дом», «Работа»).
+        val homeWords = setOf("домой", "додому", "дом", "дому", "home", "работу", "роботу", "work", "офис", "офіс")
+        if (intent.personQuery.isBlank() && intent.kind != null && (intent.place.isBlank() || intent.place.split(" ").all { it in homeWords })) {
+            val home = intent.kind == com.kartoteka.app.data.PlaceKind.HOME
+            return Reply.Do((if (home) t("Едем домой.") else t("Едем на работу.")) + navName(navApp)) { ctx ->
+                com.kartoteka.app.messaging.Messaging.navigateSaved(ctx, home, navApp)
+            }
+        }
         // Человек из книжки — к нему; иначе — любое место по словам («до Киевской 5», «ближайшая заправка»).
         val person = intent.personQuery.isNotBlank() && knows(intent.personQuery)
         if (!person && intent.place.isNotBlank() && !(intent.personQuery.isBlank() && intent.place.split(" ").all { it in NoaParser.PRONOUNS })) {
