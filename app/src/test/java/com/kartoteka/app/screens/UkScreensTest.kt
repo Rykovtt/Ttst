@@ -178,7 +178,7 @@ class UkScreensTest {
         compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Назад")).performClick()
         settle()
 
-        compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Профиль")).performClick()
+        compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Меню")).performClick()
         settle()
         compose.onNodeWithText(com.kartoteka.app.i18n.t("Группы")).performClick()
         settle()
@@ -223,7 +223,7 @@ class UkScreensTest {
         shot("14_map")
         compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Назад")).performClick()
         settle()
-        compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Профиль")).performClick()
+        compose.onNodeWithContentDescription(com.kartoteka.app.i18n.t("Меню")).performClick()
         settle()
         compose.onNodeWithText(com.kartoteka.app.i18n.t("Статистика")).performClick()
         settle()

@@ -178,7 +178,7 @@ class ScreensTest {
         compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
-        compose.onNodeWithContentDescription("Профиль").performClick()
+        compose.onNodeWithContentDescription("Меню").performClick()
         settle()
         compose.onNodeWithText("Группы").performClick()
         settle()
@@ -223,7 +223,7 @@ class ScreensTest {
         shot("14_map")
         compose.onNodeWithContentDescription("Назад").performClick()
         settle()
-        compose.onNodeWithContentDescription("Профиль").performClick()
+        compose.onNodeWithContentDescription("Меню").performClick()
         settle()
         compose.onNodeWithText("Статистика").performClick()
         settle()

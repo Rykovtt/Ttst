@@ -104,11 +104,12 @@ object ArchiveLogic {
     ): String =
         MessageLang.canonicalize(template)
             .replace("{приветствие}", lang.timeGreeting(now))
-            .replace("{имя}", p.firstName.ifBlank { p.displayName })
+            // Имя — в форме языка сообщения: «Ілля» → «Илья» по-русски, «Illia» по-английски.
+            .replace("{имя}", NameLocalizer.firstName(p.firstName, lang).ifBlank { p.displayName })
             .replace("{отчество}", p.middleName)
             .replace("{фамилия}", p.lastName)
-            .replace("{имя_отчество}", listOf(p.firstName, p.middleName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { p.displayName })
-            .replace("{прозвище}", p.nickname.ifBlank { p.firstName })
+            .replace("{имя_отчество}", listOf(NameLocalizer.firstName(p.firstName, lang), p.middleName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { p.displayName })
+            .replace("{прозвище}", p.nickname.ifBlank { NameLocalizer.firstName(p.firstName, lang) })
 
     fun formatBirthday(p: Person): String? {
         val d = p.birthDay ?: return null

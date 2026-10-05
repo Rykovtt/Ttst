@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Redeem
@@ -171,7 +172,7 @@ fun MountainHeader(
             // Логотип · аватар · фильтр.
             Row(Modifier.fillMaxWidth().padding(start = pad, end = pad - u(10), top = u(PeopleDims.ControlsTop)), verticalAlignment = Alignment.CenterVertically) {
                 HeaderLogo(com.kartoteka.app.AppIcons.title(context, title), intro, Modifier.weight(1f))
-                HeroBackgroundButton("people", Modifier.padding(end = u(18)))
+                HeroBackgroundButton("people", Modifier.padding(end = 8.dp))
                 OwnerAvatar(onGroups, onStats, onSettings)
             }
             // Заголовок и счётчик.
@@ -303,36 +304,22 @@ private fun OwnerAvatar(onGroups: () -> Unit, onStats: () -> Unit, onSettings: (
     val context = LocalContext.current
     val app = app()
     val scope = rememberCoroutineScope()
-    val photo by app.settings.ownerPhoto.value.collectAsState()
     var menu by remember { mutableStateOf(false) }
-    val picker = rememberPhotoPicker(multiple = false) { uris ->
-        uris.firstOrNull()?.let { uri ->
-            scope.launch {
-                val path = withContext(Dispatchers.IO) { app.repository.photos.import(uri) }
-                if (path != null) app.settings.ownerPhoto.set(path)
-            }
-        }
-    }
     val src = remember { MutableInteractionSource() }
     Box {
+        // Меню разделов — такая же стеклянная кнопка, как «фон шапки» рядом.
         Box(
             Modifier.size(maxOf(u(PeopleDims.FilterButton), 40.dp)).clickable(src, indication = null) { menu = true }
-                .semantics { contentDescription = t("Профиль"); role = Role.Button },
+                .semantics { contentDescription = t("Меню"); role = Role.Button },
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                Modifier.size(u(PeopleDims.Avatar)).graphicsLayer { val s = if (menu) 1.06f else 1f; scaleX = s; scaleY = s }
-                    .clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.7f), CircleShape),
-            ) {
-                if (photo.isNotBlank()) {
-                    AsyncImage(File(photo), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                } else {
-                    PearlSphere(Modifier.fillMaxSize())
-                }
-            }
+                Modifier.size(32.dp).graphicsLayer { val s = if (menu) 1.06f else 1f; scaleX = s; scaleY = s }
+                    .clip(CircleShape).background(RvColors.ChipBg).border(1.dp, RvColors.ChipBorder, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Outlined.GridView, null, tint = RvColors.TextOnDark.copy(alpha = 0.85f), modifier = Modifier.size(16.dp)) }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, offset = androidx.compose.ui.unit.DpOffset(0.dp, 6.dp)) {
-            DropdownMenuItem(text = { Text(t("Своё фото")) }, leadingIcon = { Icon(Icons.Outlined.AccountCircle, null) }, onClick = { menu = false; picker.gallery() })
             DropdownMenuItem(text = { Text(t("Группы")) }, leadingIcon = { Icon(Icons.Outlined.Workspaces, null) }, onClick = { menu = false; onGroups() })
             DropdownMenuItem(text = { Text(t("Статистика")) }, leadingIcon = { Icon(Icons.Outlined.Insights, null) }, onClick = { menu = false; onStats() })
             DropdownMenuItem(text = { Text(t("Настройки")) }, leadingIcon = { Icon(Icons.Outlined.Settings, null) }, onClick = { menu = false; onSettings() })

@@ -104,7 +104,7 @@ class AppointmentLogicTest {
     @Test fun englishDates() {
         val evening = LocalDateTime.of(2026, 10, 1, 19, 0)
         val text = AppointmentLogic.fill(MessageLang.EN.template(TemplateKind.CONFIRM), appt, anna, MessageLang.EN, evening)
-        assertEquals("Good evening, Анна! Your appointment is confirmed: Friday, October 2 at 14:30.\nСтрижка", text)
+        assertEquals("Good evening, Anna! Your appointment is confirmed: Friday, October 2 at 14:30.\nСтрижка", text)
     }
 
     @Test fun greetingDependsOnTimeOfSending() {

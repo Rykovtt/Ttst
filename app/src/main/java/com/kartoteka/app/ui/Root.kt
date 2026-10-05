@@ -187,7 +187,10 @@ fun KartotekaRoot(
         },
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
     ) { padding ->
-        Box(Modifier.padding(bottom = padding.calculateBottomPadding())) {
+        // Содержимое заходит под скруглённые верхние углы панели: в углах видно сам экран (и затемнение меню),
+        // а не пустой фон — без «треугольников» над навигацией.
+        val navCorner = com.kartoteka.app.ui.theme.u(com.kartoteka.app.ui.theme.PeopleDims.NavRadius)
+        Box(Modifier.padding(bottom = (padding.calculateBottomPadding() - navCorner).coerceAtLeast(0.dp))) {
         androidx.compose.animation.SharedTransitionLayout {
         androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalSharedScope provides this) {
         NavHost(
@@ -366,7 +369,8 @@ fun KartotekaRoot(
         }
         AddActionRadialMenu(
             open = quick,
-            anchorBelow = fabAnchorBelowBarTop(),
+            // Область содержимого теперь заходит под углы панели — сдвигаем якорь меню на радиус угла.
+            anchorBelow = fabAnchorBelowBarTop() - com.kartoteka.app.ui.theme.u(com.kartoteka.app.ui.theme.PeopleDims.NavRadius),
             actions = listOf(
                 QuickAction(t("Добавить человека"), QuickIcons.person) { nav.navigate(Routes.edit()) },
                 QuickAction(t("Создать запись"), QuickIcons.appointment) {

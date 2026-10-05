@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.draw.clip
@@ -157,23 +159,29 @@ private fun NavCell(item: NavItem, sel: Boolean, modifier: Modifier, labelSize: 
     val pill by animateFloatAsState(if (sel) 1f else 0f, tween(AnimationTokens.TabSwitch, easing = AnimationTokens.Enter), label = "navPill")
     val dot by animateFloatAsState(if (sel) 1f else 0f, tween(AnimationTokens.TabSwitch, easing = AnimationTokens.Move), label = "navDot")
     val pillW = u(PeopleDims.NavPillW); val pillH = u(PeopleDims.NavPillH); val radius = u(PeopleDims.NavPillRadius)
+    var cellW by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     Box(
-        modifier.height(pillH)
+        modifier.height(pillH).onSizeChanged { cellW = it.width.toFloat() }
             .semantics { role = Role.Tab; this.selected = sel }
             .clickable(remember { MutableInteractionSource() }, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        // Подложка активной вкладки 84×90, #FFFFFF0D, обводка #FFFFFF12.
-        Box(
-            Modifier.size(pillW, pillH).drawBehind {
+        // Подложка активной вкладки по ширине подписи (не уже 84, не шире ячейки), #FFFFFF0D, обводка #FFFFFF12.
+        val padH = 14.dp
+        Column(
+            Modifier.drawBehind {
                 if (pill > 0f) {
+                    val w = (size.width + padH.toPx() * 2).coerceAtLeast(minOf(pillW.toPx(), cellW)).coerceAtMost(cellW)
+                    val h = pillH.toPx()
+                    val tl = Offset((size.width - w) / 2, (size.height - h) / 2)
                     val cr = CornerRadius(radius.toPx())
-                    drawRoundRect(RvColors.NavPill.copy(alpha = RvColors.NavPill.alpha * pill), cornerRadius = cr)
-                    drawRoundRect(RvColors.NavPillBorder.copy(alpha = RvColors.NavPillBorder.alpha * pill), cornerRadius = cr, style = Stroke(1.dp.toPx()))
+                    val sz = androidx.compose.ui.geometry.Size(w, h)
+                    drawRoundRect(RvColors.NavPill.copy(alpha = RvColors.NavPill.alpha * pill), topLeft = tl, size = sz, cornerRadius = cr)
+                    drawRoundRect(RvColors.NavPillBorder.copy(alpha = RvColors.NavPillBorder.alpha * pill), topLeft = tl, size = sz, cornerRadius = cr, style = Stroke(1.dp.toPx()))
                 }
-            }
-        )
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            },
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
             Box {
                 Icon(if (sel) item.selectedIcon else item.icon, null, tint = fg, modifier = Modifier.size(maxOf(u(PeopleDims.NavIcon), 18.dp)))
                 if (item.badge) {
