@@ -176,7 +176,10 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         // Правила поняли команду, но человека с таким именем нет («запись ильи рыкова») —
                         // скорее всего, фраза разобрана неверно: пусть её прочитает модель.
                         val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)
-                        val doubtful = brainReady && steps.any { !noa.knows(NoaParser.personOf(it)) }
+                        val doubtful = brainReady && steps.any { st ->
+                            !noa.knows(NoaParser.personOf(st)) &&
+                                !(st is NoaIntent.Open && PhoneActions.find(context, st.personQuery) != null)
+                        }
                         if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
                         else {
                             val smart = if (brainReady) runCatching {

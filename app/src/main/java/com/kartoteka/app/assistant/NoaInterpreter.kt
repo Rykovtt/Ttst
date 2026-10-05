@@ -61,6 +61,19 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             "move_appointment" -> NoaDateTime.parse(userText, now).let { dt ->
                 NoaIntent.MoveAppointment(person, dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
             }
+            "launch_app", "open_app" -> str("app")?.let { NoaIntent.LaunchApp(it) }
+            "share_data", "transfer" -> NoaIntent.ShareData(person, when (str("data")?.lowercase()) {
+                "notes", "note" -> NoaIntent.Data.NOTES; "phone" -> NoaIntent.Data.PHONE; "address" -> NoaIntent.Data.ADDRESS
+                "email" -> NoaIntent.Data.EMAIL; "birthday" -> NoaIntent.Data.BIRTHDAY; else -> NoaIntent.Data.CARD
+            }, when (val to = str("to")?.lowercase()) {
+                null, "", "share" -> "share"; "notes", "notepad" -> "notes"; "google", "search" -> "google"; "clipboard" -> "clipboard"
+                else -> "app:$to"
+            })
+            "web_search" -> str("query")?.let { NoaIntent.WebSearch(it) }
+            "alarm" -> NoaDateTime.parse(str("time") ?: userText, now)?.takeIf { it.hadTime }?.let { NoaIntent.Alarm(it.dateTime.hour, it.dateTime.minute, str("label")) }
+            "timer" -> (o.optInt("minutes", 0) * 60 + o.optInt("seconds", 0)).takeIf { it > 0 }?.let { NoaIntent.Timer(it) }
+            "flashlight" -> NoaIntent.Flashlight(o.optBoolean("on", true))
+            "phone_settings" -> NoaIntent.PhoneSettings(str("what"))
             "call" -> NoaIntent.Call(person)
             "message" -> {
                 // «Отправь ему об этом» — текст из шаблона подтверждения, а не выдумка модели.
@@ -157,7 +170,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             open_contact {person, contact: instagram|facebook|viber|email|website|telegram|whatsapp};
             route {person, place: home|work|"", app: waze|google|""}; agenda {day: today|tomorrow};
             person_info {person, topic: birthday|phone|address|summary, question};
-            favorite {person, on: true|false}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
+            favorite {person, on: true|false};
+            launch_app {app} — запустить приложение телефона; share_data {person, data: notes|phone|address|email|birthday|card, to: notes|google|clipboard|share|<название приложения>} — передать данные человека в блокнот, Google, буфер или приложение;
+            web_search {query}; alarm {time: "HH:MM"}; timer {minutes}; flashlight {on}; phone_settings {what: wifi|bluetooth|display|sound|""}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
             Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек.
             Вопрос о людях, встречах, планах — "actions":[] и подробный полезный ответ в reply по данным ниже. Обычный разговор — "actions":[] и живой ответ в reply.
             Люди в книжке: $people$data
@@ -167,6 +182,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             «проклади маршрут до мами на роботу» → {"actions":[{"action":"route","person":"мама","place":"work"}],"reply":"Прокладаю"}
             «удали запись Ильи Рыкова на завтра» → {"actions":[{"action":"delete_appointment","person":"Илья Рыков"}],"reply":""}
             «перенеси Аню на пятницу в 15» → {"actions":[{"action":"move_appointment","person":"Аня"}],"reply":""}
+            «возьми заметки об Илье и перенеси в блокнот» → {"actions":[{"action":"share_data","person":"Илья","data":"notes","to":"notes"}],"reply":""}
+            «скопируй номер Анны и вставь в гугл» → {"actions":[{"action":"share_data","person":"Анна","data":"phone","to":"google"}],"reply":""}
+            «запусти ютуб» → {"actions":[{"action":"launch_app","app":"youtube"}],"reply":""}
             «що в мене завтра» → {"actions":[{"action":"agenda","day":"tomorrow"}],"reply":""}
             «коли день народження в Ілля» → {"actions":[{"action":"person_info","person":"Ілля","topic":"birthday","question":"коли день народження"}],"reply":""}
             Сегодня: $date.

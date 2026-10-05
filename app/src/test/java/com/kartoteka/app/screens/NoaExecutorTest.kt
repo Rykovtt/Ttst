@@ -139,4 +139,13 @@ class NoaExecutorTest {
         )
         assertTrue("left=$left", left.isEmpty())
     }
+
+    @Test fun sharesNotesToPhoneNotepad() = runBlocking {
+        val id = app.repository.savePerson(Person(firstName = "Илья", lastName = "Рыков"), emptyList(), emptyList(), emptyList())
+        val noa = Noa(app)
+        assertTrue(noa.handle("перенеси заметки Ильи Рыкова в блокнот", now) is Noa.Reply.Say)   // заметок нет — так и говорим
+        app.repository.addJournal(com.kartoteka.app.data.JournalEntry(personId = id, text = "любит кофе"))
+        val r = noa.handle("перенеси заметки Ильи Рыкова в блокнот", now)
+        assertTrue("r=$r", r is Noa.Reply.Do)
+    }
 }

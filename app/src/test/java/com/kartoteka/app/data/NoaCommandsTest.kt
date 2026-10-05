@@ -118,4 +118,27 @@ class NoaCommandsTest {
         val route = seq.steps[1] as NoaIntent.Route
         assertEquals("илья рыков", route.personQuery); assertEquals("waze", route.app)
     }
+
+    @Test fun phoneActionsAndDataTransfer() {
+        val notes = p("Возьми данные заметок о Илье рыкове и перенеси их в блокнот телефона") as NoaIntent.ShareData
+        assertEquals("илье рыкове", notes.personQuery); assertEquals(NoaIntent.Data.NOTES, notes.data); assertEquals("notes", notes.target)
+        val phone = p("Скопируй номер Анны и вставь его в гугл") as NoaIntent.ShareData
+        assertEquals("анны", phone.personQuery); assertEquals(NoaIntent.Data.PHONE, phone.data); assertEquals("google", phone.target)
+        val misheard = p("Скопируйте номер Анны и всей его в гугл") as NoaIntent.ShareData
+        assertEquals("google", misheard.target)
+        val clip = p("скопируй номер Анны") as NoaIntent.ShareData
+        assertEquals("clipboard", clip.target)
+        val tg = p("скинь адрес Оли в телеграм") as NoaIntent.ShareData
+        assertEquals("app:телеграм", tg.target); assertEquals(NoaIntent.Data.ADDRESS, tg.data)
+        assertEquals("ютуб", (p("открой ютуб") as NoaIntent.LaunchApp).name)
+        assertEquals("spotify", (p("запусти spotify") as NoaIntent.LaunchApp).name)
+        assertEquals(NoaIntent.Alarm(7, 30), p("поставь будильник на 7:30"))
+        assertEquals(NoaIntent.Timer(300), p("таймер на 5 минут"))
+        assertEquals(NoaIntent.Flashlight(false), p("выключи фонарик"))
+        assertEquals("рецепт борща", (p("загугли рецепт борща") as NoaIntent.WebSearch).query)
+        // старые команды не задеты
+        assertTrue(p("перенеси Аню на пятницу в 15:00") is NoaIntent.MoveAppointment)
+        assertTrue(p("добавь заметку Ане: скопировать фото") !is NoaIntent.ShareData)
+        assertTrue(p("открой Аню") is NoaIntent.Open)
+    }
 }

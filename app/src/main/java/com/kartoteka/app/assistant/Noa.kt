@@ -71,7 +71,12 @@ class Noa(private val app: KartotekaApp) {
             }
             is NoaIntent.Backup -> Reply.Say(t("Резервную копию удобнее сделать в настройках, в разделе «Данные»."))
             is NoaIntent.Find -> find(intent.query)
-            is NoaIntent.Open -> withPerson(intent.personQuery) { Reply.Say2Open(t("Открываю %1\$s.", it.person.displayName), personId = it.person.id) }
+            is NoaIntent.Open -> {
+                // «Открой Телеграм»: человека с таким именем нет, а приложение есть — запускаем приложение.
+                val app = if (!knows(intent.personQuery)) PhoneActions.find(this.app, intent.personQuery) else null
+                if (app != null) launchApp(intent.personQuery)
+                else withPerson(intent.personQuery) { Reply.Say2Open(t("Открываю %1\$s.", it.person.displayName), personId = it.person.id) }
+            }
             is NoaIntent.OpenScreen -> Reply.Navigate(t("Открываю %1\$s.", sectionName(intent.section)), intent.section)
             is NoaIntent.Call -> withPerson(intent.personQuery) {
                 val phone = it.phone ?: return@withPerson Reply.Say(t("У %1\$s нет номера телефона.", it.person.displayName))
@@ -90,6 +95,15 @@ class Noa(private val app: KartotekaApp) {
                 Reply.Say(if (intent.on) t("Добавила %1\$s в избранное.", pf.person.displayName) else t("Убрала %1\$s из избранного.", pf.person.displayName))
             }
             is NoaIntent.CancelAppointment -> cancelAppointment(intent, now)
+            is NoaIntent.ShareData -> shareData(intent)
+            is NoaIntent.LaunchApp -> launchApp(intent.name)
+            is NoaIntent.WebSearch -> Reply.Do(t("Ищу в Google: %1\$s", intent.query)) { PhoneActions.webSearch(it, intent.query) }
+            is NoaIntent.Alarm -> "%02d:%02d".format(intent.hour, intent.minute).let { time ->
+                Reply.Do(t("Ставлю будильник на %1\$s.", time)) { PhoneActions.alarm(it, intent.hour, intent.minute, intent.label) }
+            }
+            is NoaIntent.Timer -> Reply.Do(t("Запускаю таймер: %1\$s.", durationText(intent.seconds))) { PhoneActions.timer(it, intent.seconds) }
+            is NoaIntent.Flashlight -> Reply.Do(if (intent.on) t("Включаю фонарик.") else t("Выключаю фонарик.")) { PhoneActions.flashlight(it, intent.on) }
+            is NoaIntent.PhoneSettings -> Reply.Do(t("Открываю настройки телефона.")) { PhoneActions.settings(it, intent.what) }
             is NoaIntent.MoveAppointment -> moveAppointment(intent, now)
             // Цепочку разворачивает экран (шаг за шагом, с подтверждениями); здесь — на всякий случай первый шаг.
             is NoaIntent.Sequence -> intent.steps.firstOrNull()?.let { handleIntent(it, now) } ?: Reply.Say(t("Не поняла команду."))
@@ -309,6 +323,70 @@ class Noa(private val app: KartotekaApp) {
             lastAppointmentId = id
             com.kartoteka.app.reminders.ReminderScheduler.schedule(app, reminders)
             Reply.Say(t("Перенесла запись %1\$s на %2\$s.", pf.person.displayName, newText))
+        }
+    }
+
+    private fun durationText(sec: Int): String = when {
+        sec % 3600 == 0 -> t("%1\$s ч", sec / 3600)
+        sec % 60 == 0 -> t("%1\$s мин", sec / 60)
+        else -> t("%1\$s сек", sec)
+    }
+
+    private fun launchApp(name: String): Reply {
+        val a = PhoneActions.find(app, name) ?: return Reply.Say(t("Не нашла на телефоне приложение «%1\$s».", name))
+        return Reply.Do(t("Открываю %1\$s.", a.label)) { PhoneActions.launch(it, a) }
+    }
+
+    /** Текст данных человека для передачи в другое приложение. */
+    private suspend fun dataText(pf: PersonFull, data: NoaIntent.Data): String? {
+        val p = pf.person
+        val df = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+        return when (data) {
+            NoaIntent.Data.NOTES -> {
+                val lines = pf.journal.sortedByDescending { it.date }.map { AppointmentLogic.zoned(it.date).format(df) + " — " + it.text } +
+                    listOfNotNull(p.notes.takeIf { it.isNotBlank() })
+                if (lines.isEmpty()) null else (listOf(t("Заметки: %1\$s", p.displayName), "") + lines).joinToString("\n")
+            }
+            NoaIntent.Data.PHONE -> pf.phone?.let { com.kartoteka.app.data.PhoneFormat.pretty(it) }
+            NoaIntent.Data.ADDRESS -> pf.places.filter { it.address.isNotBlank() }.joinToString("\n") { it.address }.ifBlank { null }
+            NoaIntent.Data.EMAIL -> pf.firstOf(com.kartoteka.app.data.ContactType.EMAIL)
+            NoaIntent.Data.BIRTHDAY -> com.kartoteka.app.data.ArchiveLogic.formatBirthday(p)
+            NoaIntent.Data.CARD -> (listOf(cardText(pf)) +
+                pf.contacts.filter { it.value.isNotBlank() && it.contactType != com.kartoteka.app.data.ContactType.PHONE }
+                    .map { it.contactType.title + ": " + it.value }).joinToString("\n")
+        }
+    }
+
+    private fun dataName(d: NoaIntent.Data): String = when (d) {
+        NoaIntent.Data.NOTES -> t("заметки"); NoaIntent.Data.PHONE -> t("номер"); NoaIntent.Data.ADDRESS -> t("адрес")
+        NoaIntent.Data.EMAIL -> t("почту"); NoaIntent.Data.BIRTHDAY -> t("день рождения"); NoaIntent.Data.CARD -> t("данные")
+    }
+
+    private suspend fun shareData(intent: NoaIntent.ShareData): Reply = withPerson(intent.personQuery) { pf ->
+        val name = pf.person.displayName
+        val what = dataName(intent.data)
+        val text = dataText(pf, intent.data)
+            ?: return@withPerson Reply.Say(t("У %1\$s нет данных: %2\$s.", name, what))
+        // Для поиска — само значение (номер без пробелов), а не карточка целиком.
+        val plain = if (intent.data == NoaIntent.Data.PHONE) pf.phone.orEmpty() else text
+        when {
+            intent.target == "clipboard" -> Reply.Do(t("Скопировала %1\$s (%2\$s). Буфер очистится через 30 секунд.", what, name)) {
+                com.kartoteka.app.security.SecureClipboard.copy(it, plain)
+            }
+            intent.target == "google" -> Reply.Do(t("Ищу в Google %1\$s (%2\$s).", what, name)) { PhoneActions.webSearch(it, plain) }
+            intent.target == "notes" -> {
+                val notes = PhoneActions.notesApp(app)
+                Reply.Do(notes?.let { t("Переношу %1\$s (%2\$s) в %3\$s.", what, name, it.label) } ?: t("Выберите блокнот, куда сохранить %1\$s (%2\$s).", what, name)) {
+                    PhoneActions.shareTo(it, text, notes, subject = name)
+                }
+            }
+            intent.target.startsWith("app:") -> {
+                val target = PhoneActions.find(app, intent.target.removePrefix("app:"))
+                Reply.Do(target?.let { t("Передаю %1\$s (%2\$s) в %3\$s.", what, name, it.label) } ?: t("Выберите, куда отправить %1\$s (%2\$s).", what, name)) {
+                    PhoneActions.shareTo(it, text, target, subject = name)
+                }
+            }
+            else -> Reply.Do(t("Выберите, куда отправить %1\$s (%2\$s).", what, name)) { PhoneActions.shareTo(it, text, null, subject = name) }
         }
     }
 

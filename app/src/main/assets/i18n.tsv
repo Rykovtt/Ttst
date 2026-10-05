@@ -1011,3 +1011,25 @@ SMS одним сообщением	SMS одним повідомленням	SM
 У %1$s нет предстоящих записей.	У %1$s немає майбутніх записів.	%1$s has no upcoming appointments.
 Удалила запись %1$s.	Видалила запис %1$s.	Deleted %1$s's appointment.
 Удалить запись %1$s на %2$s?	Видалити запис %1$s на %2$s?	Delete %1$s's appointment on %2$s?
+%1$s сек	%1$s с	%1$s sec
+Включаю фонарик.	Вмикаю ліхтарик.	Turning the flashlight on.
+Выключаю фонарик.	Вимикаю ліхтарик.	Turning the flashlight off.
+Выберите блокнот, куда сохранить %1$s (%2$s).	Виберіть нотатник, куди зберегти %1$s (%2$s).	Choose a notes app to save %1$s (%2$s).
+Выберите, куда отправить %1$s (%2$s).	Виберіть, куди надіслати %1$s (%2$s).	Choose where to send %1$s (%2$s).
+Заметки: %1$s	Нотатки: %1$s	Notes: %1$s
+Запускаю таймер: %1$s.	Запускаю таймер: %1$s.	Starting a timer: %1$s.
+Ищу в Google %1$s (%2$s).	Шукаю в Google %1$s (%2$s).	Searching Google for %1$s (%2$s).
+Ищу в Google: %1$s	Шукаю в Google: %1$s	Searching Google: %1$s
+Не нашла на телефоне приложение «%1$s».	Не знайшла на телефоні застосунок «%1$s».	Couldn't find the app "%1$s" on the phone.
+Открываю настройки телефона.	Відкриваю налаштування телефону.	Opening phone settings.
+Передаю %1$s (%2$s) в %3$s.	Передаю %1$s (%2$s) в %3$s.	Sending %1$s (%2$s) to %3$s.
+Переношу %1$s (%2$s) в %3$s.	Переношу %1$s (%2$s) в %3$s.	Moving %1$s (%2$s) to %3$s.
+Скопировала %1$s (%2$s). Буфер очистится через 30 секунд.	Скопіювала %1$s (%2$s). Буфер очиститься через 30 секунд.	Copied %1$s (%2$s). The clipboard clears in 30 seconds.
+Ставлю будильник на %1$s.	Ставлю будильник на %1$s.	Setting an alarm for %1$s.
+У %1$s нет данных: %2$s.	У %1$s немає даних: %2$s.	%1$s has no %2$s saved.
+адрес	адресу	address
+данные	дані	details
+день рождения	день народження	birthday
+заметки	нотатки	notes
+номер	номер	number
+почту	пошту	email

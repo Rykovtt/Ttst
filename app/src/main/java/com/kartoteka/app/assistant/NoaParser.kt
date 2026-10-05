@@ -35,11 +35,21 @@ sealed interface NoaIntent {
     data class MoveAppointment(val personQuery: String, val dateTime: LocalDateTime?, val hadDate: Boolean, val hadTime: Boolean) : NoaIntent
     /** Несколько действий подряд: «открой Аню и добавь заметку…». */
     data class Sequence(val steps: List<NoaIntent>) : NoaIntent
+    /** Запустить приложение телефона по названию. */
+    data class LaunchApp(val name: String) : NoaIntent
+    /** Передать данные человека: в блокнот телефона, Google, буфер, любое приложение. [target]: notes|google|clipboard|share|app:<имя>. */
+    data class ShareData(val personQuery: String, val data: Data, val target: String) : NoaIntent
+    data class WebSearch(val query: String) : NoaIntent
+    data class Alarm(val hour: Int, val minute: Int, val label: String? = null) : NoaIntent
+    data class Timer(val seconds: Int) : NoaIntent
+    data class Flashlight(val on: Boolean) : NoaIntent
+    data class PhoneSettings(val what: String?) : NoaIntent
     data object Lock : NoaIntent
     data object Backup : NoaIntent
     data class Unknown(val heard: String) : NoaIntent
 
     enum class Channel { WHATSAPP, SMS, TELEGRAM }
+    enum class Data { NOTES, PHONE, ADDRESS, EMAIL, BIRTHDAY, CARD }
     enum class Topic { BIRTHDAY, PHONE, ADDRESS, SUMMARY }
     enum class Section { PEOPLE, CALENDAR, MAP, BROADCAST, SETTINGS, SERVICES }
 }
@@ -65,6 +75,9 @@ object NoaParser {
         // Кавычки сохраняем как есть (в них текст), остальное — без знаков препинания.
         val parts = input.split(CHAIN).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size < 2) return parseOne(input, now)
+        // «Возьми заметки об Илье и перенеси их в блокнот» — одна передача данных, хоть и через «и».
+        val whole = shareData(normalize(input))
+        if (whole != null && parts.none { shareData(normalize(it)) != null }) return whole
         // Если какая-то часть — не команда («ну а открой…»), это не цепочка: разбираем фразу целиком.
         if (parts.any { parseOne(it, now) is NoaIntent.Unknown }) return parseOne(input, now)
         // Человек из предыдущего шага переходит в следующий, если там его нет («…и добавь ей заметку»).
@@ -84,6 +97,7 @@ object NoaParser {
         is NoaIntent.Route -> i.personQuery; is NoaIntent.PersonInfo -> i.personQuery
         is NoaIntent.Favorite -> i.personQuery; is NoaIntent.Select -> i.personQuery
         is NoaIntent.CancelAppointment -> i.personQuery; is NoaIntent.MoveAppointment -> i.personQuery
+        is NoaIntent.ShareData -> i.personQuery
         else -> ""
     }
 
@@ -94,6 +108,7 @@ object NoaParser {
         is NoaIntent.Route -> i.copy(personQuery = p); is NoaIntent.PersonInfo -> i.copy(personQuery = p)
         is NoaIntent.Favorite -> i.copy(personQuery = p); is NoaIntent.Select -> i.copy(personQuery = p)
         is NoaIntent.CancelAppointment -> i.copy(personQuery = p); is NoaIntent.MoveAppointment -> i.copy(personQuery = p)
+        is NoaIntent.ShareData -> i.copy(personQuery = p)
         else -> i
     }
 
@@ -114,6 +129,10 @@ object NoaParser {
         // блокировка / копия — без человека
         if (has(s, "заблокируй", "заблокуй", "закрой приложение", "lock")) return NoaIntent.Lock
         if (has(s, "резервную копию", "бэкап", "бекап", "backup", "копію", "копию")) return NoaIntent.Backup
+
+        // действия на телефоне: передать данные, будильник, таймер, фонарик, поиск, запуск приложений
+        shareData(original)?.let { return it }
+        phoneAction(s, original, now)?.let { return it }
 
         // «возьми контакт Илья Рыков» — выбрать человека для следующих команд
         if (has(s, "возьми", "візьми", "выбери", "обери", "вибери", "бери", "take", "select") && !has(s, "запиш", "напиш", "позвон", "подзвон", "отправ", "надішл")) {
@@ -202,6 +221,12 @@ object NoaParser {
         }
         // открыть раздел приложения
         screenSection(s)?.let { return NoaIntent.OpenScreen(it) }
+        // «открой ютуб», «відкрий калькулятор» — приложение телефона по привычному названию
+        if (has(s, "открой", "відкрий", "open")) {
+            val rest = stripWords(s, OPEN_WORDS)
+            if (rest in PhoneActions.ALIAS_NAMES || rest.removeSuffix("у") in PhoneActions.ALIAS_NAMES ||
+                (rest.endsWith("у") && rest.dropLast(1) + "а" in PhoneActions.ALIAS_NAMES)) return NoaIntent.LaunchApp(rest)
+        }
         // открыть карточку
         if (has(s, "открой", "покажи карточку", "покажи контакт", "відкрий", "open", "зайди", "перейди", "покажи профил", "покажи профіл", "покажи картку")) {
             return NoaIntent.Open(extractPerson(s))
@@ -211,6 +236,84 @@ object NoaParser {
             return NoaIntent.Find(stripCommandWords(s).trim())
         }
         return NoaIntent.Unknown(original)
+    }
+
+    private val OPEN_WORDS = setOf("открой", "відкрий", "open", "запусти", "запустить", "запустити", "launch", "start", "включи", "увімкни",
+        "приложение", "приложения", "застосунок", "додаток", "app", "мне", "мені", "пожалуйста", "будь", "ласка", "ну", "а")
+
+    private fun stripWords(s: String, words: Set<String>) =
+        s.trim().split(" ").filter { it.isNotBlank() && it !in words }.joinToString(" ")
+
+    /** Будильник, таймер, фонарик, настройки, поиск в Google, запуск приложения. */
+    private fun phoneAction(s: String, original: String, now: LocalDateTime): NoaIntent? {
+        if (has(s, "будильник", "разбуди", "розбуди", "alarm", "wake me")) {
+            val dt = NoaDateTime.parse(original, now)?.takeIf { it.hadTime } ?: return NoaIntent.LaunchApp("будильник")
+            return NoaIntent.Alarm(dt.dateTime.hour, dt.dateTime.minute)
+        }
+        if (has(s, "таймер", "засеки", "засічи", "timer")) {
+            val n = Regex("(\\d+)").find(s)?.groupValues?.get(1)?.toIntOrNull() ?: return NoaIntent.LaunchApp("часы")
+            val sec = when {
+                has(s, "сек", "sec") -> n
+                has(s, "час", "годин", "hour") && !has(s, "минут", "хвилин", "min") -> n * 3600
+                else -> n * 60
+            }
+            return NoaIntent.Timer(sec)
+        }
+        if (has(s, "фонарик", "фонарь", "ліхтарик", "ліхтар", "flashlight", "torch", "вспышк", "спалах")) {
+            return NoaIntent.Flashlight(!has(s, "выключ", "вимкн", "погаси", "отключ", "off", "turn off"))
+        }
+        if (has(s, "вайфай", "вай-фай", "wi-fi", "wifi", "вайфаю")) return NoaIntent.PhoneSettings("wifi")
+        if (has(s, "блютуз", "блютус", "bluetooth")) return NoaIntent.PhoneSettings("bluetooth")
+        if (has(s, "яркост", "яскрав", "brightness")) return NoaIntent.PhoneSettings("display")
+        if (has(s, "настройки телефона", "налаштування телефону", "phone settings")) return NoaIntent.PhoneSettings(null)
+        val search = Regex("(?:загугли|погугли|google|поищи в (?:гугле|гугл|интернете|сети)|найди в (?:гугле|гугл|интернете|сети)|" +
+            "пошукай в (?:гуглі|гугл|інтернеті)|знайди в (?:гуглі|гугл|інтернеті)|search for)\\s+(.+)").find(s.trim())
+        if (search != null) return NoaIntent.WebSearch(search.groupValues[1].trim())
+        if (has(s, "запусти", "запустить", "запустити", "launch", "открой приложение", "відкрий застосунок", "відкрий додаток", "open app")) {
+            val name = stripWords(s, OPEN_WORDS)
+            if (name.isNotBlank()) return NoaIntent.LaunchApp(name)
+        }
+        return null
+    }
+
+    private val NOTES_TARGET = Regex("\\s(?:в|у|во|to|into)\\s+(?:блокнот|заметки|нотатки|нотатник|notes|notepad|keep|кип|samsung notes)(?:\\s+(?:телефона|телефону|phone|на телефоне|на телефоні))?")
+
+    /**
+     * «Перенеси заметки об Илье в блокнот», «скопируй номер Анны и вставь в гугл», «скинь адрес Оли в телеграм».
+     * Нужны: что передать (данные человека), глагол передачи и куда.
+     */
+    fun shareData(original: String): NoaIntent.ShareData? {
+        val s0 = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
+        if (Regex("[«\"]").containsMatchIn(s0) || has(s0, "добавь", "додай", "add note", "добавить")) return null
+        val verb = has(s0, "перенес", "скопир", "скопію", "копир", "копію", "вставь", "встав", "всей", "скинь", "поделись", "поділись",
+            "передай", "сохрани в", "збережи в", "запиши в блокнот", "запиши в нотатки", "copy", "share", "paste", "save to",
+            "загугли", "погугли", "поищи", "пошукай", "отправь в", "надішли в", "відправ в", "кинь", "закинь", "export", "экспорт", "експорт")
+        if (!verb) return null
+        val target = when {
+            NOTES_TARGET.containsMatchIn(s0) || has(s0, "блокнот", "нотатник", "notepad", "samsung notes", "google keep") -> "notes"
+            has(s0, "гугл", "google", "интернет", "інтернет", "загугли", "погугли", "поищи", "пошукай") -> "google"
+            has(s0, "буфер", "clipboard") -> "clipboard"
+            else -> Regex("\\s(?:в|у|to|into)\\s+(\\S+(?:\\s\\S+)?)\\s").findAll(s0).map { it.groupValues[1] }
+                .mapNotNull { w -> listOf(w, w.substringBefore(' ')).firstOrNull { it in PhoneActions.ALIAS_NAMES } }
+                .firstOrNull()?.let { "app:$it" }
+                ?: when {
+                    has(s0, "скопир", "скопію", "копир", "копію", "copy") -> "clipboard"
+                    has(s0, "поделись", "поділись", "share", "скинь", "кинь", "передай", "export", "экспорт", "експорт") -> "share"
+                    else -> null
+                }
+        } ?: return null
+        // Слова «куда» убираем, чтобы «заметки/телефон» в них не спутать с данными и не принять за имя.
+        val s = NOTES_TARGET.replace(s0, " ")
+        val data = when {
+            has(s, "замет", "нотат", "хроник", "хронік", "notes", "записи о", "записи про", "записки") -> NoaIntent.Data.NOTES
+            has(s, "номер", "телефон", "phone", "number") -> NoaIntent.Data.PHONE
+            has(s, "адрес", "address") -> NoaIntent.Data.ADDRESS
+            has(s, "почт", "пошт", "email", "имейл", "мейл", "e-mail") -> NoaIntent.Data.EMAIL
+            has(s, "день рожд", "день народж", "birthday", "др ") -> NoaIntent.Data.BIRTHDAY
+            has(s, "данн", "дані", "даних", "карточк", "картк", "информац", "інформац", "контакт", "все о", "всё о", "все про", "info", "профил", "профіл") -> NoaIntent.Data.CARD
+            else -> return null
+        }
+        return NoaIntent.ShareData(extractPerson(s), data, target)
     }
 
     // ---- извлечение человека ----
@@ -245,6 +348,12 @@ object NoaParser {
         "с","з","со","із","from","ближайшую","найближчу","next",
         "карте","карті","картах","мапі","мапу","мапа","мапах","через","waze","вейз","вэйз","вейс","уэйз","google","гугл","гугле","maps","мапс",
         "мне","мені","нему","ньому","маршрутом","маршрута","на","к","по",
+        "данные","данных","дані","даних","заметок","заметки","заметку","нотатки","нотаток","записки","хронику","хроніку","их","їх","номер","номера",
+        "телефона","телефону","блокнот","нотатник","notes","notepad","keep","кип","гугл","гугле","гуглі","google","интернет","интернете","інтернет",
+        "вставь","встав","вставити","вставить","всей","скопируй","скопіюй","скопировать","скопіювати","copy","paste","перенеси","перенести",
+        "буфер","буфера","обмена","обміну","clipboard","поделись","поділись","share","передай","скинь","кинь","закинь","сохрани","збережи","save",
+        "адрес","адреса","адресу","почту","пошту","email","информацию","інформацію","карточку","картку","всё","все","данными","export","экспорт","експорт",
+        "загугли","погугли","поищи","пошукай","samsung","ее","её","his","her","its",
         "возьми","візьми","выбери","обери","вибери","бери","take","select","вацап","вотс","ватс","скинь","відправ","відправити","надішли","надіслати","отправить","ним","ему","йому",
     )
 
