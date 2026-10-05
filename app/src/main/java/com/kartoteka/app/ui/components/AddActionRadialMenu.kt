@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -119,42 +120,50 @@ fun AddActionRadialMenu(open: Boolean, actions: List<QuickAction>, anchorBelow: 
         val lift = with(density) { 46.dp.toPx() }
         val angles = arcAngles(n)
         val half = with(density) { (itemSize / 2).toPx() }
-        val colW = 104.dp
+        val margin = with(density) { 16.dp.toPx() }
+        val gap = with(density) { 6.dp.toPx() }
+        val screenW = with(density) { maxWidth.toPx() }
+        val labelMax = with(density) { 176.dp.roundToPx() }
         actions.forEachIndexed { i, qa ->
             val src = remember { MutableInteractionSource() }
-            Column(
+            fun pos() = anchor + arcPosition(if (reduced) 1f else progress[i].value, angles[i], radius, lift)
+            val tap = {
+                haptics.tick(); onDismiss()
+                scope.launch { delay(120); qa.action() }
+                Unit
+            }
+            // Кнопка — точно на дуге.
+            Box(
                 Modifier
-                    .offset {
-                        val pos = anchor + arcPosition(if (reduced) 1f else progress[i].value, angles[i], radius, lift)
-                        IntOffset((pos.x - colW.toPx() / 2).roundToInt(), (pos.y - half).roundToInt())
-                    }
-                    .width(colW)
+                    .offset { val c = pos(); IntOffset((c.x - half).roundToInt(), (c.y - half).roundToInt()) }
                     .graphicsLayer {
                         val p = progress[i].value
                         alpha = p.coerceIn(0f, 1f)
-                        val s = 0.5f + 0.5f * p
-                        scaleX = s; scaleY = s
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, half / size.height)
-                    },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Box(
-                    Modifier.size(itemSize).pressScale(src, 0.94f).clip(CircleShape).background(RvColors.MenuItemBg)
-                        .clickable(src, indication = null, role = Role.Button) {
-                            haptics.tick(); onDismiss()
-                            scope.launch { delay(120); qa.action() }
+                        val sc = 0.5f + 0.5f * p
+                        scaleX = sc; scaleY = sc
+                    }
+                    .size(itemSize).pressScale(src, 0.94f).clip(CircleShape).background(RvColors.MenuItemBg)
+                    .clickable(src, indication = null, role = Role.Button, onClick = tap)
+                    .semantics { contentDescription = qa.title },
+                contentAlignment = Alignment.Center,
+            ) { Icon(qa.icon, null, tint = Color.White, modifier = Modifier.size(iconSize)) }
+            // Подпись под кнопкой на тёмной плашке: по центру кнопки, но не ближе 16 dp к краю экрана.
+            Text(
+                qa.title, style = PeopleType.menuLabel, color = RvColors.TextOnDark, textAlign = TextAlign.Center, maxLines = 2,
+                modifier = Modifier
+                    .layout { m, c ->
+                        val pl = m.measure(c.copy(minWidth = 0, minHeight = 0, maxWidth = labelMax))
+                        layout(pl.width, pl.height) {
+                            val center = pos()
+                            val x = (center.x - pl.width / 2f).coerceIn(margin, (screenW - margin - pl.width).coerceAtLeast(margin))
+                            pl.place(x.roundToInt(), (center.y + half + gap).roundToInt())
                         }
-                        .semantics { contentDescription = qa.title },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(qa.icon, null, tint = Color.White, modifier = Modifier.size(iconSize)) }
-                Spacer(Modifier.height(6.dp))
-                // Подпись на тёмной плашке — читается поверх любых карточек списка.
-                Text(
-                    qa.title, style = PeopleType.menuLabel, color = RvColors.TextOnDark, textAlign = TextAlign.Center, maxLines = 2,
-                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(RvColors.MenuItemBg.copy(alpha = 0.92f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                )
-            }
+                    }
+                    .graphicsLayer { alpha = progress[i].value.coerceIn(0f, 1f) }
+                    .clip(RoundedCornerShape(10.dp)).background(RvColors.MenuItemBg.copy(alpha = 0.92f))
+                    .clickable(remember { MutableInteractionSource() }, indication = null, onClick = tap)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            )
         }
     }
 }
