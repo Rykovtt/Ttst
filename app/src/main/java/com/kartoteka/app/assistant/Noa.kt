@@ -30,8 +30,13 @@ class Noa(private val app: KartotekaApp) {
         /** Перейти в раздел приложения. */
         data class Navigate(val text: String, val section: NoaIntent.Section) : Reply
         /** Действие в другом приложении (маршрут, Instagram, почта…), выполняет экран — нужен Context. */
-        data class Do(val text: String, val effect: (android.content.Context) -> Unit) : Reply
+        data class Do(val text: String, val quiet: Boolean = false, val effect: (android.content.Context) -> Unit) : Reply
     }
+
+    /** Навигатор, названный последним: «перестрой маршрут на …» откроет тот же. */
+    private var lastNavApp: String? = null
+    /** Когда открыли чат с готовым текстом — «закрой приложение» сразу после этого не выбросит неотправленное. */
+    private var chatOpenedAt = 0L
 
     /** Последний человек, о котором шла речь: «…и добавь ей заметку», «а где она живёт?». */
     var lastPerson: PersonFull? = null
@@ -102,11 +107,15 @@ class Noa(private val app: KartotekaApp) {
                 Reply.Do(t("Ставлю будильник на %1\$s.", time)) { PhoneActions.alarm(it, intent.hour, intent.minute, intent.label) }
             }
             is NoaIntent.Timer -> Reply.Do(t("Запускаю таймер: %1\$s.", durationText(intent.seconds))) { PhoneActions.timer(it, intent.seconds) }
-            is NoaIntent.Play -> {
-                val a = intent.app?.let { name -> PhoneActions.find(app, name) }
-                val what = intent.query.ifBlank { if (intent.playlist) t("плейлист") else t("музыку") }
-                Reply.Do(a?.let { t("Включаю %1\$s в %2\$s.", what, it.label) } ?: t("Включаю %1\$s.", what)) {
-                    PhoneActions.play(it, intent.query, a, intent.playlist, intent.artist)
+            is NoaIntent.Play -> play(intent)
+            is NoaIntent.Media -> media(intent.control)
+            is NoaIntent.Reply -> replyTo(intent)
+            is NoaIntent.ReadMessages -> readMessages(intent)
+            is NoaIntent.GoHome -> {
+                if (System.currentTimeMillis() - chatOpenedAt < 15_000) Reply.Say(t("Чат открыт — нажмите «Отправить», потом закрою по команде."))
+                else Reply.Do(t("Готово.")) { ctx ->
+                    runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
                 }
             }
             is NoaIntent.Flashlight -> Reply.Do(if (intent.on) t("Включаю фонарик.") else t("Выключаю фонарик.")) { PhoneActions.flashlight(it, intent.on) }
@@ -125,7 +134,25 @@ class Noa(private val app: KartotekaApp) {
         }
     }
 
-    private suspend fun route(intent: NoaIntent.Route): Reply = withPerson(intent.personQuery) { pf ->
+    private suspend fun route(intent: NoaIntent.Route): Reply {
+        intent.app?.let { lastNavApp = it }
+        val navApp = intent.app ?: lastNavApp
+        // Человек из книжки — к нему; иначе — любое место по словам («до Киевской 5», «ближайшая заправка»).
+        val person = intent.personQuery.isNotBlank() && knows(intent.personQuery)
+        if (!person && intent.place.isNotBlank() && !(intent.personQuery.isBlank() && intent.place.split(" ").all { it in NoaParser.PRONOUNS })) {
+            val place = intent.place
+            return Reply.Do(t("Прокладываю маршрут: %1\$s.", place) + navName(navApp)) { ctx ->
+                com.kartoteka.app.messaging.Messaging.navigateTo(ctx, place, navApp)
+            }
+        }
+        return personRoute(intent.copy(app = navApp))
+    }
+
+    private fun navName(app: String?) = when (app) {
+        "waze" -> " (Waze)"; "google" -> " (Google Maps)"; "yandex" -> " (Яндекс)"; "organic" -> " (Organic Maps)"; else -> ""
+    }
+
+    private suspend fun personRoute(intent: NoaIntent.Route): Reply = withPerson(intent.personQuery) { pf ->
         val places = pf.places.filter { it.address.isNotBlank() || it.hasCoords }
         val place = places.firstOrNull { intent.kind == null || it.placeKind == intent.kind }
             ?: places.firstOrNull()
@@ -238,6 +265,15 @@ class Noa(private val app: KartotekaApp) {
         val text = if (intent.aboutAppointment) confirmationText(pf) ?: intent.text.orEmpty() else intent.text.orEmpty()
         val m = NoaActions.Message(pf.person.id, intent.channel, text)
         NoaActions.lastMessage = m
+        val names = chatNames(pf)
+        val watchReply = { NoaNotifications.watch = NoaNotifications.Companion.Watch(names, System.currentTimeMillis() + 60 * 60_000L, false) }
+        // Есть открытая переписка в уведомлениях — отправляем прямо через «Ответить», без открытия мессенджера.
+        if (text.isNotBlank() && intent.channel != NoaIntent.Channel.SMS && NoaNotifications.granted(app)) {
+            val sent = NoaNotifications.reply(app, names, text)
+            if (sent != null) { watchReply(); return@withPerson Reply.Say(t("Отправила %1\$s: «%2\$s». Прочитаю ответ, когда придёт.", pf.person.displayName, text)) }
+        }
+        if (NoaNotifications.granted(app)) watchReply()
+        chatOpenedAt = System.currentTimeMillis()
         Reply.Do(t("Открываю %1\$s для %2\$s.", channelName, pf.person.displayName)) { ctx -> sendMessage(ctx, pf, m) }
     }
 
@@ -397,6 +433,97 @@ class Noa(private val app: KartotekaApp) {
         }
     }
 
+    // ---------- музыка и видео ----------
+
+    private suspend fun play(intent: NoaIntent.Play): Reply {
+        val named = intent.app?.let { PhoneActions.find(app, it) }
+        val pkg = named?.pkg ?: if (intent.video) NoaMedia.YT else NoaMedia.defaultMusic(app)
+        val label = named?.label ?: when (pkg) { NoaMedia.YT -> "YouTube"; NoaMedia.YT_MUSIC -> "YouTube Music"; NoaMedia.SPOTIFY -> "Spotify"; else -> "" }
+        val query = intent.query.ifBlank { if (intent.video) t("популярное видео") else "" }
+        // YouTube / YouTube Music: находим конкретное видео или плейлист — тогда приложение сразу играет.
+        var url: String? = null
+        var title: String? = null
+        if ((pkg == NoaMedia.YT || pkg == NoaMedia.YT_MUSIC) && query.isNotBlank()) {
+            val playlist = intent.playlist || (pkg == NoaMedia.YT_MUSIC && !intent.artist && intent.query.isBlank())
+            val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                kotlinx.coroutines.withTimeoutOrNull(7000) { NoaMedia.searchYoutube(query, playlist) ?: if (playlist) NoaMedia.searchYoutube(query, false) else null }
+            }
+            if (found != null) { url = NoaMedia.playUrl(pkg, found); title = found.title }
+        }
+        val what = title ?: intent.query.ifBlank { if (intent.playlist) t("плейлист") else if (intent.video) t("видео") else t("музыку") }
+        val shuffleNote = if (intent.shuffle) " " + t("в случайном порядке") else ""
+        val text = (if (label.isNotBlank()) t("Включаю %1\$s в %2\$s.", what, label) else t("Включаю %1\$s.", what)).removeSuffix(".") + shuffleNote + "."
+        val finalUrl = url
+        return Reply.Do(text) { ctx -> NoaMedia.open(ctx, pkg, finalUrl, intent.query, intent.playlist, intent.artist, intent.shuffle) }
+    }
+
+    private fun media(c: NoaMedia.Control): Reply {
+        if (c == NoaMedia.Control.WHAT) {
+            val now = NoaMedia.nowPlaying(app)
+                ?: return Reply.Say(if (NoaNotifications.granted(app)) t("Сейчас ничего не играет.") else t("Чтобы я видела, что играет, включите мне доступ к уведомлениям в настройках ассистента."))
+            return Reply.Say(t("Сейчас играет: %1\$s.", now))
+        }
+        val needsAccess = c == NoaMedia.Control.SHUFFLE_ON || c == NoaMedia.Control.SHUFFLE_OFF || c == NoaMedia.Control.REPEAT
+        if (needsAccess && !NoaNotifications.granted(app))
+            return Reply.Say(t("Чтобы управлять перемешиванием, включите мне доступ к уведомлениям в настройках ассистента."))
+        val text = when (c) {
+            NoaMedia.Control.PAUSE -> t("Пауза."); NoaMedia.Control.RESUME -> t("Продолжаю.")
+            NoaMedia.Control.NEXT -> t("Следующий."); NoaMedia.Control.PREV -> t("Предыдущий.")
+            NoaMedia.Control.SHUFFLE_ON -> t("Перемешала."); NoaMedia.Control.SHUFFLE_OFF -> t("Играю по порядку.")
+            NoaMedia.Control.REPEAT -> t("Повторяю."); NoaMedia.Control.STOP -> t("Остановила.")
+            NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише.")
+            NoaMedia.Control.WHAT -> ""
+        }
+        // Короткий ответ без голоса — чтобы не перебивать музыку.
+        return Reply.Do(text, quiet = true) { ctx -> NoaMedia.control(ctx, c) }
+    }
+
+    // ---------- сообщения ----------
+
+    /** Как человек может быть подписан в мессенджере: полное имя, имя, прозвище, номер. */
+    private fun chatNames(pf: PersonFull): List<String> = listOfNotNull(
+        pf.person.displayName, pf.person.fullName, pf.person.firstName.takeIf { it.length > 2 }, pf.person.nickname.takeIf { it.length > 2 },
+        pf.person.lastName.takeIf { it.length > 3 }, pf.phone?.filter { it.isDigit() }?.takeLast(9),
+    ).filter { it.isNotBlank() }.distinct()
+
+    private suspend fun replyTo(intent: NoaIntent.Reply): Reply {
+        if (intent.text.isBlank()) return Reply.Say(t("Что ответить?"))
+        if (!NoaNotifications.granted(app)) return Reply.Say(t("Чтобы отвечать в мессенджерах, включите мне доступ к уведомлениям в настройках ассистента."))
+        // Кому: названный человек, тот, о ком говорили, или автор последнего сообщения.
+        val q = intent.personQuery
+        val names = if (q.isNotBlank() && knows(q)) matches(q).firstOrNull()?.let { chatNames(it) } ?: listOf(q)
+            else if (q.isNotBlank()) listOf(q)
+            else lastPerson?.let { chatNames(it) } ?: NoaNotifications.recentMessages().firstOrNull()?.let { listOf(it.sender) }
+            ?: return Reply.Say(t("Кому ответить?"))
+        val text = intent.text
+        return Reply.Confirm(t("Ответить %1\$s: «%2\$s»?", names.first(), text)) {
+            val sent = NoaNotifications.reply(app, names, text)
+            if (sent != null) {
+                NoaNotifications.watch = NoaNotifications.Companion.Watch(names, System.currentTimeMillis() + 30 * 60_000L, false)
+                Reply.Say(t("Отправила. Прочитаю, когда ответит."))
+            } else Reply.Say(t("Не нашла переписку с %1\$s в уведомлениях. Скажите «напиши %1\$s …» — открою чат.", names.first()))
+        }
+    }
+
+    private suspend fun readMessages(intent: NoaIntent.ReadMessages): Reply {
+        if (!NoaNotifications.granted(app)) return Reply.Say(t("Чтобы читать сообщения, включите мне доступ к уведомлениям в настройках ассистента."))
+        val q = intent.personQuery
+        val names = when {
+            q.isNotBlank() -> matches(q).firstOrNull()?.let { chatNames(it) } ?: listOf(q)
+            intent.wait -> lastPerson?.let { chatNames(it) }
+            else -> null
+        }
+        if (intent.wait) {
+            val n = names ?: return Reply.Say(t("Чей ответ ждать?"))
+            NoaNotifications.watch = NoaNotifications.Companion.Watch(n, System.currentTimeMillis() + 60 * 60_000L, false)
+            return Reply.Say(t("Хорошо, прочитаю ответ %1\$s, как только придёт.", n.first()))
+        }
+        val w = names?.let { NoaNotifications.Companion.Watch(it, Long.MAX_VALUE, false) }
+        val list = NoaNotifications.recentMessages().filter { w == null || w.matches(it.sender) }.take(5)
+        if (list.isEmpty()) return Reply.Say(if (names != null) t("Новых сообщений от %1\$s нет.", names.first()) else t("Новых сообщений нет."))
+        return Reply.Say(list.joinToString("\n") { t("%1\$s: %2\$s", it.sender, it.text) })
+    }
+
     /** Есть ли в книжке человек по этому запросу (пусто/местоимение — «тот же человек», считается найденным). */
     suspend fun knows(query: String): Boolean {
         val q = query.split(" ").filter { it.isNotBlank() && it.lowercase() !in NoaParser.PRONOUNS }.joinToString(" ")
@@ -518,7 +645,7 @@ class Noa(private val app: KartotekaApp) {
         val service = repo.getService(af.appointment.serviceId)
         val template = AppointmentLogic.messageTemplate(
             service, com.kartoteka.app.data.TemplateKind.CONFIRM,
-            app.settings.template(com.kartoteka.app.data.TemplateKind.CONFIRM, lang).value.value,
+            app.settings.template(com.kartoteka.app.data.TemplateKind.CONFIRM, lang).value.value, lang,
         )
         return AppointmentLogic.fill(template, af.appointment, pf.person, lang)
     }

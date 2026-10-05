@@ -103,7 +103,8 @@ object PhoneActions {
     /** Распознаётся ли фраза как название приложения («ютуб мьюзик», «телеграм»). */
     fun isAppName(name: String): Boolean {
         val n = name.lowercase().trim()
-        return n in ALIAS_NAMES || ALIAS_NAMES.any { n.startsWith("$it ") } || (n.endsWith("у") && n.dropLast(1) + "а" in ALIAS_NAMES)
+        return n in ALIAS_NAMES || ALIAS_NAMES.any { n.startsWith("$it ") || (it.length >= 4 && n.startsWith(it) && n.length - it.length <= 2) } ||
+            (n.endsWith("у") && n.dropLast(1) + "а" in ALIAS_NAMES)
     }
 
     /**

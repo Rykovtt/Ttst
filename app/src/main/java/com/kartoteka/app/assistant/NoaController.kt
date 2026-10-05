@@ -119,7 +119,13 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                 reply.personId?.let { id -> go { onOpenPerson(id) } }
                 reply.appointmentId?.let { id -> go { onOpenAppointment(id) } }
             }
-            is Noa.Reply.Do -> { leaving = true; say(reply.text); runCatching { reply.effect(context) } }
+            is Noa.Reply.Do -> {
+                leaving = true
+                // Пауза/громче — без голоса, чтобы не перебивать музыку.
+                if (reply.quiet) { bubbles.add(Bubble(reply.text, mine = false)); answer = reply.text; scope.launch { delay(400); onIdle() } }
+                else say(reply.text)
+                runCatching { reply.effect(context) }
+            }
             is Noa.Reply.Choose -> { say(reply.text, expectAnswer = true); pendingYes = null }
             is Noa.Reply.Navigate -> { leaving = true; say(reply.text); go { onNavigate(reply.section) } }
             is Noa.Reply.Confirm -> { say(reply.text + "  " + t("Скажите «да» или «нет»."), expectAnswer = true); pendingYes = reply.onYes }

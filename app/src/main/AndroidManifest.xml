@@ -76,6 +76,16 @@
         <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
 
         <!-- Языковая модель в отдельном процессе: нехватка памяти не роняет приложение. -->
+        <!-- Доступ к уведомлениям (включает сам человек): управление плеером, чтение и ответ в мессенджерах по команде -->
+        <service
+            android:name=".assistant.NoaNotifications"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <service
             android:name=".assistant.BrainService"
             android:exported="false"

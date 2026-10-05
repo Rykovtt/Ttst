@@ -80,8 +80,27 @@ object AppointmentLogic {
      * Текст сообщения: свой шаблон услуги, если он заполнен, иначе общий.
      * Так консультация и тату-сеанс получают каждый свои напоминания.
      */
-    fun messageTemplate(service: ServiceTemplate?, kind: TemplateKind, general: String): String =
-        service?.template(kind)?.takeIf { it.isNotBlank() } ?: general
+    /**
+     * Шаблон услуги — если он написан на языке сообщения; иначе общий шаблон этого языка
+     * (шаблон услуги на русском не уйдёт украиноязычному клиенту).
+     */
+    fun messageTemplate(service: ServiceTemplate?, kind: TemplateKind, general: String, lang: MessageLang? = null): String =
+        service?.template(kind)?.takeIf { it.isNotBlank() && (lang == null || textLang(it).let { l -> l == null || l == lang }) }
+            // Общий шаблон этого языка, сохранённый по ошибке на другом языке, — берём стандартный.
+            ?: general.takeIf { lang == null || textLang(it).let { l -> l == null || l == lang } }
+            ?: lang!!.template(kind)
+
+    /** Язык текста по буквам: і/ї/є/ґ — украинский, ы/э/ъ/ё — русский, латиница — английский. */
+    fun textLang(text: String): MessageLang? {
+        val body = text.replace(Regex("\\{[^}]*\\}"), " ")
+        val l = body.lowercase()
+        return when {
+            l.any { it in "іїєґ" } -> MessageLang.UK
+            l.any { it in "ыэъё" } -> MessageLang.RU
+            l.count { it in 'a'..'z' } > 8 && l.none { it in 'а'..'я' } -> MessageLang.EN
+            else -> null
+        }
+    }
 
     /** Список напоминаний для записи; прошедшие не создаются. */
     fun buildReminders(a: Appointment, clientOffsets: List<Int>, myOffsets: List<Int>, now: Long = System.currentTimeMillis()): List<AppointmentReminder> {

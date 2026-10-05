@@ -128,6 +128,23 @@ object Messaging {
         start(context, Intent(Intent.ACTION_VIEW, Uri.parse(uri)))
     }
 
+    /** Маршрут в любое место по тексту («Киевская 5», «ближайшая заправка») в выбранном навигаторе. */
+    fun navigateTo(context: Context, query: String, app: String? = null) {
+        val q = Uri.encode(query)
+        val direct = when (app) {
+            "waze" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://waze.com/ul?q=$q&navigate=yes")).setPackage("com.waze")
+            "google" -> Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$q")).setPackage("com.google.android.apps.maps")
+            "yandex" -> Intent(Intent.ACTION_VIEW, Uri.parse("yandexnavi://map_search?text=$q")).setPackage("ru.yandex.yandexnavi")
+            "organic" -> Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$q")).setPackage("app.organicmaps")
+            else -> null
+        }
+        if (direct != null) {
+            if (context !is android.app.Activity) direct.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { context.startActivity(direct) }.isSuccess) return
+        }
+        start(context, Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$q")))
+    }
+
     fun web(context: Context, url: String) = start(context, Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
     /** Копирование с пометкой «секретно» и автоочисткой буфера через 30 секунд. */

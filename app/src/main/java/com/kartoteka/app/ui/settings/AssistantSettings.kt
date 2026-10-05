@@ -54,6 +54,17 @@ fun AssistantSettings() {
             brain,
         ) { s.assistantBrain.set(it) }
         if (brain) BrainModelRow()
+        // Доступ к уведомлениям: плеер (пауза, перемешать), чтение и ответ в мессенджерах по команде.
+        var access by remember { mutableStateOf(com.kartoteka.app.assistant.NoaNotifications.granted(context)) }
+        androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+            access = com.kartoteka.app.assistant.NoaNotifications.granted(context)
+            onPauseOrDispose { }
+        }
+        ActionRow(
+            Icons.Default.Apps, t("Музыка и сообщения"),
+            if (access) t("Включено: пауза, «дальше», перемешать, читаю ответы вслух и отвечаю в мессенджерах по команде")
+            else t("Выключено. Нажмите и разрешите доступ к уведомлениям — тогда я смогу управлять музыкой, читать ответы и отвечать в WhatsApp/Telegram"),
+        ) { com.kartoteka.app.assistant.NoaNotifications.openSettings(context) }
         ActionRow(Icons.Default.RecordVoiceOver, t("Имя ассистента"), name.ifBlank { "Ноа" }) { rename = true }
         ToggleRow(Icons.Default.RecordVoiceOver, t("Отвечать голосом"), t("Женский голос; читает ответы вслух"), voice, s.assistantVoice::set)
         ToggleRow(Icons.Default.Apps, t("Иконка на рабочем столе"), t("Отдельный значок для быстрого запуска ассистента"), launcher) { v ->

@@ -227,7 +227,7 @@ class AppointmentEditViewModel(private val app: KartotekaApp, val id: Long, pers
 
     fun previewText(kind: MessageKind, lang: com.kartoteka.app.data.MessageLang = langOf()): String {
         val p = person?.person ?: return ""
-        val template = AppointmentLogic.messageTemplate(service, kind.template, settings.template(kind.template, lang).value.value)
+        val template = AppointmentLogic.messageTemplate(service, kind.template, settings.template(kind.template, lang).value.value, lang)
         return AppointmentLogic.fill(template, draft(), p, lang)
     }
 

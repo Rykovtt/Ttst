@@ -96,6 +96,7 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
+    implementation("androidx.media:media:1.7.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
 
