@@ -184,7 +184,9 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)
                         val doubtful = brainReady && steps.any { st ->
                             !noa.knows(NoaParser.personOf(st)) &&
-                                !(st is NoaIntent.Open && PhoneActions.find(context, st.personQuery) != null)
+                                !(st is NoaIntent.Open && PhoneActions.find(context, st.personQuery) != null) &&
+                                // Маршрут в любое место и переписка с теми, кого нет в книжке, — не ошибка разбора.
+                                !(st is NoaIntent.Route && st.place.isNotBlank()) && st !is NoaIntent.Reply && st !is NoaIntent.ReadMessages
                         }
                         if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
                         else {

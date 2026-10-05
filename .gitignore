@@ -11,3 +11,4 @@ build/
 ios/.build/
 ios/.swiftpm/
 *.apk
+.claude/worktrees/
