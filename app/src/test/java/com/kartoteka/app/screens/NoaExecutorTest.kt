@@ -120,4 +120,23 @@ class NoaExecutorTest {
         val reply = noa.handleIntent(merged, now)
         assertTrue("reply=$reply", reply is Noa.Reply.Confirm && reply.text.contains("12:00"))
     }
+
+    @Test fun deletesAndMovesAppointmentByVoice() = runBlocking {
+        app.repository.savePerson(Person(firstName = "Илья", lastName = "Рыков"), emptyList(), emptyList(), emptyList())
+        val noa = Noa(app)
+        val book = noa.handle("запиши Илью Рыкова на завтра на 12", now) as Noa.Reply.Confirm
+        book.onYes()
+        val move = noa.handle("перенеси Илью Рыкова на 15:00", now)
+        assertTrue("move=$move", move is Noa.Reply.Confirm && move.text.contains("15:00"))
+        (move as Noa.Reply.Confirm).onYes()
+        val del = noa.handle("удали запись ильи рыкова завтра", now)
+        assertTrue("del=$del", del is Noa.Reply.Confirm && del.text.contains("15:00"))
+        (del as Noa.Reply.Confirm).onYes()
+        val tomorrow = now.toLocalDate().plusDays(1)
+        val left = app.repository.appointmentsBetween(
+            com.kartoteka.app.data.AppointmentLogic.millis(tomorrow.atStartOfDay()),
+            com.kartoteka.app.data.AppointmentLogic.millis(tomorrow.plusDays(2).atStartOfDay()),
+        )
+        assertTrue("left=$left", left.isEmpty())
+    }
 }

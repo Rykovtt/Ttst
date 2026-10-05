@@ -173,7 +173,11 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         // Правила — точные и мгновенные: если поняли команду (в т.ч. цепочку), выполняем их разбор.
                         // Модель — только для того, что правила не поняли: свободная речь и разговор.
                         val rules = noa.continueBooking(text) ?: NoaParser.parse(text)
-                        if (rules !is NoaIntent.Unknown) run(rules)
+                        // Правила поняли команду, но человека с таким именем нет («запись ильи рыкова») —
+                        // скорее всего, фраза разобрана неверно: пусть её прочитает модель.
+                        val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)
+                        val doubtful = brainReady && steps.any { !noa.knows(NoaParser.personOf(it)) }
+                        if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
                         else {
                             val smart = if (brainReady) runCatching {
                                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

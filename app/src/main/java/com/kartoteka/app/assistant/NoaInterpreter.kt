@@ -54,6 +54,13 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 val dt = NoaDateTime.parse(userText, now)
                 NoaIntent.CreateAppointment(person, dt?.dateTime, dt?.hadTime ?: false, str("service")?.lowercase(), false)
             }
+            "cancel_appointment", "delete_appointment" -> NoaIntent.CancelAppointment(
+                person, NoaDateTime.parse(userText, now)?.takeIf { it.hadDate }?.dateTime?.toLocalDate(),
+                delete = action == "delete_appointment",
+            )
+            "move_appointment" -> NoaDateTime.parse(userText, now).let { dt ->
+                NoaIntent.MoveAppointment(person, dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
+            }
             "call" -> NoaIntent.Call(person)
             "message" -> {
                 // «Отправь ему об этом» — текст из шаблона подтверждения, а не выдумка модели.
@@ -144,7 +151,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             Ты — голосовой ассистент в личной записной книжке людей. Переведи запрос в JSON. Только JSON, без пояснений.
             Формат: {"actions":[{...},{...}],"reply":"короткий ответ $lang"}
             Действия (поле action):
-            create_appointment {person, service}; call {person}; message {person, channel: whatsapp|telegram|sms, text};
+            create_appointment {person, service}; cancel_appointment {person}; delete_appointment {person}; move_appointment {person};
+            call {person}; message {person, channel: whatsapp|telegram|sms, text};
             add_note {person, text}; open_person {person}; find {query};
             open_contact {person, contact: instagram|facebook|viber|email|website|telegram|whatsapp};
             route {person, place: home|work|""}; agenda {day: today|tomorrow};
@@ -157,6 +165,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             «зайди в профиль Ани и добавь заметку купила новый телефон» → {"actions":[{"action":"open_person","person":"Аня"},{"action":"add_note","person":"Аня","text":"купила новый телефон"}],"reply":"Готово"}
             «відкрий інстаграм Олега» → {"actions":[{"action":"open_contact","person":"Олег","contact":"instagram"}],"reply":"Відкриваю"}
             «проклади маршрут до мами на роботу» → {"actions":[{"action":"route","person":"мама","place":"work"}],"reply":"Прокладаю"}
+            «удали запись Ильи Рыкова на завтра» → {"actions":[{"action":"delete_appointment","person":"Илья Рыков"}],"reply":""}
+            «перенеси Аню на пятницу в 15» → {"actions":[{"action":"move_appointment","person":"Аня"}],"reply":""}
             «що в мене завтра» → {"actions":[{"action":"agenda","day":"tomorrow"}],"reply":""}
             «коли день народження в Ілля» → {"actions":[{"action":"person_info","person":"Ілля","topic":"birthday","question":"коли день народження"}],"reply":""}
             Сегодня: $date.

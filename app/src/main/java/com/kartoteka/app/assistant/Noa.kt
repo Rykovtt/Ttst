@@ -89,6 +89,8 @@ class Noa(private val app: KartotekaApp) {
                 repo.setFavorite(pf.person.id, intent.on)
                 Reply.Say(if (intent.on) t("Добавила %1\$s в избранное.", pf.person.displayName) else t("Убрала %1\$s из избранного.", pf.person.displayName))
             }
+            is NoaIntent.CancelAppointment -> cancelAppointment(intent, now)
+            is NoaIntent.MoveAppointment -> moveAppointment(intent, now)
             // Цепочку разворачивает экран (шаг за шагом, с подтверждениями); здесь — на всякий случай первый шаг.
             is NoaIntent.Sequence -> intent.steps.firstOrNull()?.let { handleIntent(it, now) } ?: Reply.Say(t("Не поняла команду."))
             is NoaIntent.Unknown -> Reply.Say(t("Не поняла команду. Скажите, например: «запиши Анну на завтра в 12:00» или «позвони маме»."))
@@ -251,6 +253,69 @@ class Noa(private val app: KartotekaApp) {
                 Reply.Say(t("Готово, записала %1\$s.", pf.person.displayName))
             }
         }
+    }
+
+    /** Запись человека: на названный день или ближайшая предстоящая (сегодняшние — тоже). */
+    private suspend fun findAppointment(pf: PersonFull, date: java.time.LocalDate?, now: LocalDateTime): com.kartoteka.app.data.AppointmentFull? {
+        val from = AppointmentLogic.millis(date?.atStartOfDay() ?: now.toLocalDate().atStartOfDay())
+        val to = AppointmentLogic.millis(date?.plusDays(1)?.atStartOfDay() ?: now.plusYears(1))
+        val list = repo.appointmentsBetween(from, to)
+            .filter { it.appointment.personId == pf.person.id && it.appointment.appointmentStatus == com.kartoteka.app.data.AppointmentStatus.PLANNED }
+            .sortedBy { it.appointment.start }
+        return list.firstOrNull { it.appointment.start >= AppointmentLogic.millis(now) } ?: list.firstOrNull()
+    }
+
+    private fun apptWhen(ms: Long, now: LocalDateTime): String {
+        val dt = AppointmentLogic.zoned(ms)
+        return AppointmentLogic.whenText(dt, now, AppointmentLogic.uiLang()) + " " + t("в %1\$s", AppointmentLogic.timeText(dt))
+    }
+
+    private suspend fun cancelAppointment(intent: NoaIntent.CancelAppointment, now: LocalDateTime): Reply = withPerson(intent.personQuery) { pf ->
+        val af = findAppointment(pf, intent.date, now)
+            ?: return@withPerson Reply.Say(
+                if (intent.date != null) t("У %1\$s нет записи на этот день.", pf.person.displayName)
+                else t("У %1\$s нет предстоящих записей.", pf.person.displayName)
+            )
+        val id = af.appointment.id
+        val whenText = apptWhen(af.appointment.start, now)
+        val question = if (intent.delete) t("Удалить запись %1\$s на %2\$s?", pf.person.displayName, whenText)
+            else t("Отменить запись %1\$s на %2\$s?", pf.person.displayName, whenText)
+        Reply.Confirm(question) {
+            com.kartoteka.app.reminders.ReminderScheduler.cancel(app, repo.pendingRemindersFor(id).map { it.id })
+            if (intent.delete) repo.deleteAppointment(id) else repo.setAppointmentStatus(id, com.kartoteka.app.data.AppointmentStatus.CANCELLED)
+            if (lastAppointmentId == id) lastAppointmentId = null
+            Reply.Say(if (intent.delete) t("Удалила запись %1\$s.", pf.person.displayName) else t("Отменила запись %1\$s.", pf.person.displayName))
+        }
+    }
+
+    private suspend fun moveAppointment(intent: NoaIntent.MoveAppointment, now: LocalDateTime): Reply = withPerson(intent.personQuery) { pf ->
+        val af = findAppointment(pf, null, now)
+            ?: return@withPerson Reply.Say(t("У %1\$s нет предстоящих записей.", pf.person.displayName))
+        val target = intent.dateTime
+        if (target == null || (!intent.hadDate && !intent.hadTime))
+            return@withPerson Reply.Say(t("На когда перенести? Скажите, например: «перенеси %1\$s на пятницу в 15:00».", pf.person.displayName))
+        val old = AppointmentLogic.zoned(af.appointment.start)
+        // Назвали только день — время остаётся прежним; только время — день прежний.
+        val dt = LocalDateTime.of(if (intent.hadDate) target.toLocalDate() else old.toLocalDate(), if (intent.hadTime) target.toLocalTime() else old.toLocalTime())
+        val oldText = apptWhen(af.appointment.start, now)
+        val newText = AppointmentLogic.whenText(dt, now, AppointmentLogic.uiLang()) + " " + t("в %1\$s", AppointmentLogic.timeText(dt))
+        Reply.Confirm(t("Перенести запись %1\$s с %2\$s на %3\$s?", pf.person.displayName, oldText, newText)) {
+            val a = af.appointment
+            com.kartoteka.app.reminders.ReminderScheduler.cancel(app, repo.pendingRemindersFor(a.id).map { it.id })
+            val service = repo.getService(a.serviceId)
+            val clientOffsets = AppointmentLogic.offsetsFromString(service?.clientOffsets?.ifBlank { null } ?: app.settings.apptClientOffsets.value.value)
+            val myOffsets = AppointmentLogic.offsetsFromString(service?.myOffsets?.ifBlank { null } ?: app.settings.apptMyOffsets.value.value)
+            val (id, reminders) = repo.saveAppointment(a.copy(start = AppointmentLogic.millis(dt)), clientOffsets, myOffsets)
+            lastAppointmentId = id
+            com.kartoteka.app.reminders.ReminderScheduler.schedule(app, reminders)
+            Reply.Say(t("Перенесла запись %1\$s на %2\$s.", pf.person.displayName, newText))
+        }
+    }
+
+    /** Есть ли в книжке человек по этому запросу (пусто/местоимение — «тот же человек», считается найденным). */
+    suspend fun knows(query: String): Boolean {
+        val q = query.split(" ").filter { it.isNotBlank() && it.lowercase() !in NoaParser.PRONOUNS }.joinToString(" ")
+        return q.isBlank() || matches(q).isNotEmpty()
     }
 
     // ---- поиск человека ----

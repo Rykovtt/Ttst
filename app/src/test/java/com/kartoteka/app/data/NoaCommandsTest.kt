@@ -102,4 +102,13 @@ class NoaCommandsTest {
         assertEquals(15, appt("запиши Аню в пятницу на 3").dateTime!!.hour)
         assertEquals(12, appt("запиши Машу на 12 октября в 15:00").dateTime!!.dayOfMonth)
     }
+
+    @Test fun deleteCancelAndMoveAreNotNewBookings() {
+        val del = p("удали запись ильи рыкова завтра") as NoaIntent.CancelAppointment
+        assertEquals("ильи рыкова", del.personQuery); assertEquals(now.toLocalDate().plusDays(1), del.date); assertTrue(del.delete)
+        val cancel = p("скасуй запис Ольги") as NoaIntent.CancelAppointment
+        assertEquals("ольги", cancel.personQuery); assertEquals(false, cancel.delete)
+        val move = p("перенеси Аню на пятницу в 15:00") as NoaIntent.MoveAppointment
+        assertEquals("аню", move.personQuery); assertEquals(15, move.dateTime!!.hour); assertTrue(move.hadDate && move.hadTime)
+    }
 }

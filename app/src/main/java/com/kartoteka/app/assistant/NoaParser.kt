@@ -29,6 +29,10 @@ sealed interface NoaIntent {
     /** Вопрос о человеке: ответ из его карточки. */
     data class PersonInfo(val personQuery: String, val topic: Topic, val question: String) : NoaIntent
     data class Favorite(val personQuery: String, val on: Boolean) : NoaIntent
+    /** Отменить/удалить запись человека (на день [date] или ближайшую). */
+    data class CancelAppointment(val personQuery: String, val date: java.time.LocalDate?, val delete: Boolean) : NoaIntent
+    /** Перенести ближайшую запись человека; [hadDate]/[hadTime] — что именно названо в новом времени. */
+    data class MoveAppointment(val personQuery: String, val dateTime: LocalDateTime?, val hadDate: Boolean, val hadTime: Boolean) : NoaIntent
     /** Несколько действий подряд: «открой Аню и добавь заметку…». */
     data class Sequence(val steps: List<NoaIntent>) : NoaIntent
     data object Lock : NoaIntent
@@ -79,6 +83,7 @@ object NoaParser {
         is NoaIntent.AddNote -> i.personQuery; is NoaIntent.OpenContact -> i.personQuery
         is NoaIntent.Route -> i.personQuery; is NoaIntent.PersonInfo -> i.personQuery
         is NoaIntent.Favorite -> i.personQuery; is NoaIntent.Select -> i.personQuery
+        is NoaIntent.CancelAppointment -> i.personQuery; is NoaIntent.MoveAppointment -> i.personQuery
         else -> ""
     }
 
@@ -88,6 +93,7 @@ object NoaParser {
         is NoaIntent.AddNote -> i.copy(personQuery = p); is NoaIntent.OpenContact -> i.copy(personQuery = p)
         is NoaIntent.Route -> i.copy(personQuery = p); is NoaIntent.PersonInfo -> i.copy(personQuery = p)
         is NoaIntent.Favorite -> i.copy(personQuery = p); is NoaIntent.Select -> i.copy(personQuery = p)
+        is NoaIntent.CancelAppointment -> i.copy(personQuery = p); is NoaIntent.MoveAppointment -> i.copy(personQuery = p)
         else -> i
     }
 
@@ -152,6 +158,20 @@ object NoaParser {
             }
         }
 
+        // перенести / отменить / удалить запись — раньше создания («удали запись Ильи» — не новая запись)
+        val apptWord = has(s, "запис", "встреч", "зустріч", "сеанс", "прийом", "приём", "прием", "appointment", "booking", "meeting", "визит", "візит")
+        if (has(s, "перенес", "перенест", "перенос", "передвин", "пересун", "зсунь", "посунь", "reschedule", "move")) {
+            val dt = NoaDateTime.parse(original, now)
+            return NoaIntent.MoveAppointment(extractPerson(s), dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
+        }
+        val cancelWord = has(s, "отмени", "отменить", "скасуй", "скасувати", "відміни", "cancel", "call off")
+        val deleteWord = has(s, "удали", "удалить", "видали", "видалити", "сотри", "зітри", "delete", "remove") ||
+            (apptWord && has(s, "убери", "прибери"))
+        if ((apptWord && (cancelWord || deleteWord)) || (cancelWord && !has(s, "избранн", "обран"))) {
+            val dt = NoaDateTime.parse(original, now)
+            return NoaIntent.CancelAppointment(extractPerson(s), dt?.takeIf { it.hadDate }?.dateTime?.toLocalDate(), delete = deleteWord && !cancelWord)
+        }
+
         // запись на приём
         if (has(s, "запиши", "запиш", "запис", "записать", "назнач", "book", "appointment", "schedule")) {
             val service = extractService(s)
@@ -214,6 +234,10 @@ object NoaParser {
         "работает","працює","сколько","скільки","лет","років","что","що","я","знаю","расскажи","розкажи","о","об","про","кто","хто","такой","такая","такий","така",
         "у","него","неё","нього","неї","мой","мій","моя",
         "об","этом","это","этим","це","цим","подтверждение","подтверждения","підтвердження","также","тоже","сразу","еще","ещё","також","теж","одразу","відразу","заодно",
+        "запись","записи","запису","записів","записью","встречу","встречи","зустріч","зустрічі","прийом","прийому","приём","прием","приёма","приема",
+        "сеанса","визит","візит","appointment","booking","meeting","удалить","видалити","отмени","отменить","скасуй","скасувати","відміни",
+        "сотри","зітри","delete","remove","cancel","перенеси","перенести","перенос","передвинь","пересунь","зсунь","посунь","reschedule","move",
+        "с","з","со","із","from","ближайшую","найближчу","next",
         "возьми","візьми","выбери","обери","вибери","бери","take","select","вацап","вотс","ватс","скинь","відправ","відправити","надішли","надіслати","отправить","ним","ему","йому",
     )
 
