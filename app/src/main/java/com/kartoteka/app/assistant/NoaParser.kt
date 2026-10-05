@@ -94,20 +94,29 @@ object NoaParser {
         if (parts.any { parseOne(it, now) is NoaIntent.Unknown }) return parseOne(input, now)
         // Текст сообщения не режем на команды: «напиши Илье что куплю хлеб и позвоню вечером» — одно сообщение.
         // Отдельными остаются только «служебные» хвосты: закрой, прочитай ответ, пауза, подтверждение.
-        val joined = mutableListOf<String>()
-        for (part in parts) {
-            val prev = joined.lastOrNull()?.let { parseOne(it, now) }
+        // Действия с телефоном («…и включи музыку», «…и проложи маршрут домой») — тоже отдельные, если глагол
+        // повелительный: «…и включу ей музыку» (1-е лицо) — это ещё текст сообщения.
+        val seps = CHAIN.findAll(input).map { it.value }.toList()
+        val joined = mutableListOf<NoaIntent>()
+        for ((i, part) in parts.withIndex()) {
+            val prev = joined.lastOrNull()
             val cur = parseOne(part, now)
-            val tail = cur is NoaIntent.GoHome || cur is NoaIntent.ReadMessages || cur is NoaIntent.Media ||
+            val first = part.trim().lowercase().substringBefore(' ')
+            val device = (cur is NoaIntent.Play || cur is NoaIntent.Route || cur is NoaIntent.LaunchApp || cur is NoaIntent.Alarm ||
+                cur is NoaIntent.Timer || cur is NoaIntent.Flashlight || cur is NoaIntent.Lock || cur is NoaIntent.PhoneSettings) &&
+                !first.endsWith("у") && !first.endsWith("ю")
+            val tail = device || cur is NoaIntent.GoHome || cur is NoaIntent.ReadMessages || cur is NoaIntent.Media ||
                 (cur is NoaIntent.Message && (cur.aboutAppointment || cur.personQuery.isNotBlank()))
-            if (prev is NoaIntent.Message && prev.text != null && !tail) joined[joined.lastIndex] = joined.last() + " и " + part
-            else joined += part
+            if (prev is NoaIntent.Message && prev.text != null && !tail) {
+                // Склеиваем текст обратно с тем союзом, что был сказан («і», «та», «потом»…).
+                val sep = seps.getOrNull(i - 1)?.trim()?.trimStart(',')?.trim().orEmpty().ifBlank { "и" }
+                joined[joined.lastIndex] = prev.copy(text = prev.text + " " + sep + " " + part)
+            } else joined += cur
         }
-        if (joined.size == 1) return parseOne(joined[0], now)
+        if (joined.size == 1) return joined[0]
         // Человек из предыдущего шага переходит в следующий, если там его нет («…и добавь ей заметку»).
         var person = ""
-        val steps = joined.map { part ->
-            val step = parseOne(part, now)
+        val steps = joined.map { step ->
             val p = personOf(step).split(" ").filter { it.isNotBlank() && it.lowercase() !in PRONOUNS }.joinToString(" ")
             if (p.isNotBlank()) { person = p; withPerson(step, p) } else withPerson(step, person)
         }
@@ -163,6 +172,15 @@ object NoaParser {
         val original = normalize(input)
         val s = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
         if (original.isBlank()) return NoaIntent.Unknown(original)
+        // «Напиши Илье, что запись переносится / поставил на паузу» — слова в тексте сообщения не команды.
+        val verb = s.trim().substringBefore(' ')
+        if (verb in MESSAGE_VERBS) {
+            val head = messageBody(original)?.first?.let { " " + it.lowercase() + " " }
+            // «скажи что у меня завтра» — не сообщение: для «скажи/передай» нужен адресат (имя или «ему/ей»).
+            val addressee = head != null && (extractPerson(head).isNotBlank() || head.split(" ").any { it in PRONOUNS })
+            if (head != null && !has(head, "заметк", "нотатк", "хроник", "хронік", "note") &&
+                (addressee || verb !in setOf("скажи", "передай", "скажіть", "передайте"))) return message(s, original)
+        }
 
         // блокировка / копия — без человека
         if (has(s, "заблокируй", "заблокуй", "закрой сейф", "закрий сейф", "lock")) return NoaIntent.Lock
@@ -203,7 +221,7 @@ object NoaParser {
         }
 
         // маршрут к человеку
-        if (has(s, "маршрут", "проклад", "пролож", "прокласти", "перестрой", "перебудуй", "поехали", "поїхали", "едем в", "едем до", "їдемо",
+        if (has(s, "маршрут", "проклад", "пролож", "прокласти", "перестрой", "перебудуй", "поехали", "поїхали", "едем в", "едем до", "едем к", "едем на", "едем домой", "поедем", "поїдемо", "їдемо",
                 "доехать до", "доїхати до", "навигатор", "навігатор", "построй путь", "построй дорогу", "дорогу до", "дорогу к", "как доехать", "как добраться",
                 "як доїхати", "як дістатися", "шлях", "навигац", "навігац", "отвези", "веди к", "route", "directions", "navigate")) {
             val kind = when {
@@ -231,7 +249,9 @@ object NoaParser {
         // перенести / отменить / удалить запись — раньше создания («удали запись Ильи» — не новая запись)
         val apptWord = has(s, "запис", "встреч", "зустріч", "сеанс", "прийом", "приём", "прием", "appointment", "booking", "meeting", "визит", "візит")
         if (has(s, "перенес", "перенест", "перенос", "передвин", "пересун", "зсунь", "посунь", "reschedule", "move")) {
-            val dt = NoaDateTime.parse(original, now)
+            // «с пятницы на субботу» — новое время только то, что после «на»
+            val to = Regex("\\s(?:с|со|з|із|from)\\s.+?\\s(?:на|to)\\s(.+)$").find(" " + original.lowercase())?.groupValues?.get(1)
+            val dt = to?.let { NoaDateTime.parse(it, now) } ?: NoaDateTime.parse(original, now)
             return NoaIntent.MoveAppointment(extractPerson(s), dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
         }
         val cancelWord = has(s, "отмени", "отменить", "скасуй", "скасувати", "відміни", "cancel", "call off")
@@ -255,20 +275,11 @@ object NoaParser {
         }
         // написать / отправить
         if (has(s, "напиши", "сообщение", "отправь", "відправ", "надішли", "скинь", "напиши смс", "смс", "sms", "message", "напис", "повідомл", "whatsapp", "вотсап", "телеграм", "telegram")) {
-            val channel = when {
-                has(s, "whatsapp", "вотсап", "ватсап", "вацап", "вотс", "ватс") -> NoaIntent.Channel.WHATSAPP
-                has(s, "телеграм", "telegram", "тг") -> NoaIntent.Channel.TELEGRAM
-                has(s, "смс", "sms") -> NoaIntent.Channel.SMS
-                else -> NoaIntent.Channel.WHATSAPP
-            }
-            val about = isAboutAppointment(s)
-            val quoted = extractQuoted(original)
-            // «напиши Илье, что буду через 10 минут» / «напиши Илье: опаздываю» — после «что/:» идёт текст сообщения.
-            val body = if (about || quoted != null) null else messageBody(original)
-            val text = if (about) null else quoted ?: body?.second
-            val who = body?.let { extractPerson(" " + it.first.lowercase() + " ") } ?: extractPerson(s)
-            return NoaIntent.Message(who, channel, text, aboutAppointment = about)
+            return message(s, original)
         }
+        // «скажи Илье, что я опаздываю», «передай маме, что задержусь» — сообщение, если назван кому и что.
+        if (has(s, "скажи", "передай", "передайте", "скажіть") &&
+            messageBody(original)?.let { extractPerson(" " + it.first.lowercase() + " ").isNotBlank() } == true) return message(s, original)
         // открыть раздел приложения
         screenSection(s)?.let { return NoaIntent.OpenScreen(it) }
         // «открой ютуб», «відкрий калькулятор» — приложение телефона по привычному названию
@@ -295,6 +306,37 @@ object NoaParser {
         }
         return NoaIntent.Unknown(original)
     }
+
+    private fun message(s: String, original: String): NoaIntent.Message {
+        val head = messageBody(original)?.first?.let { " " + it.lowercase() + " " } ?: s
+        val channel = when {
+            has(head, "whatsapp", "вотсап", "ватсап", "вацап", "вотс", "ватс") -> NoaIntent.Channel.WHATSAPP
+            has(head, "телеграм", "telegram", "тг") -> NoaIntent.Channel.TELEGRAM
+            has(head, "смс", "sms") -> NoaIntent.Channel.SMS
+            else -> null
+        }
+        // Мессенджер бывает назван в самом конце: «напиши Илье что опаздываю в телеграм».
+        val end = if (channel == null) CHANNEL_END.find(original.lowercase()) else null
+        val endChannel = when (end?.groupValues?.get(1)) {
+            null -> null
+            "телеграм", "telegram", "тг" -> NoaIntent.Channel.TELEGRAM
+            "смс", "sms", "эсэмэс" -> NoaIntent.Channel.SMS
+            else -> NoaIntent.Channel.WHATSAPP
+        }
+        val about = isAboutAppointment(s)
+        val quoted = extractQuoted(original)
+        // «напиши Илье, что буду через 10 минут» / «напиши Илье: опаздываю» — после «что/:» идёт текст сообщения.
+        val body = if (about || quoted != null) null else messageBody(if (end != null) original.substring(0, end.range.first) else original)
+        val text = if (about) null else quoted ?: body?.second
+        val who = body?.let { extractPerson(" " + it.first.lowercase() + " ") } ?: extractPerson(s)
+        return NoaIntent.Message(who, channel ?: endChannel ?: NoaIntent.Channel.WHATSAPP, text, aboutAppointment = about)
+    }
+
+    private val CHANNEL_END = Regex("\\s(?:в|у|по|через)\\s+(вотсап|ватсап|вацап|whatsapp|телеграм|telegram|тг|смс|sms|эсэмэс)\\s*$")
+
+    /** Глаголы, с которых начинается сообщение: дальше после «что/:» — его текст, а не команды. */
+    private val MESSAGE_VERBS = setOf("напиши", "напишите", "отправь", "отправьте", "відправ", "надішли", "напиши-ка", "скажи", "передай",
+        "скажіть", "передайте", "write", "send", "text")
 
     private val OPEN_WORDS = setOf("открой", "відкрий", "open", "запусти", "запустить", "запустити", "launch", "start", "включи", "увімкни",
         "приложение", "приложения", "застосунок", "додаток", "app", "мне", "мені", "пожалуйста", "будь", "ласка", "ну", "а")
@@ -335,13 +377,13 @@ object NoaParser {
         return null
     }
 
-    private val MUSIC_APP = Regex("\\s(?:в|у|на|in|on|через)\\s+((?:ютуб|ютюб|ютубе|youtube|yt)(?:\\s+(?:мьюзик|мюзик|музик|music|мьюзік|мюзік|музыке|музиці|м\\S+))?|спотифа\\S*|spotify|музык\\S*|музик\\S*|deezer|дизер|apple music)\\s*$")
+    private val MUSIC_APP = Regex("\\s(?:в|у|на|in|on|через)\\s+((?:ютуб|ютюб|ютубе|youtube|yt)(?:\\s+(?:мьюзик|мюзик|музик|music|мьюзік|мюзік|музыке|музиці|м\\S+))?|спотифа\\S*|спотіфа\\S*|spotify|музык\\S*|музик\\S*|deezer|дизер|apple music)\\s*$")
 
     /** «Включи плейлист», «включи музыку в спотифай», «поставь Imagine Dragons», «увімкни мій плейлист Ранок». */
     private fun play(s: String): NoaIntent.Play? {
         if (!has(s, "включи", "включить", "увімкни", "ввімкни", "постав", "запусти", "play", "проиграй", "сыграй", "грай")) return null
         val music = has(s, "музык", "музик", "песн", "пісн", "трек", "плейлист", "плейліст", "playlist", "song", "music", "альбом", "album", "радио", "радіо")
-        val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it == "spotify" }
+        val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it.startsWith("спотіф") || it == "spotify" }
         if (!music && app == null) return null
         if (has(s, "будильник", "таймер", "фонар", "ліхтар")) return null
         return playIntent(s, app)
@@ -370,12 +412,16 @@ object NoaParser {
         val words = s.trim().split(" ").size
         val music = has(s, "музык", "музик", "трек", "песн", "пісн", "плеер", "плеєр", "видео", "відео", "воспроизвед", "відтворен", "music", "song", "track")
         val c = when {
+            has(s, "сними с паузы", "зніми з паузи", "сними паузу", "зніми паузу") -> NoaMedia.Control.RESUME
             has(s, "что играет", "что сейчас играет", "що грає", "що зараз грає", "что за песня", "що за пісня", "what's playing", "what is playing", "какая песня", "яка пісня") -> NoaMedia.Control.WHAT
             has(s, "пауз", "pause", "останови", "зупини", "призупини", "стоп музык", "выключи музык", "вимкни музик", "stop music", "замолчи") && !has(s, "будильник", "таймер") -> NoaMedia.Control.PAUSE
+            words <= 2 && has(s, "стоп", "stop", "хватит", "досить") -> NoaMedia.Control.PAUSE
             has(s, "по порядку", "без перемешив", "без перемішув", "shuffle off", "выключи перемеш", "вимкни перемі") -> NoaMedia.Control.SHUFFLE_OFF
             (has(s, "в случайном порядке", "перемешай", "перемішай", "вперемешку", "shuffle", "випадковому порядку", "рандом") && (words <= 7 || music)) -> NoaMedia.Control.SHUFFLE_ON
             has(s, "на повтор", "повторяй", "repeat") -> NoaMedia.Control.REPEAT
             has(s, "следующ", "наступн", "next", "пропусти", "skip", "переключи") && (words <= 4 || music) -> NoaMedia.Control.NEXT
+            // «дальше», «давай дальше» — только коротко: «поехали дальше» не про музыку
+            words <= 2 && has(s, "дальше", "далі", "далее") -> NoaMedia.Control.NEXT
             has(s, "предыдущ", "попередн", "previous", "прошл трек", "верни трек", "предыдущую") && (words <= 4 || music) -> NoaMedia.Control.PREV
             has(s, "продолжи", "продолж", "продовж", "возобнови", "сними с паузы", "зніми з паузи", "resume", "включи воспроизвед", "увімкни відтвор", "відтвори") && (words <= 5 || music) -> NoaMedia.Control.RESUME
             has(s, "громче", "гучніше", "louder", "volume up", "погромче", "прибавь звук", "додай звук") -> NoaMedia.Control.LOUDER
@@ -384,6 +430,9 @@ object NoaParser {
         } ?: return null
         // «Найди плейлист … в случайном порядке» — это включение, а не управление.
         if (c == NoaMedia.Control.SHUFFLE_ON && has(s, "найди", "знайди", "включи плейлист", "плейлист", "плейліст") && words > 3) return null
+        // «Включи музыку / Rammstein в случайном порядке» — тоже включение (с перемешиванием), а не просто управление.
+        if (c == NoaMedia.Control.SHUFFLE_ON && has(s, "включи", "увімкни", "ввімкни", "поставь", "постав", "запусти", "play") &&
+            (has(s, "музык", "музик", "песн", "пісн", "трек", "альбом", "радио", "радіо", "music", "song") || playIntent(s, null).query.isNotBlank())) return null
         return NoaIntent.Media(c)
     }
 
@@ -425,7 +474,7 @@ object NoaParser {
         "музыку", "музика", "музику", "музыка", "песню", "пісню", "песни", "пісні", "трек", "треки", "плейлист", "плейліст", "playlist", "some", "music", "song",
         "мой", "мій", "мою", "мої", "мои", "my", "the", "a", "какую-нибудь", "якусь", "что-нибудь", "щось", "мне", "мені", "пожалуйста", "будь", "ласка",
         "альбом", "album", "радио", "радіо", "любимый", "улюблений", "там", "і", "и", "а",
-        "любую", "любой", "любые", "любу", "будь-яку", "будь-яку", "якусь", "якийсь", "какую-нибудь", "какой-нибудь", "any", "something", "some",
+        "любую", "любой", "любые", "любое", "любі", "будь-яке", "якесь", "любу", "будь-яку", "будь-яку", "якусь", "якийсь", "какую-нибудь", "какой-нибудь", "any", "something", "some",
         "группы", "группу", "группа", "гурту", "гурт", "групи", "исполнителя", "виконавця", "band", "artist", "by", "of", "от", "від",
         "песен", "пісень", "songs", "треков", "треків", "композицию", "композицію", "из", "з", "мне", "нам", "немного", "трохи", "кстати", "чтонибудь")
 
@@ -439,7 +488,7 @@ object NoaParser {
         val s0 = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
         if (Regex("[«\"]").containsMatchIn(s0) || has(s0, "добавь", "додай", "add note", "добавить")) return null
         val verb = has(s0, "перенес", "скопир", "скопію", "копир", "копію", "вставь", "встав", "всей", "скинь", "поделись", "поділись",
-            "передай", "сохрани в", "збережи в", "запиши в блокнот", "запиши в нотатки", "copy", "share", "paste", "save to",
+            "передай", "сохрани", "збережи", "запиши в блокнот", "запиши в нотатки", "copy", "share", "paste", "save to",
             "загугли", "погугли", "поищи", "пошукай", "отправь в", "надішли в", "відправ в", "кинь", "закинь", "export", "экспорт", "експорт")
         if (!verb) return null
         val target = when {
@@ -487,7 +536,7 @@ object NoaParser {
         "зайди","перейди","профиль","профіль","профиле","профілі","профиля","профілю","карточку","картку","карточке","картці","страницу","сторінку",
         "нажми","натисни","тапни","клацни","контактах","контактів","контакті","і","и","й","та","потом","потім","затем","then","and",
         "маршрут","проложи","проклади","прокласти","построй","путь","шлях","до","дорогу","доехать","добраться","доїхати","дістатися","навигацию","навігацію",
-        "route","directions","navigate","отвези","веди","дом","дому","додому","работу","роботу","работе","роботі","home","work","офис","офіс",
+        "route","directions","navigate","отвези","веди","дом","дому","додому","домой","работу","роботу","работе","роботі","home","work","офис","офіс",
         "инстаграм","инсту","інстаграм","інсту","instagram","insta","фейсбук","facebook","вайбер","viber","сайт","website","почту","пошту","email","имейл","мейл",
         "вк","вконтакте","vk","в","у","его","её","ее","її","його","ей","їй","ему","йому","мне","мені","покажи","открой","відкрий",
         "избранное","избранного","обране","обраного","добавь","додай","убери","прибери","удали","видали",
@@ -508,6 +557,11 @@ object NoaParser {
         "адрес","адреса","адресу","почту","пошту","email","информацию","інформацію","карточку","картку","всё","все","данными","export","экспорт","експорт",
         "загугли","погугли","поищи","пошукай","samsung","ее","её","his","her","its",
         "возьми","візьми","выбери","обери","вибери","бери","take","select","вацап","вотс","ватс","скинь","відправ","відправити","надішли","надіслати","отправить","ним","ему","йому",
+        // навигация и сообщения: глаголы и служебные слова, которые иначе попадают в имя
+        "поехали","поїхали","едем","поедем","їдемо","поїдемо","как","як","меня","мене","яндекс","yandex","навигатор","навигаторе","навігатор","навігаторі",
+        "мапи","мапах","карты","карти","картам","из","від","для","прочитай","прочитати","прочти","сообщения","сообщений","повідомлень","новые","новых","нові",
+        "есть","є","пишет","пише","написал","написала","написав","написали","ответ","ответа","відповідь","відповіді","дождись","дочекайся",
+        "read","my","messages","pm","am","скажи","скажіть","передайте",
     )
 
     /** «Открой/зайди/покажи …» раздел приложения. */
