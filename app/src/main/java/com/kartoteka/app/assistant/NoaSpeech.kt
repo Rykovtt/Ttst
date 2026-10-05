@@ -202,6 +202,13 @@ class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
 
     private fun current() = (buffer.toString() + " " + partial).trim()
 
+    private val DANGLING = setOf("и", "і", "й", "та", "а", "потом", "потім", "затем", "на", "в", "у", "во", "к", "до", "с", "з", "со", "для", "про",
+        "and", "then", "to", "the", "on", "in", "включи", "увімкни", "поставь", "постав", "запиши", "запиш", "отправь", "надішли", "напиши",
+        "открой", "відкрий", "скажи", "любую", "якусь", "через", "его", "її", "его", "мне", "мені")
+
+    /** Последнее слово — союз/предлог/команда без продолжения. */
+    private fun dangling(text: String) = text.lowercase().split(Regex("[^\\p{L}]+")).lastOrNull { it.isNotBlank() } in DANGLING
+
     private fun segment() {
         if (!active) return
         listener.start(object : NoaListener.Callback {
@@ -216,14 +223,15 @@ class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
                 events?.onText(current())
                 // Ждём продолжения: если человек заговорит снова — допишем, если нет — фраза готова.
                 main.removeCallbacks(finishTask)
-                main.postDelayed(finishTask, silenceMs)
+                // Фраза оборвалась на «и», «на», «включи»… — человек явно не договорил: ждём вдвое дольше.
+                main.postDelayed(finishTask, if (dangling(current())) silenceMs * 2 else silenceMs)
                 main.post { segment() }
             }
             override fun onError(message: String?) {
                 val code = message?.toIntOrNull()
                 val silence = code == android.speech.SpeechRecognizer.ERROR_NO_MATCH || code == android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT
                 // Сбой перезапуска (занят, клиент) посреди фразы — не обрываем её, а пробуем слушать дальше.
-                if (!silence && buffer.isNotEmpty() && retries < 3) {
+                if ((!silence || dangling(current())) && buffer.isNotEmpty() && retries < 3) {
                     retries++
                     main.postDelayed({ segment() }, 300)
                     return

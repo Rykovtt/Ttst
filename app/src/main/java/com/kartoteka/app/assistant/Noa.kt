@@ -106,7 +106,7 @@ class Noa(private val app: KartotekaApp) {
                 val a = intent.app?.let { name -> PhoneActions.find(app, name) }
                 val what = intent.query.ifBlank { if (intent.playlist) t("плейлист") else t("музыку") }
                 Reply.Do(a?.let { t("Включаю %1\$s в %2\$s.", what, it.label) } ?: t("Включаю %1\$s.", what)) {
-                    PhoneActions.play(it, intent.query, a, intent.playlist)
+                    PhoneActions.play(it, intent.query, a, intent.playlist, intent.artist)
                 }
             }
             is NoaIntent.Flashlight -> Reply.Do(if (intent.on) t("Включаю фонарик.") else t("Выключаю фонарик.")) { PhoneActions.flashlight(it, intent.on) }

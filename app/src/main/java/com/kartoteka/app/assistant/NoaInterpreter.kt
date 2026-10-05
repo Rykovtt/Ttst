@@ -72,7 +72,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             "web_search" -> str("query")?.let { NoaIntent.WebSearch(it) }
             "alarm" -> NoaDateTime.parse(str("time") ?: userText, now)?.takeIf { it.hadTime }?.let { NoaIntent.Alarm(it.dateTime.hour, it.dateTime.minute, str("label")) }
             "timer" -> (o.optInt("minutes", 0) * 60 + o.optInt("seconds", 0)).takeIf { it > 0 }?.let { NoaIntent.Timer(it) }
-            "play_music", "play" -> NoaIntent.Play(str("query").orEmpty(), str("app"), o.optBoolean("playlist", false))
+            "play_music", "play" -> NoaIntent.Play(str("query").orEmpty(), str("app"), o.optBoolean("playlist", false), o.optBoolean("artist", false))
             "flashlight" -> NoaIntent.Flashlight(o.optBoolean("on", true))
             "phone_settings" -> NoaIntent.PhoneSettings(str("what"))
             "call" -> NoaIntent.Call(person)
@@ -173,7 +173,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             person_info {person, topic: birthday|phone|address|summary, question};
             favorite {person, on: true|false};
             launch_app {app} — запустить приложение телефона; share_data {person, data: notes|phone|address|email|birthday|card, to: notes|google|clipboard|share|<название приложения>} — передать данные человека в блокнот, Google, буфер или приложение;
-            web_search {query}; alarm {time: "HH:MM"}; timer {minutes}; flashlight {on}; play_music {query, app, playlist: true|false} — включить музыку/плейлист; phone_settings {what: wifi|bluetooth|display|sound|""}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
+            web_search {query}; alarm {time: "HH:MM"}; timer {minutes}; flashlight {on}; play_music {query, app, playlist: true|false, artist: true|false} — включить музыку; query — только название/исполнитель, без слов «любую песню»; phone_settings {what: wifi|bluetooth|display|sound|""}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
             Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек.
             Вопрос о людях, встречах, планах — "actions":[] и подробный полезный ответ в reply по данным ниже. Обычный разговор — "actions":[] и живой ответ в reply.
             Люди в книжке: $people$data

@@ -110,11 +110,19 @@ object PhoneActions {
      * Включить музыку: «играть по запросу» (понимают YouTube Music, Spotify и др.); пустой запрос — «что-нибудь / продолжить».
      * Не поддерживает — открываем приложение и жмём системную «Play».
      */
-    fun play(context: Context, query: String, app: App?, playlist: Boolean): Boolean {
+    fun play(context: Context, query: String, app: App?, playlist: Boolean, artist: Boolean = false): Boolean {
+        // Подсказка «что именно» — исполнитель / плейлист: так приложение сразу играет, а не показывает поиск.
+        val focus = when {
+            query.isBlank() -> "vnd.android.cursor.item/*"
+            playlist -> "vnd.android.cursor.item/playlist"
+            artist -> android.provider.MediaStore.Audio.Artists.ENTRY_CONTENT_TYPE
+            else -> "vnd.android.cursor.item/*"
+        }
         val i = Intent(android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH)
             .putExtra(android.app.SearchManager.QUERY, query)
-            .putExtra(android.provider.MediaStore.EXTRA_MEDIA_FOCUS, if (playlist && query.isNotBlank()) "vnd.android.cursor.item/playlist" else "vnd.android.cursor.item/*")
+            .putExtra(android.provider.MediaStore.EXTRA_MEDIA_FOCUS, focus)
         if (playlist && query.isNotBlank()) i.putExtra("android.intent.extra.playlist", query)
+        if (artist && query.isNotBlank()) i.putExtra(android.provider.MediaStore.EXTRA_MEDIA_ARTIST, query)
         app?.let { i.setPackage(it.pkg) }
         if (start(context, i, quiet = true)) return true
         if (app != null && launch(context, app)) {

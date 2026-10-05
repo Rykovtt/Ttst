@@ -44,7 +44,7 @@ sealed interface NoaIntent {
     data class Timer(val seconds: Int) : NoaIntent
     data class Flashlight(val on: Boolean) : NoaIntent
     /** Включить музыку: [query] — что (пусто — что-нибудь/продолжить), [app] — в каком приложении. */
-    data class Play(val query: String, val app: String?, val playlist: Boolean) : NoaIntent
+    data class Play(val query: String, val app: String?, val playlist: Boolean, val artist: Boolean = false) : NoaIntent
     data class PhoneSettings(val what: String?) : NoaIntent
     data object Lock : NoaIntent
     data object Backup : NoaIntent
@@ -243,6 +243,11 @@ object NoaParser {
         if (has(s, "найди", "найти", "поиск", "знайди", "пошук", "find", "search")) {
             return NoaIntent.Find(stripCommandWords(s).trim())
         }
+        // «Включи Rammstein», «постав Океан Ельзи» — ничего другого не подошло: значит, музыка.
+        if (has(s, "включи", "поставь", "увімкни", "ввімкни", "постав", "play", "сыграй", "проиграй") && !has(s, "будильник", "таймер", "фонар", "ліхтар")) {
+            val p = playIntent(s, null)
+            if (p.query.isNotBlank()) return p.copy(artist = true)
+        }
         return NoaIntent.Unknown(original)
     }
 
@@ -294,16 +299,26 @@ object NoaParser {
         val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it == "spotify" }
         if (!music && app == null) return null
         if (has(s, "будильник", "таймер", "фонар", "ліхтар")) return null
+        return playIntent(s, app)
+    }
+
+    private fun playIntent(s: String, app: String?): NoaIntent.Play {
         val playlist = has(s, "плейлист", "плейліст", "playlist", "альбом", "album")
+        // «любую песню Rammstein», «что-нибудь группы Би-2» — это исполнитель, а не название песни.
+        val artist = !playlist && has(s, "любую", "любой", "любу", "будь-яку", "якусь", "какую-нибудь", "что-нибудь", "щось", "any", "something",
+            "групп", "гурт", "исполнител", "виконав", "band", "artist", "песни", "пісні", "songs", "треки")
         var q = (if (app != null) MUSIC_APP.replace(s, " ") else s).trim()
         q = q.split(" ").filter { it.isNotBlank() && it !in PLAY_WORDS }.joinToString(" ")
-        return NoaIntent.Play(q, app, playlist)
+        return NoaIntent.Play(q, app, playlist, artist && q.isNotBlank())
     }
 
     private val PLAY_WORDS = setOf("включи", "включить", "увімкни", "ввімкни", "поставь", "постав", "запусти", "play", "проиграй", "сыграй", "грай",
         "музыку", "музика", "музику", "музыка", "песню", "пісню", "песни", "пісні", "трек", "треки", "плейлист", "плейліст", "playlist", "some", "music", "song",
         "мой", "мій", "мою", "мої", "мои", "my", "the", "a", "какую-нибудь", "якусь", "что-нибудь", "щось", "мне", "мені", "пожалуйста", "будь", "ласка",
-        "альбом", "album", "радио", "радіо", "любимый", "улюблений", "там", "і", "и", "а")
+        "альбом", "album", "радио", "радіо", "любимый", "улюблений", "там", "і", "и", "а",
+        "любую", "любой", "любые", "любу", "будь-яку", "будь-яку", "якусь", "якийсь", "какую-нибудь", "какой-нибудь", "any", "something", "some",
+        "группы", "группу", "группа", "гурту", "гурт", "групи", "исполнителя", "виконавця", "band", "artist", "by", "of", "от", "від",
+        "песен", "пісень", "songs", "треков", "треків", "композицию", "композицію", "из", "з", "мне", "нам", "немного", "трохи", "кстати", "чтонибудь")
 
     private val NOTES_TARGET = Regex("\\s(?:в|у|во|to|into)\\s+(?:блокнот|заметки|нотатки|нотатник|notes|notepad|keep|кип|samsung notes)(?:\\s+(?:телефона|телефону|phone|на телефоне|на телефоні))?")
 
