@@ -49,6 +49,12 @@ class MainActivity : FragmentActivity() {
     private val shake = ShakeDetector { onShake() }
     private val sensors by lazy { getSystemService(SENSOR_SERVICE) as SensorManager }
 
+    override fun onStart() {
+        super.onStart()
+        // Фраза-пробуждение: после перезагрузки телефона службу можно запустить только из открытого приложения.
+        com.kartoteka.app.assistant.WakeService.start(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

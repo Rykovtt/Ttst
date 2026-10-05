@@ -15,8 +15,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 48
-        versionName = "3.1.0"
+        versionCode = 49
+        versionName = "3.2.0"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -97,6 +97,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("androidx.media:media:1.7.0")
+    // Офлайн-распознавание фразы-пробуждения («Ноа»): работает без интернета, звук не покидает телефон.
+    implementation("com.alphacephei:vosk-android:0.3.47@aar")
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("org.osmdroid:osmdroid-android:6.1.20")
 

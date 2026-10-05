@@ -60,6 +60,8 @@ class Settings(context: Context) {
     val assistantLauncher = BoolPref("assistant_launcher", false)
     /** Иконка ассистента открывает сферу поверх экрана без входа в приложение (иначе — приложение с PIN). */
     val assistantOverlay = BoolPref("assistant_overlay", true)
+    /** Звать ассистента голосом: он спит и слышит только своё имя («Ноа, ты тут?»). */
+    val assistantWake = BoolPref("assistant_wake", false)
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 

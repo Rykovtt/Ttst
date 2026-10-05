@@ -64,7 +64,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
     private val events = object : VoiceSession.Events {
         override fun onText(text: String) { live = text }
         override fun onLevel(l: Float) { level = l }
-        override fun onListening(on: Boolean) { listening = on }
+        override fun onListening(on: Boolean) { listening = on; syncWake() }
         override fun onPhrase(text: String) {
             if (text.isBlank()) onIdle() else send(text, voice = true)
         }
@@ -90,7 +90,17 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
 
     fun stopListening() = session.stop()
 
-    fun dispose() { alive = false; session.stop() }
+    fun dispose() { alive = false; session.stop(); WakeService.setBusy(false) }
+
+    /** Пока ассистент слушает, думает или говорит — служба пробуждения молчит и отдаёт ему микрофон. */
+    private fun syncWake() = WakeService.setBusy(alive && (listening || thinking || speaking))
+
+    /** Проснулась по имени: коротко отвечает «Готова» и сразу слушает команду. */
+    fun greet(text: String) {
+        bubbles.add(Bubble(text, mine = false)); answer = text
+        val go = { speaking = false; if (alive) startVoice() }
+        if (voiceOn()) { speaking = true; syncWake(); NoaVoice.speak(context, text) { go() } } else go()
+    }
 
     fun say(text: String, expectAnswer: Boolean = false) {
         if (text.isBlank()) return
@@ -101,7 +111,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
             speaking = false
             if (alive) { if (again && !listening) startVoice() else if (!expectAnswer) scope.launch { delay(250); if (!listening && !thinking) onIdle() } }
         }
-        if (voiceOn()) { speaking = true; NoaVoice.speak(context, text) { after() } } else after()
+        if (voiceOn()) { speaking = true; syncWake(); NoaVoice.speak(context, text) { after(); syncWake() } } else after()
     }
 
     private suspend fun apply(reply: Noa.Reply) {
@@ -173,7 +183,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         answer = ""
         val yes = pendingYes
         scope.launch {
-            thinking = true
+            thinking = true; syncWake()
             runCatching {
                 when {
                     yes != null && isYes(text) -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
@@ -209,7 +219,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                 }
             }.onSuccess { flash = OrbState.SUCCESS }
                 .onFailure { flash = OrbState.ERROR; say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
-            thinking = false
+            thinking = false; syncWake()
             delay(700); flash = null
         }
     }

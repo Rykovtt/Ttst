@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Сфера выходит поверх экрана по голосовому зову: Android разрешает такое из фона только с этим правом -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -114,6 +118,20 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Сфера по зову «Ноа» (голос): без иконки, всегда включена -->
+        <activity
+            android:name=".assistant.NoaWake"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Kartoteka.Overlay" />
+
+        <service
+            android:name=".assistant.WakeService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <activity-alias
             android:name=".alias.Default"

@@ -58,7 +58,9 @@ import kotlinx.coroutines.launch
  * выполняет команду, отвечает и сама закрывается. Само приложение (карточки, разделы) — только через вход с PIN.
  * Если в настройках «Сфера поверх экрана» выключена — открывает приложение с ассистентом, как раньше.
  */
-class NoaLauncher : ComponentActivity() {
+open class NoaLauncher : ComponentActivity() {
+    /** Открыта голосовым зовом («Ноа…»), а не иконкой: здороваемся и сразу слушаем. */
+    protected open val byWake: Boolean get() = false
     private var controller: NoaController? = null
     private val askMic = registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) controller?.startListening() else controller?.say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
@@ -91,7 +93,8 @@ class NoaLauncher : ComponentActivity() {
                     if (app.settings.assistantVoice.value.value) NoaVoice.init(this@NoaLauncher)
                     launch { appear.animateTo(1f, tween(260)) }
                     kotlinx.coroutines.delay(150)
-                    ctl.startVoice()
+                    if (byWake) ctl.greet(if (intent.getBooleanExtra(WakeService.EXTRA_PING, false)) t("Да, я здесь. Слушаю.") else t("Готова. Слушаю."))
+                    else ctl.startVoice()
                 }
                 LaunchedEffect(Unit) { ctl.prepareBrain(app.settings.assistantBrain.value.value) }
 
@@ -171,4 +174,9 @@ class NoaLauncher : ComponentActivity() {
         // Ушли со сферы (открылось другое приложение, свернули) — она своё дело сделала.
         if (!isChangingConfigurations) close()
     }
+}
+
+/** Та же сфера, но её вызывает голос («Ноа, ты тут?»). Отдельный компонент: он включён всегда, не зависит от иконки. */
+class NoaWake : NoaLauncher() {
+    override val byWake: Boolean get() = true
 }

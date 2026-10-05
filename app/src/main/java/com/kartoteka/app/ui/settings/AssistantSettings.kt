@@ -65,6 +65,7 @@ fun AssistantSettings() {
             if (access) t("Включено: пауза, «дальше», перемешать, читаю ответы вслух и отвечаю в мессенджерах по команде")
             else t("Выключено. Нажмите и разрешите доступ к уведомлениям — тогда я смогу управлять музыкой, читать ответы и отвечать в WhatsApp/Telegram"),
         ) { com.kartoteka.app.assistant.NoaNotifications.openSettings(context) }
+        WakeRow()
         ActionRow(Icons.Default.RecordVoiceOver, t("Имя ассистента"), name.ifBlank { "Ноа" }) { rename = true }
         ToggleRow(Icons.Default.RecordVoiceOver, t("Отвечать голосом"), t("Женский голос; читает ответы вслух"), voice, s.assistantVoice::set)
         ToggleRow(Icons.Default.Apps, t("Иконка на рабочем столе"), t("Отдельный значок для быстрого запуска ассистента"), launcher) { v ->
@@ -92,7 +93,10 @@ fun AssistantSettings() {
                     label = { Text(t("Как обращаться")) },
                 )
             },
-            confirmButton = { TextButton(onClick = { s.assistantName.set(value.trim().ifBlank { "Ноа" }); rename = false }) { Text(t("Сохранить")) } },
+            confirmButton = { TextButton(onClick = {
+                s.assistantName.set(value.trim().ifBlank { "Ноа" }); rename = false
+                if (s.assistantWake.value.value) com.kartoteka.app.assistant.WakeService.restart(context)
+            }) { Text(t("Сохранить")) } },
             dismissButton = { TextButton(onClick = { rename = false }) { Text(t("Отмена")) } },
         )
     }
@@ -239,5 +243,79 @@ private fun BrainModelRow() {
             },
             dismissButton = { TextButton(onClick = { confirm = null }) { Text(t("Отмена")) } },
         )
+    }
+}
+
+/**
+ * «Ноа, ты тут?» — звать ассистента голосом, не касаясь телефона. Нужны: микрофон, право «поверх других окон»
+ * (иначе Android не даст показать сферу из фона) и небольшая офлайн-модель (~45 МБ, скачивается один раз).
+ */
+@Composable
+private fun WakeRow() {
+    val context = LocalContext.current
+    val s = app().settings
+    val on by s.assistantWake.value.collectAsState()
+    var progress by remember { mutableStateOf<Int?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var waitOverlay by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    fun enable() {
+        s.assistantOverlay.set(true)            // без сферы поверх экрана зов не имеет смысла
+        s.assistantWake.set(true)
+        com.kartoteka.app.assistant.WakeService.start(context)
+    }
+    fun download() {
+        if (com.kartoteka.app.assistant.WakeModel.ready(context)) { enable(); return }
+        failed = false; progress = 0
+        scope.launch {
+            val ok = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.kartoteka.app.assistant.WakeModel.download(context) { progress = it }
+            }
+            progress = null
+            if (ok) enable() else failed = true
+        }
+    }
+    fun overlay() {
+        if (android.provider.Settings.canDrawOverlays(context)) download()
+        else {
+            waitOverlay = true
+            runCatching {
+                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:" + context.packageName)))
+            }
+        }
+    }
+    val askPermissions = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted -> if (granted[android.Manifest.permission.RECORD_AUDIO] == true) overlay() }
+
+    // Вернулись из системных настроек с выданным правом — продолжаем.
+    androidx.lifecycle.compose.LifecycleResumeEffect(waitOverlay) {
+        if (waitOverlay && android.provider.Settings.canDrawOverlays(context)) { waitOverlay = false; download() }
+        onPauseOrDispose { }
+    }
+
+    val name = s.assistantName.value.collectAsState().value.ifBlank { "Ноа" }
+    ToggleRow(
+        Icons.Default.RecordVoiceOver, t("Звать голосом: «%1\$s»", name),
+        when {
+            progress != null -> t("Загружаю модель распознавания… %1\$s%%", progress)
+            failed -> t("Не удалось скачать модель. Проверьте интернет и включите ещё раз.")
+            on -> t("Слушаю имя «%1\$s». Скажите «%1\$s, ты тут?» — я проснусь, выслушаю команду и снова усну. Звук остаётся на телефоне.", name)
+            else -> t("Работает без рук: скажите имя — и ассистент проснётся. Слушает только имя, офлайн, звук не сохраняется. Сфера открывается без PIN, телефон должен быть разблокирован.")
+        },
+        on || progress != null,
+    ) { v ->
+        if (v) {
+            val need = buildList {
+                add(android.Manifest.permission.RECORD_AUDIO)
+                if (android.os.Build.VERSION.SDK_INT >= 33) add(android.Manifest.permission.POST_NOTIFICATIONS)
+            }.toTypedArray()
+            askPermissions.launch(need)
+        } else {
+            s.assistantWake.set(false)
+            com.kartoteka.app.assistant.WakeService.stop(context)
+        }
     }
 }
