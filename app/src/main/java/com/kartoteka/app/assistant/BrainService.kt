@@ -18,6 +18,7 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInference
 class BrainService : Service() {
     private var llm: LlmInference? = null
     private var loadedPath: String? = null
+    private var backend = ""
     private lateinit var worker: Handler
 
     override fun onCreate() {
@@ -36,17 +37,22 @@ class BrainService : Service() {
             MSG_PREPARE -> {
                 val path = msg.data.getString(KEY_PATH).orEmpty()
                 val max = msg.data.getInt(KEY_MAX, 1280)
+                val gpu = msg.data.getBoolean(KEY_GPU, false)
                 val result = runCatching {
-                    if (llm == null || loadedPath != path) {
+                    if (llm == null || loadedPath != path || (gpu && backend != "gpu")) {
                         runCatching { llm?.close() }
                         llm = null
-                        val options = LlmInference.LlmInferenceOptions.builder()
-                            .setModelPath(path).setMaxTokens(max).setMaxTopK(40).build()
-                        llm = LlmInference.createFromOptions(applicationContext, options)
+                        fun create(b: LlmInference.Backend) = LlmInference.createFromOptions(applicationContext,
+                            LlmInference.LlmInferenceOptions.builder()
+                                .setModelPath(path).setMaxTokens(max).setMaxTopK(40).setPreferredBackend(b).build())
+                        // Видеокарта в разы быстрее; не поддерживает модель/телефон — процессор.
+                        llm = if (gpu) runCatching { create(LlmInference.Backend.GPU).also { backend = "gpu" } }.getOrNull() else null
+                        if (llm == null) { llm = create(LlmInference.Backend.CPU); backend = "cpu" }
                         loadedPath = path
                     }
                 }
                 send(reply, MSG_STATE, Bundle().apply {
+                    putString(KEY_BACKEND, backend)
                     putBoolean(KEY_OK, result.isSuccess)
                     putString(KEY_DETAIL, result.exceptionOrNull()?.let { (it.message ?: it::class.java.simpleName).take(160) })
                 })
@@ -82,5 +88,7 @@ class BrainService : Service() {
         const val KEY_ID = "id"
         const val KEY_PROMPT = "prompt"
         const val KEY_TEXT = "text"
+        const val KEY_GPU = "gpu"
+        const val KEY_BACKEND = "backend"
     }
 }

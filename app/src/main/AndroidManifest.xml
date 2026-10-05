@@ -70,6 +70,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Kartoteka"
         tools:targetApi="35">
+        <!-- Видеокарта для ИИ на устройстве (OpenCL); нет — модель работает на процессоре -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false" />
 
         <!-- Языковая модель в отдельном процессе: нехватка памяти не роняет приложение. -->
         <service

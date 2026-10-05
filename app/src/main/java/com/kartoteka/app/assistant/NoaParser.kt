@@ -43,6 +43,8 @@ sealed interface NoaIntent {
     data class Alarm(val hour: Int, val minute: Int, val label: String? = null) : NoaIntent
     data class Timer(val seconds: Int) : NoaIntent
     data class Flashlight(val on: Boolean) : NoaIntent
+    /** Включить музыку: [query] — что (пусто — что-нибудь/продолжить), [app] — в каком приложении. */
+    data class Play(val query: String, val app: String?, val playlist: Boolean) : NoaIntent
     data class PhoneSettings(val what: String?) : NoaIntent
     data object Lock : NoaIntent
     data object Backup : NoaIntent
@@ -66,7 +68,7 @@ object NoaParser {
     private val CHAIN = Regex(
         "\\s*(?:,\\s*)?(?:\\s(?:и|і|й|та|а|потом|потім|затем|после|then|and)\\s+)+" +
             "(?:(?:потом|потім|затем|then|также|тоже|сразу|ещё|еще|також|теж|одразу|відразу|заодно|also|ну)\\s+)*" +
-            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|пролож|построй|прокласти|маршрут|удал|видал|отмен|скасу|перенес|расскаж|розкаж|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
+            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|пролож|построй|прокласти|маршрут|удал|видал|отмен|скасу|перенес|расскаж|розкаж|включ|увімкн|запуст|постав|play|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
         RegexOption.IGNORE_CASE,
     )
     val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "нему", "ньому", "him", "her", "them")
@@ -87,7 +89,14 @@ object NoaParser {
             val p = personOf(step).split(" ").filter { it.isNotBlank() && it.lowercase() !in PRONOUNS }.joinToString(" ")
             if (p.isNotBlank()) { person = p; withPerson(step, p) } else withPerson(step, person)
         }
-        return NoaIntent.Sequence(steps)
+        // «Открой ютуб мьюзик и включи плейлист» — включаем сразу в названном приложении.
+        val merged = mutableListOf<NoaIntent>()
+        for (st in steps) {
+            val prev = merged.lastOrNull()
+            if (st is NoaIntent.Play && st.app == null && prev is NoaIntent.LaunchApp) merged[merged.lastIndex] = st.copy(app = prev.name)
+            else merged += st
+        }
+        return if (merged.size == 1) merged[0] else NoaIntent.Sequence(merged)
     }
 
     fun personOf(i: NoaIntent): String = when (i) {
@@ -224,8 +233,7 @@ object NoaParser {
         // «открой ютуб», «відкрий калькулятор» — приложение телефона по привычному названию
         if (has(s, "открой", "відкрий", "open")) {
             val rest = stripWords(s, OPEN_WORDS)
-            if (rest in PhoneActions.ALIAS_NAMES || rest.removeSuffix("у") in PhoneActions.ALIAS_NAMES ||
-                (rest.endsWith("у") && rest.dropLast(1) + "а" in PhoneActions.ALIAS_NAMES)) return NoaIntent.LaunchApp(rest)
+            if (PhoneActions.isAppName(rest)) return NoaIntent.LaunchApp(rest)
         }
         // открыть карточку
         if (has(s, "открой", "покажи карточку", "покажи контакт", "відкрий", "open", "зайди", "перейди", "покажи профил", "покажи профіл", "покажи картку")) {
@@ -262,6 +270,7 @@ object NoaParser {
         if (has(s, "фонарик", "фонарь", "ліхтарик", "ліхтар", "flashlight", "torch", "вспышк", "спалах")) {
             return NoaIntent.Flashlight(!has(s, "выключ", "вимкн", "погаси", "отключ", "off", "turn off"))
         }
+        play(s)?.let { return it }
         if (has(s, "вайфай", "вай-фай", "wi-fi", "wifi", "вайфаю")) return NoaIntent.PhoneSettings("wifi")
         if (has(s, "блютуз", "блютус", "bluetooth")) return NoaIntent.PhoneSettings("bluetooth")
         if (has(s, "яркост", "яскрав", "brightness")) return NoaIntent.PhoneSettings("display")
@@ -275,6 +284,26 @@ object NoaParser {
         }
         return null
     }
+
+    private val MUSIC_APP = Regex("\\s(?:в|у|на|in|on)\\s+((?:ютуб|ютюб|youtube|yt)(?:\\s+\\S+)?|спотифа\\S*|spotify|музык\\S*|музик\\S*|deezer|дизер|apple music)\\s*$")
+
+    /** «Включи плейлист», «включи музыку в спотифай», «поставь Imagine Dragons», «увімкни мій плейлист Ранок». */
+    private fun play(s: String): NoaIntent.Play? {
+        if (!has(s, "включи", "включить", "увімкни", "ввімкни", "постав", "запусти", "play", "проиграй", "сыграй", "грай")) return null
+        val music = has(s, "музык", "музик", "песн", "пісн", "трек", "плейлист", "плейліст", "playlist", "song", "music", "альбом", "album", "радио", "радіо")
+        val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it == "spotify" }
+        if (!music && app == null) return null
+        if (has(s, "будильник", "таймер", "фонар", "ліхтар")) return null
+        val playlist = has(s, "плейлист", "плейліст", "playlist", "альбом", "album")
+        var q = (if (app != null) MUSIC_APP.replace(s, " ") else s).trim()
+        q = q.split(" ").filter { it.isNotBlank() && it !in PLAY_WORDS }.joinToString(" ")
+        return NoaIntent.Play(q, app, playlist)
+    }
+
+    private val PLAY_WORDS = setOf("включи", "включить", "увімкни", "ввімкни", "поставь", "постав", "запусти", "play", "проиграй", "сыграй", "грай",
+        "музыку", "музика", "музику", "музыка", "песню", "пісню", "песни", "пісні", "трек", "треки", "плейлист", "плейліст", "playlist", "some", "music", "song",
+        "мой", "мій", "мою", "мої", "мои", "my", "the", "a", "какую-нибудь", "якусь", "что-нибудь", "щось", "мне", "мені", "пожалуйста", "будь", "ласка",
+        "альбом", "album", "радио", "радіо", "любимый", "улюблений", "там", "і", "и", "а")
 
     private val NOTES_TARGET = Regex("\\s(?:в|у|во|to|into)\\s+(?:блокнот|заметки|нотатки|нотатник|notes|notepad|keep|кип|samsung notes)(?:\\s+(?:телефона|телефону|phone|на телефоне|на телефоні))?")
 

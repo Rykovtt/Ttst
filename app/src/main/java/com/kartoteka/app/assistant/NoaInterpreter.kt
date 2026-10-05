@@ -72,6 +72,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             "web_search" -> str("query")?.let { NoaIntent.WebSearch(it) }
             "alarm" -> NoaDateTime.parse(str("time") ?: userText, now)?.takeIf { it.hadTime }?.let { NoaIntent.Alarm(it.dateTime.hour, it.dateTime.minute, str("label")) }
             "timer" -> (o.optInt("minutes", 0) * 60 + o.optInt("seconds", 0)).takeIf { it > 0 }?.let { NoaIntent.Timer(it) }
+            "play_music", "play" -> NoaIntent.Play(str("query").orEmpty(), str("app"), o.optBoolean("playlist", false))
             "flashlight" -> NoaIntent.Flashlight(o.optBoolean("on", true))
             "phone_settings" -> NoaIntent.PhoneSettings(str("what"))
             "call" -> NoaIntent.Call(person)
@@ -158,7 +159,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             com.kartoteka.app.i18n.UiLang.EN -> "in English"
             else -> "по-русски"
         }
-        val people = names.take(if (context.isBlank()) 60 else 30).joinToString(", ").ifBlank { "—" }
+        val people = names.take(if (context.isBlank()) 30 else 15).joinToString(", ").ifBlank { "—" }
         val data = if (context.isBlank()) "" else "\nДанные из записной книжки (отвечай на вопросы ТОЛЬКО по ним, не выдумывай):\n$context\n"
         return """
             Ты — голосовой ассистент в личной записной книжке людей. Переведи запрос в JSON. Только JSON, без пояснений.
@@ -172,7 +173,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             person_info {person, topic: birthday|phone|address|summary, question};
             favorite {person, on: true|false};
             launch_app {app} — запустить приложение телефона; share_data {person, data: notes|phone|address|email|birthday|card, to: notes|google|clipboard|share|<название приложения>} — передать данные человека в блокнот, Google, буфер или приложение;
-            web_search {query}; alarm {time: "HH:MM"}; timer {minutes}; flashlight {on}; phone_settings {what: wifi|bluetooth|display|sound|""}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
+            web_search {query}; alarm {time: "HH:MM"}; timer {minutes}; flashlight {on}; play_music {query, app, playlist: true|false} — включить музыку/плейлист; phone_settings {what: wifi|bluetooth|display|sound|""}; open_screen {section: people|calendar|map|broadcast|settings|services}; lock
             Несколько команд — несколько действий по порядку. «ей/її/him» — тот же человек.
             Вопрос о людях, встречах, планах — "actions":[] и подробный полезный ответ в reply по данным ниже. Обычный разговор — "actions":[] и живой ответ в reply.
             Люди в книжке: $people$data
@@ -184,6 +185,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             «перенеси Аню на пятницу в 15» → {"actions":[{"action":"move_appointment","person":"Аня"}],"reply":""}
             «возьми заметки об Илье и перенеси в блокнот» → {"actions":[{"action":"share_data","person":"Илья","data":"notes","to":"notes"}],"reply":""}
             «скопируй номер Анны и вставь в гугл» → {"actions":[{"action":"share_data","person":"Анна","data":"phone","to":"google"}],"reply":""}
+            «открой ютуб мьюзик и включи плейлист» → {"actions":[{"action":"play_music","query":"","app":"youtube music","playlist":true}],"reply":""}
             «запусти ютуб» → {"actions":[{"action":"launch_app","app":"youtube"}],"reply":""}
             «що в мене завтра» → {"actions":[{"action":"agenda","day":"tomorrow"}],"reply":""}
             «коли день народження в Ілля» → {"actions":[{"action":"person_info","person":"Ілля","topic":"birthday","question":"коли день народження"}],"reply":""}

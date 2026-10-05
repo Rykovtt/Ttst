@@ -102,6 +102,13 @@ class Noa(private val app: KartotekaApp) {
                 Reply.Do(t("Ставлю будильник на %1\$s.", time)) { PhoneActions.alarm(it, intent.hour, intent.minute, intent.label) }
             }
             is NoaIntent.Timer -> Reply.Do(t("Запускаю таймер: %1\$s.", durationText(intent.seconds))) { PhoneActions.timer(it, intent.seconds) }
+            is NoaIntent.Play -> {
+                val a = intent.app?.let { name -> PhoneActions.find(app, name) }
+                val what = intent.query.ifBlank { if (intent.playlist) t("плейлист") else t("музыку") }
+                Reply.Do(a?.let { t("Включаю %1\$s в %2\$s.", what, it.label) } ?: t("Включаю %1\$s.", what)) {
+                    PhoneActions.play(it, intent.query, a, intent.playlist)
+                }
+            }
             is NoaIntent.Flashlight -> Reply.Do(if (intent.on) t("Включаю фонарик.") else t("Выключаю фонарик.")) { PhoneActions.flashlight(it, intent.on) }
             is NoaIntent.PhoneSettings -> Reply.Do(t("Открываю настройки телефона.")) { PhoneActions.settings(it, intent.what) }
             is NoaIntent.MoveAppointment -> moveAppointment(intent, now)

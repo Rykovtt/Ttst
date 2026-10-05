@@ -141,4 +141,14 @@ class NoaCommandsTest {
         assertTrue(p("добавь заметку Ане: скопировать фото") !is NoaIntent.ShareData)
         assertTrue(p("открой Аню") is NoaIntent.Open)
     }
+
+    @Test fun openYoutubeMusicAndPlayPlaylist() {
+        val play = p("открой ютуб мьющик и включи плейлист") as NoaIntent.Play
+        assertEquals("ютуб мьющик", play.app); assertEquals("", play.query); assertTrue(play.playlist)
+        val sp = p("включи Imagine Dragons в спотифай") as NoaIntent.Play
+        assertEquals("imagine dragons", sp.query); assertEquals("спотифай", sp.app)
+        assertEquals(NoaIntent.Play("", null, false), p("включи музыку"))
+        assertEquals("ютуб мьюзик", (p("открой ютуб мьюзик") as NoaIntent.LaunchApp).name)
+        assertEquals(NoaIntent.Flashlight(true), p("включи фонарик"))
+    }
 }

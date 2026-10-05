@@ -22,6 +22,8 @@ object PhoneActions {
             listOf("com.samsung.android.app.notes", "com.google.android.keep", "com.socialnmobile.dragonnote", "com.miui.notes", "com.coloros.note"),
         listOf("гугл", "google", "гугол") to listOf("com.google.android.googlequicksearchbox"),
         listOf("хром", "chrome", "браузер", "browser") to listOf("com.android.chrome", "com.sec.android.app.sbrowser"),
+        listOf("ютуб мьюзик", "ютуб мюзик", "ютуб музик", "ютуб музыка", "ютуб музыку", "ютуб музика", "ютуб музику", "ютуб мьющик", "ютуб мьюзек",
+            "youtube music", "yt music", "ютуб мьюзік", "ютуб мюзік") to listOf("com.google.android.apps.youtube.music"),
         listOf("ютуб", "youtube", "ютюб") to listOf("com.google.android.youtube"),
         listOf("телеграм", "telegram", "тг") to listOf("org.telegram.messenger", "org.thunderdog.challegram"),
         listOf("вотсап", "ватсап", "вацап", "whatsapp") to listOf("com.whatsapp", "com.whatsapp.w4b"),
@@ -56,7 +58,11 @@ object PhoneActions {
         if (name.length < 2) return null
         val apps = installed(context)
         val byPkg = apps.associateBy { it.pkg }
-        ALIASES.firstOrNull { (names, _) -> names.any { it == name || name.startsWith(it) } }
+        // «ютуб мьющик» — распознаватель коверкает «music»: ютуб + слово на «м» — это YouTube Music.
+        val ytMusic = Regex("^(ютуб|ютюб|youtube|yt)\\s+(м|m)").containsMatchIn(name)
+        // Самое длинное совпадение: «ютуб мьюзик» важнее «ютуб».
+        ALIASES.filter { (names, _) -> names.any { name.startsWith(it) } || (ytMusic && "youtube music" in names) }
+            .maxByOrNull { (names, _) -> if (ytMusic && "youtube music" in names) 100 else names.filter { name.startsWith(it) }.maxOf { it.length } }
             ?.second?.firstNotNullOfOrNull { byPkg[it] ?: if (isInstalled(context, it)) App(name, it) else null }
             ?.let { return it }
         val n = fold(name)
@@ -92,6 +98,37 @@ object PhoneActions {
         subject?.let { send.putExtra(Intent.EXTRA_SUBJECT, it); send.putExtra(Intent.EXTRA_TITLE, it) }
         if (app != null && start(context, Intent(send).setPackage(app.pkg), quiet = true)) return true
         return start(context, Intent.createChooser(send, subject ?: t("Отправить")))
+    }
+
+    /** Распознаётся ли фраза как название приложения («ютуб мьюзик», «телеграм»). */
+    fun isAppName(name: String): Boolean {
+        val n = name.lowercase().trim()
+        return n in ALIAS_NAMES || ALIAS_NAMES.any { n.startsWith("$it ") } || (n.endsWith("у") && n.dropLast(1) + "а" in ALIAS_NAMES)
+    }
+
+    /**
+     * Включить музыку: «играть по запросу» (понимают YouTube Music, Spotify и др.); пустой запрос — «что-нибудь / продолжить».
+     * Не поддерживает — открываем приложение и жмём системную «Play».
+     */
+    fun play(context: Context, query: String, app: App?, playlist: Boolean): Boolean {
+        val i = Intent(android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH)
+            .putExtra(android.app.SearchManager.QUERY, query)
+            .putExtra(android.provider.MediaStore.EXTRA_MEDIA_FOCUS, if (playlist && query.isNotBlank()) "vnd.android.cursor.item/playlist" else "vnd.android.cursor.item/*")
+        if (playlist && query.isNotBlank()) i.putExtra("android.intent.extra.playlist", query)
+        app?.let { i.setPackage(it.pkg) }
+        if (start(context, i, quiet = true)) return true
+        if (app != null && launch(context, app)) {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ mediaPlay(context) }, 2500)
+            return true
+        }
+        mediaPlay(context); return true
+    }
+
+    /** Системная кнопка «Play» — продолжить последнее, что играло. */
+    fun mediaPlay(context: Context) = runCatching {
+        val am = context.getSystemService(android.media.AudioManager::class.java)
+        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY))
+        am.dispatchMediaKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_MEDIA_PLAY))
     }
 
     /** Поиск в Google (приложение Google или браузер). */

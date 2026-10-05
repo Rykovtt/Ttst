@@ -101,6 +101,9 @@ class LlmBrain(context: Context) {
     private fun currentKind() = runCatching { kindFile.readText().trim() }.getOrDefault(KIND_QWEN)
 
     @Volatile private var lastDeath = 0L
+    /** На чём работает модель: «gpu» / «cpu». */
+    @Volatile var backend: String = ""
+        private set
 
     init {
         // Модель работает в отдельном процессе, так что смерть приложения во время загрузки — не её вина
@@ -286,10 +289,18 @@ class LlmBrain(context: Context) {
             state = State.UNAVAILABLE; return@withContext state
         }
         state = State.PREPARING
+        val kind = currentKind()
+        val gpu = !prefs.getBoolean(KEY_GPU_BAD + kind, false)
         val started = System.currentTimeMillis()
         val reply = request(BrainService.MSG_PREPARE, 0, android.os.Bundle().apply {
-            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 1280)
+            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 1280); putBoolean(BrainService.KEY_GPU, gpu)
         }, 240_000)
+        // Процесс умер на видеокарте — запоминаем и сразу пробуем на процессоре.
+        if (reply == null && gpu && lastDeath >= started) {
+            prefs.edit().putBoolean(KEY_GPU_BAD + kind, true).apply()
+            return@withContext prepare()
+        }
+        reply?.getString(BrainService.KEY_BACKEND)?.let { backend = it }
         when {
             reply == null && lastDeath >= started -> {
                 // Процесс модели умер — узнаём у системы почему, и сами больше не пробуем (кнопка «Попробовать снова»).
@@ -352,6 +363,7 @@ class LlmBrain(context: Context) {
         private const val KEY_CRASHED = "crashed_kind"
         private const val KEY_LOADING = "loading_kind"
         private const val KEY_CRASH_DETAIL = "crashed_detail"
+        private const val KEY_GPU_BAD = "gpu_bad_"
         private const val KEY_CRASH_RESET = "crash_reset_294"
 
         fun kindOf(fileName: String): String = when {
