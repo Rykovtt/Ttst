@@ -137,7 +137,7 @@ fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mod
     androidx.compose.foundation.layout.BoxWithConstraints(
         modifier
             .clip(CircleShape)
-            .background(c.surfaceContainerLowest)
+            .background(c.surfaceContainerHighest)
             .padding(4.dp),
     ) {
         val w = maxWidth / options.size.coerceAtLeast(1)

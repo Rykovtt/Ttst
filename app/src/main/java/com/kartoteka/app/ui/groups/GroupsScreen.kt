@@ -1,5 +1,14 @@
 package com.kartoteka.app.ui.groups
 
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.kartoteka.app.ui.animations.pressScale
+import com.kartoteka.app.ui.components.HeroButton
+import com.kartoteka.app.ui.components.ScreenHero
+import com.kartoteka.app.ui.components.SectionLabel
+import com.kartoteka.app.ui.theme.PeopleDims
+import com.kartoteka.app.ui.theme.PeopleType
+import com.kartoteka.app.ui.theme.RvColors
+import com.kartoteka.app.ui.theme.u
 import com.kartoteka.app.i18n.t
 
 import androidx.compose.foundation.background
@@ -67,58 +76,29 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf<Group?>(null) }
 
-    Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { editing = Group(name = "", color = AccentPalette[(groups?.size ?: 0) % AccentPalette.size]) },
-                icon = { Icon(Icons.Default.Add, null) },
-                text = { Text(t("Группа")) },
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp)) {
+        item {
+            ScreenHero(
+                t("Группы"),
+                count = groups?.size,
+                subtitle = t("Семья, работа, друзья — для быстрого поиска и рассылок"),
+                onBack = onBack,
+                actions = {
+                    HeroButton(Icons.Default.Add, t("Новая группа"), {
+                        editing = Group(name = "", color = AccentPalette[(groups?.size ?: 0) % AccentPalette.size])
+                    }, active = true)
+                },
             )
-        },
-        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
+        }
+        val list = groups
+        if (list != null && list.isEmpty()) {
             item {
-                Column(Modifier.statusBarsPadding().padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 12.dp)) {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
-                    Text(t("Группы"), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.padding(start = 12.dp))
-                    Text(
-                        t("Семья, работа, друзья — для быстрого поиска и рассылок"),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 12.dp),
-                    )
-                }
+                EmptyState(Icons.Default.Workspaces, t("Пока нет групп"), t("Создайте группы вроде «Семья», «Работа», «Спортзал», чтобы делать рассылки в один тап."))
             }
-            val list = groups
-            if (list != null && list.isEmpty()) {
-                item {
-                    EmptyState(Icons.Default.Workspaces, t("Пока нет групп"), t("Создайте группы вроде «Семья», «Работа», «Спортзал», чтобы делать рассылки в один тап."))
-                }
-            }
-            items(list.orEmpty(), key = { it.group.id }) { gc ->
-                val g = gc.group
-                Surface(
-                    onClick = { onOpen(g.id) },
-                    shape = RoundedCornerShape(22.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        GroupBadge(g, 48)
-                        Spacer(Modifier.width(14.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(g.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "${gc.count} ${ArchiveLogic.plural(gc.count.toLong(), "человек", "человека", "человек")}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+        }
+        if (!list.isNullOrEmpty()) item { SectionLabel(t("Все группы")) }
+        itemsIndexed(list.orEmpty(), key = { _, it -> it.group.id }) { i, gc ->
+            GroupRow(gc, last = i == list.orEmpty().lastIndex) { onOpen(gc.group.id) }
         }
     }
 
@@ -130,10 +110,35 @@ fun GroupsScreen(onOpen: (Long) -> Unit, onBack: () -> Unit) {
     }
 }
 
+/** Строка группы — в ритме карточки человека: круглый значок, имя 15.5 Bold, подпись, шеврон, разделитель. */
+@Composable
+private fun GroupRow(gc: com.kartoteka.app.data.GroupWithCount, last: Boolean, onClick: () -> Unit) {
+    val g = gc.group
+    val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Column(Modifier.fillMaxWidth().pressScale(src, 0.985f).clickable(src, indication = null, onClick = onClick)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = u(PeopleDims.CardPad), vertical = u(22)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GroupBadge(g, u(PeopleDims.ContactAvatar).value.toInt())
+            Spacer(Modifier.width(u(22)))
+            Column(Modifier.weight(1f)) {
+                Text(g.name, style = PeopleType.contactName, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Text(
+                    "${gc.count} ${ArchiveLogic.plural(gc.count.toLong(), "человек", "человека", "человек")}",
+                    style = PeopleType.contactMeta, color = RvColors.TextSecondary, modifier = Modifier.padding(top = u(4)),
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = RvColors.Chevron, modifier = Modifier.size(u(PeopleDims.Chevron) + 8.dp))
+        }
+        if (!last) androidx.compose.material3.HorizontalDivider(Modifier.padding(horizontal = u(PeopleDims.CardPad)), color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
 @Composable
 fun GroupBadge(g: Group, sizeDp: Int) {
     Box(
-        Modifier.size(sizeDp.dp).clip(RoundedCornerShape((sizeDp / 3).dp)).background(Color(g.color)),
+        Modifier.size(sizeDp.dp).clip(CircleShape).background(Color(g.color)),
         contentAlignment = Alignment.Center,
     ) {
         Text(g.emoji.ifBlank { g.name.take(1).uppercase() }, color = Color.White, fontSize = (sizeDp * 0.42).sp)

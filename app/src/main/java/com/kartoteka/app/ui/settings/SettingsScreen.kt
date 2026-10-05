@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -246,9 +247,8 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        ScreenTitle(t("Настройки"))
-        SettingsHero(app.settings, people.size)
-        SettingsSearch(search) { search = it }
+        SettingsHero(app.settings, people.size, search) { search = it }
+        Spacer(Modifier.height(10.dp))
         val q = search.trim().lowercase()
         val shown = if (q.isEmpty()) entries else entries.filter { it.title.lowercase().contains(q) || it.keywords.contains(q) || it.subtitle.lowercase().contains(q) }
         if (shown.isEmpty()) {

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Search
@@ -88,15 +89,15 @@ fun ImportContactsScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(t("Импорт контактов")) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
+            com.kartoteka.app.ui.components.ScreenHero(
+                t("Импорт контактов"), compact = true, onBack = onBack,
+                count = contacts?.size,
                 actions = {
                     val list = contacts
                     if (list != null) {
-                        TextButton(onClick = {
+                        com.kartoteka.app.ui.components.HeroPillButton(Icons.Default.DoneAll, if (selected.size == list.size) t("Снять все") else t("Выбрать все")) {
                             if (selected.size == list.size) selected.clear() else { selected.clear(); selected.addAll(list.map { it.id }) }
-                        }) { Text(if (selected.size == list.size) t("Снять все") else t("Выбрать все")) }
+                        }
                     }
                 },
             )

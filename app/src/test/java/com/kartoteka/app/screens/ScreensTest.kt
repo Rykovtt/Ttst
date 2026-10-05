@@ -154,7 +154,7 @@ class ScreensTest {
         openCard("Анна Смирнова")
         settle()
         shot("02_person")
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Семья и связи"))
+        compose.onNode(hasScrollToIndexAction() and vertical).performScrollToNode(hasText("Семья и связи"))
         settle()
         shot("09_person_relations")
         compose.onNode(hasScrollToIndexAction() and androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange))
@@ -170,7 +170,7 @@ class ScreensTest {
         compose.onNodeWithContentDescription("Редактировать").performClick()
         settle()
         shot("03_edit")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Адреса"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Адреса"))
         settle()
         shot("10_edit_phone_places")
         compose.onNodeWithContentDescription("Закрыть").performClick()
@@ -192,7 +192,7 @@ class ScreensTest {
         compose.onNodeWithText("Стрижка и укладка").performClick()
         settle()
         shot("12_appointment")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Напомнить мне"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Напомнить мне"))
         settle()
         shot("13_appointment_reminders")
         compose.onNodeWithContentDescription("Закрыть").performClick()
@@ -200,10 +200,10 @@ class ScreensTest {
 
         compose.onNodeWithText("Настройки").performClick()
         settle()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Записи и календарь"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Записи и календарь"))
         compose.onNodeWithText("Записи и календарь").performClick()
         settle()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Услуги и их шаблоны"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Услуги и их шаблоны"))
         compose.onNodeWithText("Услуги и их шаблоны").performClick()
         settle()
         shot("17_services")
@@ -249,14 +249,14 @@ class ScreensTest {
         compose.onNodeWithText("Настройки").performClick()
         settle()
         shot("06_settings")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Язык приложения"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Язык приложения"))
         compose.onNodeWithText("Язык приложения").performClick()
         settle()
         shot("16_settings_language")
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Данные"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Данные"))
         compose.onNodeWithText("Данные").performClick()
         settle()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Пароль копий"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Пароль копий"))
         settle()
         shot("26_settings_autobackup")
     }
@@ -276,7 +276,7 @@ class ScreensTest {
         settle()
         compose.onNodeWithText("Приватность").performClick()
         settle()
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Встряхнуть — закрыть"))
+        compose.onNode(hasScrollAction() and vertical).performScrollToNode(hasText("Встряхнуть — закрыть"))
         settle()
         shot("20_settings_privacy")
         compose.onNodeWithText("Попытки входа").performClick()
@@ -304,6 +304,9 @@ class ScreensTest {
     /** Тап по левой части карточки (аватар): центр карточки может попасть в звезду «Избранное». */
     private fun openCard(name: String) =
         compose.onNodeWithText(name).performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.1f, centerY)) }
+
+    /** Вертикальный контейнер прокрутки (горизонтальные ряды чипов в шапках не подходят). */
+    private val vertical = androidx.compose.ui.test.SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.VerticalScrollAxisRange)
 
     private fun settle() {
         repeat(4) {

@@ -85,6 +85,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.height
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
@@ -224,17 +225,17 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
 
     LazyColumn(Modifier.fillMaxSize().imePadding(), contentPadding = PaddingValues(bottom = 32.dp)) {
         item {
-            Row(Modifier.statusBarsPadding().padding(start = if (onBack != null) 4.dp else 22.dp, end = 20.dp, top = 18.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) }
-                Column {
-                    Text(t("Рассылка"), style = MaterialTheme.typography.headlineLarge)
-                    Text(t("Сообщения для клиентов и близких — каждому лично"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            com.kartoteka.app.ui.components.ScreenHero(
+                t("Рассылка"),
+                subtitle = t("Сообщения для клиентов и близких — каждому лично"),
+                count = selected.size.takeIf { it > 0 },
+                onBack = onBack,
+            ) {
+                if (!vm.sending) {
+                    // Прогресс сценария: кому → что → как → отправка.
+                    val done = listOf(selected.isNotEmpty() || vm.channel == Channel.SHARE, vm.text.text.isNotBlank(), true, false)
+                    StepProgress(done, listOf(t("Кому"), t("Текст"), t("Канал"), t("Отправка")))
                 }
-            }
-            if (!vm.sending) {
-                // Прогресс сценария: кому → что → как → отправка.
-                val done = listOf(selected.isNotEmpty() || vm.channel == Channel.SHARE, vm.text.text.isNotBlank(), true, false)
-                StepProgress(done, listOf(t("Кому"), t("Текст"), t("Канал"), t("Отправка")))
             }
         }
 
@@ -585,12 +586,16 @@ private fun sendOne(context: android.content.Context, vm: BroadcastViewModel, pf
 
 @Composable
 private fun StepTitle(num: String, title: String) {
-    Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(shape = RoundedCornerShape(50), color = com.kartoteka.app.ui.theme.Rv.Peach) {
-            Text(num, color = com.kartoteka.app.ui.theme.Rv.Ink, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
+    // Номер шага — тёмная «таблетка» с тёплой цифрой, как активный пункт навигации.
+    Row(
+        Modifier.padding(start = com.kartoteka.app.ui.theme.u(36), end = 20.dp, top = com.kartoteka.app.ui.theme.u(30), bottom = com.kartoteka.app.ui.theme.u(14)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(shape = RoundedCornerShape(50), color = com.kartoteka.app.ui.theme.RvColors.DarkSurface) {
+            Text(num, color = com.kartoteka.app.ui.theme.RvColors.NavActive, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
         }
         Spacer(Modifier.width(10.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(title, style = com.kartoteka.app.ui.theme.PeopleType.letter.copy(fontSize = 18.sp))
     }
 }
 
@@ -633,14 +638,15 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
 /** Индикатор шагов: сегменты заполняются персиковым по мере готовности. */
 @Composable
 private fun StepProgress(done: List<Boolean>, labels: List<String>) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    // Шаги на тёмной шапке: стеклянная дорожка, заполнение — тёплый свет.
+    Row(Modifier.fillMaxWidth().padding(horizontal = com.kartoteka.app.ui.theme.u(36)), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         done.forEachIndexed { i, ok ->
             val fill by androidx.compose.animation.core.animateFloatAsState(if (ok) 1f else 0f, com.kartoteka.app.ui.theme.motion(com.kartoteka.app.ui.theme.Motion.EMPHASIZED), label = "step")
             Column(Modifier.weight(1f)) {
-                androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-                    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(fill).height(5.dp).clip(RoundedCornerShape(3.dp)).background(com.kartoteka.app.ui.theme.Rv.PeachDeep))
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(com.kartoteka.app.ui.theme.RvColors.ChipBorder)) {
+                    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(fill).height(5.dp).clip(RoundedCornerShape(3.dp)).background(com.kartoteka.app.ui.theme.RvColors.ChipActiveBg))
                 }
-                Text(labels[i], style = MaterialTheme.typography.labelSmall, color = if (ok) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                Text(labels[i], style = com.kartoteka.app.ui.theme.PeopleType.category, color = if (ok) com.kartoteka.app.ui.theme.RvColors.ChipText else com.kartoteka.app.ui.theme.RvColors.SearchHint, modifier = Modifier.padding(top = 6.dp))
             }
         }
     }

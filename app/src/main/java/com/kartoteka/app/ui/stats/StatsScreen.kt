@@ -1,5 +1,14 @@
 package com.kartoteka.app.ui.stats
 
+import androidx.compose.foundation.border
+import com.kartoteka.app.ui.components.CategoryChip
+import com.kartoteka.app.ui.components.HeroChipRow
+import com.kartoteka.app.ui.components.ScreenHero
+import com.kartoteka.app.ui.components.SectionLabel
+import com.kartoteka.app.ui.theme.PeopleDims
+import com.kartoteka.app.ui.theme.PeopleType
+import com.kartoteka.app.ui.theme.RvColors
+import com.kartoteka.app.ui.theme.u
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -75,54 +84,48 @@ fun StatsScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
     val r = remember(appts, people, period) { StatsLogic.compute(period, appts, people) }
 
     Column(
-        Modifier.fillMaxSize().heroBackground(glow = Rv.PeachDeep).verticalScroll(rememberScrollState()).statusBarsPadding().padding(bottom = 24.dp),
+        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
     ) {
-        Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), tint = Rv.HeroText) }
-            Text(t("Статистика"), style = MaterialTheme.typography.headlineLarge, color = Rv.HeroText, modifier = Modifier.weight(1f))
-        }
-        // Период.
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                StatsLogic.Period.MONTH to t("Этот месяц"),
-                StatsLogic.Period.PREV_MONTH to t("Прошлый"),
-                StatsLogic.Period.YEAR to t("Год"),
-            ).forEach { (p, label) ->
-                val sel = p == period
-                Box(
-                    Modifier.clip(CircleShape).background(if (sel) Rv.Peach else Rv.HeroSurface).pressable { period = p }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                ) { Text(label, style = MaterialTheme.typography.labelLarge, color = if (sel) Rv.Ink else Rv.HeroText) }
+        ScreenHero(t("Статистика"), onBack = onBack, subtitle = t("Встречи, люди и напоминания за период")) {
+            HeroChipRow {
+                listOf(
+                    StatsLogic.Period.MONTH to t("Этот месяц"),
+                    StatsLogic.Period.PREV_MONTH to t("Прошлый"),
+                    StatsLogic.Period.YEAR to t("Год"),
+                ).forEach { (p, label) -> CategoryChip(label, p == period, { period = p }) }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(start = u(PeopleDims.HeaderPad), end = u(PeopleDims.HeaderPad), top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                StatTile(t("Записи"), r.appointments, r.appointmentsDelta, Modifier.weight(1f))
+                StatTile(t("Новые люди"), r.newPeople, r.newPeopleDelta, Modifier.weight(1f))
+                StatTile(t("Напоминания"), r.reminders, r.remindersDelta, Modifier.weight(1f))
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatTile(t("Записи"), r.appointments, r.appointmentsDelta, Modifier.weight(1f))
-            StatTile(t("Новые люди"), r.newPeople, r.newPeopleDelta, Modifier.weight(1f))
-            StatTile(t("Напоминания"), r.reminders, r.remindersDelta, Modifier.weight(1f))
-        }
-
+        SectionLabel(t("Динамика"))
         Bars(r.bars, period, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp))
 
-        Text(t("Активность"), style = MaterialTheme.typography.titleLarge, color = Rv.HeroText, modifier = Modifier.padding(start = 22.dp, top = 10.dp, bottom = 8.dp))
+        SectionLabel(t("Активность"))
         InsightRow(
             Icons.Default.EventAvailable, t("Больше всего встреч"),
             r.busiestWeekday?.let { AppointmentLogic.weekday(LocalDate.now().with(java.time.temporal.TemporalAdjusters.nextOrSame(it))).replaceFirstChar { c -> c.uppercase() } } ?: t("Пока нет данных"),
         )
         r.topPerson?.let { (p, n) ->
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp).clip(RoundedCornerShape(22.dp))
-                    .background(Rv.HeroSurface).pressable { onOpenPerson(p.id) }.padding(14.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp).lightCard()
+                    .pressable { onOpenPerson(p.id) }.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Avatar(p, 44.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(t("Чаще всего"), style = MaterialTheme.typography.bodySmall, color = Rv.HeroMuted)
-                    Text(p.displayName, style = MaterialTheme.typography.titleMedium, color = Rv.HeroText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t("Чаще всего"), style = PeopleType.contactMeta, color = RvColors.TextSecondary)
+                    Text(p.displayName, style = PeopleType.contactName, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text("$n", style = NumberStyle.copy(fontSize = 24.sp), color = Rv.Peach)
-                Icon(Icons.Default.ChevronRight, null, tint = Rv.HeroMuted)
+                Text("$n", style = NumberStyle.copy(fontSize = 24.sp), color = RvColors.Orange)
+                Icon(Icons.Default.ChevronRight, null, tint = RvColors.Chevron)
             }
         }
         InsightRow(Icons.Default.Star, t("Всего людей в картотеке"), "${people.size}")
@@ -131,17 +134,20 @@ fun StatsScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit) {
 
 @Composable
 private fun StatTile(label: String, value: Int, delta: Int?, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(22.dp)).background(Rv.HeroSurface).padding(14.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Rv.HeroMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(
+        modifier.clip(RoundedCornerShape(24.dp)).background(RvColors.ChipBg)
+            .border(1.dp, RvColors.ChipBorder, RoundedCornerShape(24.dp)).padding(14.dp),
+    ) {
+        Text(label, style = PeopleType.category, color = RvColors.SearchHint, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(6.dp))
-        Text("$value", style = NumberStyle.copy(fontSize = 30.sp), color = Rv.HeroText)
+        Text("$value", style = NumberStyle.copy(fontSize = 30.sp), color = RvColors.TextOnDark)
         if (delta != null) {
             val up = delta >= 0
             Text(
                 (if (up) "↑ +" else "↓ ") + "$delta%", style = MaterialTheme.typography.labelMedium,
-                color = if (up) Rv.Lime else Rv.Coral,
+                color = if (up) RvColors.Green else Rv.Coral,
             )
-        } else Text("—", style = MaterialTheme.typography.labelMedium, color = Rv.HeroMuted)
+        } else Text("—", style = MaterialTheme.typography.labelMedium, color = RvColors.SearchHint)
     }
 }
 
@@ -152,7 +158,7 @@ private fun Bars(values: List<Int>, period: StatsLogic.Period, modifier: Modifie
     val spec = motion<Float>(Motion.EMPHASIZED)
     LaunchedEffect(period) { grow.animateTo(1f, spec) }
     val max = (values.maxOrNull() ?: 0).coerceAtLeast(1)
-    Column(modifier.clip(RoundedCornerShape(24.dp)).background(Rv.HeroSurface).padding(16.dp)) {
+    Column(modifier.lightCard().padding(16.dp)) {
         Canvas(Modifier.fillMaxWidth().height(150.dp).semantics { contentDescription = values.joinToString() }) {
             val n = values.size.coerceAtLeast(1)
             val gap = size.width / n
@@ -161,8 +167,8 @@ private fun Bars(values: List<Int>, period: StatsLogic.Period, modifier: Modifie
                 val h = if (v == 0) 3.dp.toPx() else (v.toFloat() / max) * size.height * grow.value
                 val x = gap * i + (gap - w) / 2
                 drawRoundRect(
-                    brush = if (v == 0) Brush.verticalGradient(listOf(Rv.HeroLine, Rv.HeroLine))
-                    else Brush.verticalGradient(listOf(Rv.Peach, Rv.PeachDeep.copy(alpha = 0.55f)), startY = size.height - h, endY = size.height),
+                    brush = if (v == 0) Brush.verticalGradient(listOf(RvColors.Divider, RvColors.Divider))
+                    else Brush.verticalGradient(listOf(RvColors.FabBodyBottom, RvColors.Orange), startY = size.height - h, endY = size.height),
                     topLeft = Offset(x, size.height - h), size = Size(w, h), cornerRadius = CornerRadius(w / 2),
                 )
             }
@@ -170,7 +176,7 @@ private fun Bars(values: List<Int>, period: StatsLogic.Period, modifier: Modifie
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             val labels = if (period == StatsLogic.Period.YEAR) listOf("1", "3", "6", "9", "12") else listOf("1", "7", "14", "21", "${values.size}")
-            labels.forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = Rv.HeroMuted) }
+            labels.forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = RvColors.TextSecondary) }
         }
     }
 }
@@ -178,16 +184,22 @@ private fun Bars(values: List<Int>, period: StatsLogic.Period, modifier: Modifie
 @Composable
 private fun InsightRow(icon: ImageVector, title: String, value: String) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp).clip(RoundedCornerShape(22.dp)).background(Rv.HeroSurface).padding(14.dp),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp).lightCard().padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Rv.Peach.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Rv.Peach)
+        Box(Modifier.size(u(PeopleDims.Action) + 8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodySmall, color = Rv.HeroMuted)
-            Text(value, style = MaterialTheme.typography.titleMedium, color = Rv.HeroText)
+            Text(title, style = PeopleType.contactMeta, color = RvColors.TextSecondary)
+            Text(value, style = PeopleType.contactName, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
+
+/** Светлая карточка: «бумага», тонкая рамка-разделитель, скругление 24. */
+@Composable
+private fun Modifier.lightCard(): Modifier = this.clip(RoundedCornerShape(24.dp))
+    .background(MaterialTheme.colorScheme.surfaceContainerLow)
+    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))

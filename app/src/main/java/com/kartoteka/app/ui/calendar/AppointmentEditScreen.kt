@@ -323,20 +323,14 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                title = { Text(if (vm.isNew) t("Новая запись") else t("Запись")) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.Close, t("Закрыть")) } },
+            com.kartoteka.app.ui.components.ScreenHero(
+                if (vm.isNew) t("Новая запись") else t("Запись"), compact = true,
+                onBack = onBack, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
                 actions = {
-                    Button(
-                        enabled = vm.person != null && !vm.saving,
-                        onClick = {
-                            vm.save { _, kind ->
-                                if (kind != null) { message = kind; closeAfterMessage = true } else onBack()
-                            }
-                        },
-                        modifier = Modifier.padding(end = 8.dp),
-                    ) {
-                        Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("Сохранить"))
+                    com.kartoteka.app.ui.components.HeroPillButton(Icons.Default.Check, t("Сохранить"), enabled = vm.person != null && !vm.saving, primary = true) {
+                        vm.save { _, kind ->
+                            if (kind != null) { message = kind; closeAfterMessage = true } else onBack()
+                        }
                     }
                 },
             )

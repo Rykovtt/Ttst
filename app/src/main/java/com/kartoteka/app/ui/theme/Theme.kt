@@ -40,18 +40,18 @@ import com.kartoteka.app.R
 
 // ---- Палитра ----
 object Rv {
-    val Ink = Color(0xFF151517)
+    val Ink = Color(0xFF111113)
     val Graphite = Color(0xFF1E1E22)
-    val Milk = Color(0xFFF4F1EC)
-    val Paper = Color(0xFFFCFAF7)
-    val Sand = Color(0xFFEAE5DE)
-    val Stone = Color(0xFF8C867E)
-    val Peach = Color(0xFFF2A77E)
-    val PeachDeep = Color(0xFFE8804C)
-    val PeachSoft = Color(0xFFFBE4D6)
-    val Lavender = Color(0xFF7D6CF2)
+    val Milk = Color(0xFFF5F2EC)
+    val Paper = Color(0xFFFBF9F5)
+    val Sand = Color(0xFFEDEAE6)
+    val Stone = Color(0xFF77777C)
+    val Peach = Color(0xFFF3CFA7)
+    val PeachDeep = Color(0xFFF18B35)
+    val PeachSoft = Color(0xFFF5E9DC)
+    val Lavender = Color(0xFF8056ED)
     val LavenderSoft = Color(0xFFE9E5FF)
-    val Lime = Color(0xFF3FC46B)
+    val Lime = Color(0xFF35D88C)
     val LimeSoft = Color(0xFFDDF5E4)
     val Acid = Color(0xFFC8F25A)
     val Coral = Color(0xFFFF7A66)
@@ -59,11 +59,11 @@ object Rv {
     val Cobalt = Color(0xFF3B5BFF)
 
     /** Поверхности «тёмного героя» — шапки, Ноа, карта. Одинаковы в обеих темах. */
-    val HeroBg = Color(0xFF0F0F11)
-    val HeroSurface = Color(0xFF1C1C20)
+    val HeroBg = Color(0xFF101012)
+    val HeroSurface = Color(0xFF242326)
     val HeroLine = Color(0x1FFFFFFF)
-    val HeroText = Color(0xFFF6F3EE)
-    val HeroMuted = Color(0xFF9C978F)
+    val HeroText = Color(0xFFF8F7F4)
+    val HeroMuted = Color(0xFFA5A3A9)
 }
 
 private val Light = lightColorScheme(
@@ -75,23 +75,23 @@ private val Light = lightColorScheme(
     onSecondary = Color.White,
     secondaryContainer = Rv.LavenderSoft,
     onSecondaryContainer = Color(0xFF2A1F7A),
-    tertiary = Rv.PeachDeep,
+    tertiary = Color(0xFFD9893F),
     onTertiary = Color.White,
     tertiaryContainer = Rv.PeachSoft,
-    onTertiaryContainer = Color(0xFF7A3512),
-    background = Color(0xFFF7F5F1),
+    onTertiaryContainer = Color(0xFF181818),
+    background = Color(0xFFF5F2EC),
     onBackground = Rv.Ink,
-    surface = Color(0xFFF7F5F1),
+    surface = Color(0xFFF5F2EC),
     onSurface = Rv.Ink,
-    surfaceVariant = Color(0xFFE6E0D8),
-    onSurfaceVariant = Color(0xFF85838A),
+    surfaceVariant = Color(0xFFEAE7E3),
+    onSurfaceVariant = Color(0xFF77777C),
     surfaceContainerLowest = Rv.Paper,
     surfaceContainerLow = Rv.Paper,
     surfaceContainer = Rv.Paper,
-    surfaceContainerHigh = Color(0xFFF7F4F0),
+    surfaceContainerHigh = Color(0xFFF1EEE9),
     surfaceContainerHighest = Rv.Sand,
     outline = Color(0xFFA9A299),
-    outlineVariant = Color(0xFFE8E5E0),
+    outlineVariant = Color(0xFFE5E1DA),
     error = Color(0xFFE5483B),
     errorContainer = Color(0xFFFDE5E1),
     inverseSurface = Rv.Ink,
@@ -137,28 +137,29 @@ val Wordmark = ManropeFamily
 val Manrope = ManropeFamily
 
 private val AppTypography = Typography().let { t ->
-    fun TextStyle.m(w: FontWeight, size: Int? = null, ls: Float? = null, lh: Int? = null) = copy(
+    fun TextStyle.m(w: FontWeight, size: Number? = null, ls: Float? = null, lh: Number? = null) = copy(
         fontFamily = ManropeFamily, fontWeight = w,
-        fontSize = size?.sp ?: fontSize,
+        fontSize = size?.toFloat()?.sp ?: fontSize,
         letterSpacing = ls?.sp ?: letterSpacing,
-        lineHeight = lh?.sp ?: lineHeight,
+        lineHeight = lh?.toFloat()?.sp ?: lineHeight,
     )
+    // Шкала — та же, что на главном экране (PeopleType): плотный Manrope, крупные заголовки ExtraBold.
     t.copy(
-        displayLarge = t.displayLarge.m(FontWeight.Bold, ls = -2f),
-        displayMedium = t.displayMedium.m(FontWeight.Bold, ls = -1.6f),
-        displaySmall = t.displaySmall.m(FontWeight.Bold, 36, -1.2f, 40),
-        headlineLarge = t.headlineLarge.m(FontWeight.Bold, 34, -1.1f, 38),
-        headlineMedium = t.headlineMedium.m(FontWeight.Bold, 28, -0.8f, 32),
-        headlineSmall = t.headlineSmall.m(FontWeight.SemiBold, 22, -0.4f),
-        titleLarge = t.titleLarge.m(FontWeight.SemiBold, 20, -0.4f),
-        titleMedium = t.titleMedium.m(FontWeight.SemiBold, 16, -0.2f),
-        titleSmall = t.titleSmall.m(FontWeight.SemiBold, 14, -0.1f),
-        bodyLarge = t.bodyLarge.m(FontWeight.Normal, 16, -0.2f),
-        bodyMedium = t.bodyMedium.m(FontWeight.Normal, 14, -0.1f),
-        bodySmall = t.bodySmall.m(FontWeight.Normal, 12, 0f),
-        labelLarge = t.labelLarge.m(FontWeight.Medium, 14, -0.1f),
-        labelMedium = t.labelMedium.m(FontWeight.Medium, 12, 0f),
-        labelSmall = t.labelSmall.m(FontWeight.Medium, 11, 0.1f),
+        displayLarge = t.displayLarge.m(FontWeight.ExtraBold, ls = -2f),
+        displayMedium = t.displayMedium.m(FontWeight.ExtraBold, ls = -1.6f),
+        displaySmall = t.displaySmall.m(FontWeight.ExtraBold, 36, -1.2f, 40),
+        headlineLarge = t.headlineLarge.m(FontWeight.ExtraBold, 34, -1f, 38),
+        headlineMedium = t.headlineMedium.m(FontWeight.ExtraBold, 26, -0.6f, 30),
+        headlineSmall = t.headlineSmall.m(FontWeight.Bold, 20, -0.3f, 25),
+        titleLarge = t.titleLarge.m(FontWeight.Bold, 17, -0.2f, 22),
+        titleMedium = t.titleMedium.m(FontWeight.Bold, 15, -0.1f, 20),
+        titleSmall = t.titleSmall.m(FontWeight.SemiBold, 13, 0f, 17),
+        bodyLarge = t.bodyLarge.m(FontWeight.Normal, 14, 0f, 19),
+        bodyMedium = t.bodyMedium.m(FontWeight.Normal, 13, 0f, 17),
+        bodySmall = t.bodySmall.m(FontWeight.Normal, 11.5f, 0f, 15),
+        labelLarge = t.labelLarge.m(FontWeight.Medium, 13, 0f, 16),
+        labelMedium = t.labelMedium.m(FontWeight.Medium, 11.5f, 0f, 14),
+        labelSmall = t.labelSmall.m(FontWeight.Medium, 10.5f, 0.1f, 13),
     )
 }
 
@@ -170,8 +171,8 @@ private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(10.dp),
     small = RoundedCornerShape(14.dp),
     medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(26.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(30.dp),
 )
 
 object Radius {

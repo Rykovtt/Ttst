@@ -229,10 +229,9 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(
-                title = { Text(if (personId == 0L) t("Новый человек") else t("Редактирование"), style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = { IconButton(onClick = tryExit) { Icon(Icons.Default.Close, t("Закрыть")) } },
-                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            com.kartoteka.app.ui.components.ScreenHero(
+                if (personId == 0L) t("Новый человек") else t("Редактирование"), compact = true,
+                onBack = tryExit, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
             )
         },
         bottomBar = {

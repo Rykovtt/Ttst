@@ -102,8 +102,8 @@ fun ScreenTitle(
 fun CountPill(n: Int, dark: Boolean = false) {
     Box(
         Modifier.clip(CircleShape)
-            .background(if (dark) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 9.dp, vertical = 3.dp),
+            .background(if (dark) com.kartoteka.app.ui.theme.RvColors.CounterBg else MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 10.dp, vertical = 3.dp),
     ) {
         Text("$n", style = MaterialTheme.typography.labelMedium, color = if (dark) Rv.HeroText else MaterialTheme.colorScheme.onSurface)
     }
@@ -144,19 +144,20 @@ fun GradientButton(
     onClick: () -> Unit,
 ) {
     val haptics = rememberHaptics()
-    val brush = Brush.horizontalGradient(listOf(Rv.Ink, Color(0xFF3A2A22), Rv.PeachDeep))
+    // Главное действие — тёмная «таблетка» как нижняя навигация, тёплый свет как у кнопки «+».
+    val brush = Brush.horizontalGradient(listOf(com.kartoteka.app.ui.theme.RvColors.DarkSurface, com.kartoteka.app.ui.theme.RvColors.DarkSurface2))
     Row(
-        modifier.fillMaxWidth().height(58.dp).clip(CircleShape)
+        modifier.fillMaxWidth().height(56.dp).clip(CircleShape)
             .background(if (enabled) brush else Brush.horizontalGradient(listOf(Color(0xFFBDB7AF), Color(0xFFCFC9C1))))
             .then(if (enabled) Modifier.pressable(haptic = false) { haptics.confirm(); onClick() } else Modifier)
             .padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp))
+            Icon(icon, null, tint = com.kartoteka.app.ui.theme.RvColors.NavActive, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
         }
-        Text(text, color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = com.kartoteka.app.ui.theme.RvColors.NavActive, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (trailing != null) Text(trailing, color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.labelLarge)
     }
 }
@@ -171,7 +172,8 @@ fun Panel(
 ) {
     Column(
         modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(26.dp)).background(color).padding(padding),
+            .clip(RoundedCornerShape(28.dp)).background(color)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)).padding(padding),
         content = content,
     )
 }
@@ -195,12 +197,12 @@ fun Modifier.heroBackground(glow: Color = Rv.Peach, glowAt: Offset? = null): Mod
     .drawBehind {
         val c = glowAt ?: Offset(size.width * 0.92f, size.height * 0.08f)
         drawCircle(
-            Brush.radialGradient(listOf(glow.copy(alpha = 0.32f), Color.Transparent), center = c, radius = size.maxDimension * 0.75f),
+            Brush.radialGradient(listOf(glow.copy(alpha = 0.22f), Color.Transparent), center = c, radius = size.maxDimension * 0.75f),
             radius = size.maxDimension * 0.75f, center = c,
         )
         val c2 = Offset(size.width * 0.05f, size.height * 1.05f)
         drawCircle(
-            Brush.radialGradient(listOf(Rv.Lavender.copy(alpha = 0.16f), Color.Transparent), center = c2, radius = size.maxDimension * 0.6f),
+            Brush.radialGradient(listOf(com.kartoteka.app.ui.theme.RvColors.FabGlow.copy(alpha = 0.10f), Color.Transparent), center = c2, radius = size.maxDimension * 0.6f),
             radius = size.maxDimension * 0.6f, center = c2,
         )
         // Тонкая фирменная сетка-штриховка — «картотека».

@@ -111,8 +111,9 @@ fun SectionCard(
     val rotation = androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f, label = "chevron").value
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.padding(vertical = 16.dp)) {
             Row(
@@ -126,7 +127,7 @@ fun SectionCard(
                     Icon(icon, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
                 }
-                Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+                Text(title, style = com.kartoteka.app.ui.theme.PeopleType.letter, modifier = Modifier.weight(1f))
                 action?.invoke()
                 if (collapsible) {
                     Icon(

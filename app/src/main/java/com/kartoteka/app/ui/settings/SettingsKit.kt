@@ -1,5 +1,7 @@
 package com.kartoteka.app.ui.settings
 
+import androidx.compose.material.icons.filled.People
+import androidx.compose.foundation.border
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
@@ -69,64 +71,42 @@ class SettingEntry(
     val content: @Composable ColumnScope.() -> Unit,
 )
 
-/** Фирменная карточка вверху настроек. */
+/** Шапка настроек в стиле главного экрана: горы, заголовок, состояние сейфа и стеклянный поиск. */
 @Composable
-fun SettingsHero(settings: Settings, people: Int) {
+fun SettingsHero(settings: Settings, people: Int, search: String, onSearch: (String) -> Unit) {
     val context = LocalContext.current
     val custom by settings.appTitle.value.collectAsState()
     val lock by settings.lockEnabled.collectAsState()
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(30.dp))
-            .heroBackground().padding(22.dp),
+    com.kartoteka.app.ui.components.ScreenHero(
+        t("Настройки"),
+        subtitle = t("%1\$s — ваш порядок в людях, встречах и важных деталях.", com.kartoteka.app.AppIcons.title(context, custom)),
     ) {
-        Text(com.kartoteka.app.AppIcons.title(context, custom).uppercase(), style = MaterialTheme.typography.headlineMedium, color = Rv.HeroText)
-        Spacer(Modifier.height(6.dp))
-        Text(t("Ваш порядок\nв людях, встречах\nи важных деталях."), style = MaterialTheme.typography.titleMedium, color = Rv.HeroText.copy(alpha = 0.86f))
-        Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            HeroStat("$people", t("в картотеке"))
-            Spacer(Modifier.width(10.dp))
-            Row(
-                Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Default.Lock, null, tint = if (lock) Rv.Lime else Rv.HeroMuted, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(t("Шифрование AES-256"), style = MaterialTheme.typography.labelMedium, color = Rv.HeroText)
-            }
+        com.kartoteka.app.ui.components.HeroChipRow {
+            HeroStat(Icons.Default.People, t("%1\$s в картотеке", people), Rv.HeroText)
+            HeroStat(Icons.Default.Lock, t("Шифрование AES-256"), if (lock) com.kartoteka.app.ui.theme.RvColors.Green else Rv.HeroMuted)
         }
+        Spacer(Modifier.height(14.dp))
+        com.kartoteka.app.ui.components.GlassSearchBar(
+            query = search, onQuery = onSearch, hint = t("Поиск по настройкам"), searchDescription = t("Поиск"),
+            filterDescription = "", clearDescription = t("Очистить"), onFilters = null,
+            modifier = Modifier.padding(horizontal = com.kartoteka.app.ui.theme.u(com.kartoteka.app.ui.theme.PeopleDims.HeaderPad)),
+        )
     }
 }
 
+/** Стеклянная плашка состояния на шапке — как неактивный чип категории. */
 @Composable
-private fun HeroStat(value: String, label: String) {
+private fun HeroStat(icon: ImageVector, label: String, tint: Color) {
     Row(
-        Modifier.clip(CircleShape).background(Rv.Peach).padding(horizontal = 12.dp, vertical = 7.dp),
+        Modifier.height(com.kartoteka.app.ui.theme.u(com.kartoteka.app.ui.theme.PeopleDims.ChipHeight)).clip(CircleShape)
+            .background(com.kartoteka.app.ui.theme.RvColors.ChipBg)
+            .border(1.dp, com.kartoteka.app.ui.theme.RvColors.ChipBorder, CircleShape).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(value, style = MaterialTheme.typography.labelLarge, color = Rv.Ink)
-        Spacer(Modifier.width(5.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = Rv.Ink.copy(alpha = 0.75f))
+        Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = com.kartoteka.app.ui.theme.PeopleType.category, color = com.kartoteka.app.ui.theme.RvColors.ChipText, maxLines = 1)
     }
-}
-
-@Composable
-fun SettingsSearch(value: String, onChange: (String) -> Unit) {
-    TextField(
-        value = value, onValueChange = onChange, singleLine = true,
-        placeholder = { Text(t("Поиск по настройкам")) },
-        leadingIcon = { Icon(Icons.Default.Search, null) },
-        trailingIcon = { if (value.isNotEmpty()) IconButton(onClick = { onChange("") }) { Icon(Icons.Default.Close, t("Очистить")) } },
-        shape = CircleShape,
-        colors = TextFieldDefaults.colors(
-            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-            unfocusedPlaceholderColor = MaterialTheme.colorScheme.outline,
-            unfocusedLeadingIconColor = MaterialTheme.colorScheme.outline,
-        ),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-    )
 }
 
 /**
@@ -164,8 +144,9 @@ fun SettingsGroup(entries: List<SettingEntry>, forceOpen: Boolean, onNoa: () -> 
     }
 
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(26.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
     ) {
         entries.forEachIndexed { i, e ->
             val expanded = forceOpen || e.title in open
@@ -175,15 +156,15 @@ fun SettingsGroup(entries: List<SettingEntry>, forceOpen: Boolean, onNoa: () -> 
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
+                    Modifier.size(40.dp).clip(CircleShape)
                         .background(if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(e.icon, null, tint = if (expanded) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                    Icon(e.icon, null, tint = if (expanded) com.kartoteka.app.ui.theme.RvColors.NavActive else MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(e.title, style = MaterialTheme.typography.titleSmall)
+                    Text(e.title, style = MaterialTheme.typography.titleMedium)
                     Text(e.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (e.accent) {

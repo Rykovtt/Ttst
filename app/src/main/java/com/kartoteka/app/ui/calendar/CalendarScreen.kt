@@ -65,6 +65,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kartoteka.app.ui.theme.PeopleDims
+import com.kartoteka.app.ui.theme.PeopleType
+import com.kartoteka.app.ui.theme.u
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.horizontalScroll
@@ -188,39 +191,30 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPer
     LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 40.dp)) {
         item(key = "header") {
             val todayCount = byDay[today].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
-            ScreenTitle(
+            com.kartoteka.app.ui.components.ScreenHero(
                 t("Календарь"),
+                count = todayCount.takeIf { it > 0 },
                 subtitle = if (todayCount == 0) t("Сегодня записей нет") else t("Сегодня %1\$s %2\$s", todayCount, com.kartoteka.app.data.ArchiveLogic.plural(todayCount.toLong(), "запись", "записи", "записей")),
-            ) {
-                IconButton(onClick = ::goToday) { Icon(Icons.Default.Today, t("Сегодня")) }
-                Box(
-                    Modifier.padding(start = 4.dp, end = 6.dp).size(44.dp).clip(CircleShape)
-                        .border(1.5.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                        .pressable { onNew(if (listMode) today else selected) },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Default.Add, t("Записать")) }
-            }
-        }
-        item(key = "filters") {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                FilterChip(filter == CalFilter.ALL, { filter = CalFilter.ALL }, label = { Text(t("Все")) })
-                FilterChip(filter == CalFilter.APPOINTMENTS, { filter = CalFilter.APPOINTMENTS }, label = { Text(t("Записи")) })
-                FilterChip(filter == CalFilter.BIRTHDAYS, { filter = CalFilter.BIRTHDAYS }, label = { Text(t("Дни рождения")) })
-            }
-        }
-        item(key = "mode") {
-            com.kartoteka.app.ui.components.Segmented(
-                options = listOf(t("Неделя"), t("Месяц"), t("Список")),
-                selected = if (listMode) 2 else if (weekMode) 0 else 1,
-                onSelect = {
-                    vm.listMode.value = it == 2
-                    if (it != 2) weekMode = it == 0
+                actions = {
+                    com.kartoteka.app.ui.components.HeroButton(Icons.Default.Today, t("Сегодня"), ::goToday)
+                    com.kartoteka.app.ui.components.HeroButton(Icons.Default.Add, t("Записать"), { onNew(if (listMode) today else selected) }, active = true)
                 },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+            ) {
+                com.kartoteka.app.ui.components.HeroChipRow {
+                    com.kartoteka.app.ui.components.CategoryChip(t("Все"), filter == CalFilter.ALL, { filter = CalFilter.ALL })
+                    com.kartoteka.app.ui.components.CategoryChip(t("Записи"), filter == CalFilter.APPOINTMENTS, { filter = CalFilter.APPOINTMENTS }, dot = com.kartoteka.app.ui.theme.RvColors.Violet)
+                    com.kartoteka.app.ui.components.CategoryChip(t("Дни рождения"), filter == CalFilter.BIRTHDAYS, { filter = CalFilter.BIRTHDAYS }, dot = com.kartoteka.app.ui.theme.RvColors.Orange)
+                }
+                Spacer(Modifier.height(14.dp))
+                com.kartoteka.app.ui.components.HeroSegmented(
+                    options = listOf(t("Неделя"), t("Месяц"), t("Список")),
+                    selected = if (listMode) 2 else if (weekMode) 0 else 1,
+                    onSelect = {
+                        vm.listMode.value = it == 2
+                        if (it != 2) weekMode = it == 0
+                    },
+                )
+            }
         }
 
         if (listMode) {
@@ -238,7 +232,7 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPer
         } else {
             item(key = "grid") {
                 Column(Modifier.animateContentSize(motion(Motion.EMPHASIZED))) {
-                    Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(start = u(PeopleDims.HeaderPad), end = 8.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             shownMonth.month.getDisplayName(TextStyle.FULL_STANDALONE, ru).replaceFirstChar { it.uppercase() } + " " + shownMonth.year,
                             style = MaterialTheme.typography.titleMedium,
@@ -305,7 +299,7 @@ private fun WeekStrip(start: LocalDate, selected: LocalDate, byDay: Map<LocalDat
         for (i in 0 until 7) {
             val d = start.plusDays(i.toLong())
             val sel = d == selected
-            val bg by animateColorAsState(if (sel) Rv.Peach else androidx.compose.ui.graphics.Color.Transparent, motion(Motion.MICRO), label = "wbg")
+            val bg by animateColorAsState(if (sel) com.kartoteka.app.ui.theme.RvColors.DarkSurface else androidx.compose.ui.graphics.Color.Transparent, motion(Motion.MICRO), label = "wbg")
             val count = byDay[d].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
             val hasBd = birthdays(d).isNotEmpty()
             Column(
@@ -318,13 +312,13 @@ private fun WeekStrip(start: LocalDate, selected: LocalDate, byDay: Map<LocalDat
                 Text(
                     d.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, ru).replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (sel) Rv.Ink.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (sel) com.kartoteka.app.ui.theme.RvColors.NavInactive else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(4.dp))
-                Text("${d.dayOfMonth}", style = NumberStyle.copy(fontSize = 20.sp), color = if (sel) Rv.Ink else MaterialTheme.colorScheme.onSurface)
+                Text("${d.dayOfMonth}", style = NumberStyle.copy(fontSize = 20.sp), color = if (sel) com.kartoteka.app.ui.theme.RvColors.NavActive else MaterialTheme.colorScheme.onSurface)
                 Row(Modifier.height(8.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    if (hasBd) Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) Rv.Ink else Rv.PeachDeep))
-                    repeat(minOf(count, 3)) { Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) Rv.Ink else Rv.Lavender)) }
+                    if (hasBd) Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) com.kartoteka.app.ui.theme.RvColors.NavDot else Rv.PeachDeep))
+                    repeat(minOf(count, 3)) { Box(Modifier.size(4.dp).clip(CircleShape).background(if (sel) com.kartoteka.app.ui.theme.RvColors.NavDot else Rv.Lavender)) }
                 }
             }
         }
@@ -345,7 +339,7 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                     val count = byDay[date].orEmpty().count { it.appointment.appointmentStatus != AppointmentStatus.CANCELLED }
                     Box(
                         Modifier.weight(1f).aspectRatio(1f).padding(3.dp).clip(RoundedCornerShape(14.dp))
-                            .background(if (isSel) Rv.Peach else androidx.compose.ui.graphics.Color.Transparent)
+                            .background(if (isSel) com.kartoteka.app.ui.theme.RvColors.DarkSurface else androidx.compose.ui.graphics.Color.Transparent)
                             .then(if (date == today && !isSel) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp)) else Modifier)
                             .clickable { onSelect(date) },
                         contentAlignment = Alignment.Center,
@@ -356,14 +350,14 @@ private fun MonthGrid(month: YearMonth, selected: LocalDate, byDay: Map<LocalDat
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = if (date == today || isSel) FontWeight.ExtraBold else FontWeight.Medium,
                                 color = when {
-                                    isSel -> Rv.Ink
+                                    isSel -> com.kartoteka.app.ui.theme.RvColors.NavActive
                                     !inMonth -> MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
                                     else -> MaterialTheme.colorScheme.onSurface
                                 },
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.height(6.dp)) {
                                 repeat(minOf(count, 3)) {
-                                    Box(Modifier.size(4.dp).clip(CircleShape).background(if (isSel) Rv.Ink else Rv.Lavender))
+                                    Box(Modifier.size(4.dp).clip(CircleShape).background(if (isSel) com.kartoteka.app.ui.theme.RvColors.NavDot else Rv.Lavender))
                                 }
                             }
                         }
@@ -384,8 +378,11 @@ private fun DayTitle(date: LocalDate) {
         today.minusDays(1) -> t("Вчера")
         else -> AppointmentLogic.weekday(date).replaceFirstChar { it.uppercase() }
     }
-    Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 22.dp, bottom = 8.dp), verticalAlignment = Alignment.Bottom) {
-        Text(name, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+    Row(
+        Modifier.fillMaxWidth().padding(start = u(PeopleDims.HeaderPad), end = u(PeopleDims.HeaderPad), top = u(30), bottom = u(14)),
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Text(name, style = PeopleType.letter.copy(fontSize = 18.sp), modifier = Modifier.weight(1f))
         Text(
             com.kartoteka.app.i18n.I18n.dayMonth(date.dayOfMonth, date.monthValue) + ", " + AppointmentLogic.weekday(date),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -405,7 +402,7 @@ private fun BirthdayItem(pf: com.kartoteka.app.data.PersonFull, onClick: () -> U
             Text("🎂", style = MaterialTheme.typography.titleLarge)
         }
         Row(
-            Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(Rv.PeachSoft.copy(alpha = if (androidx.compose.foundation.isSystemInDarkTheme()) 0.14f else 1f))
+            Modifier.weight(1f).clip(RoundedCornerShape(24.dp)).background(com.kartoteka.app.ui.theme.RvColors.PillBirthdayBg.copy(alpha = if (androidx.compose.foundation.isSystemInDarkTheme()) 0.14f else 1f))
                 .pressable(onClick = onClick).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -449,8 +446,9 @@ private fun TimelineItem(af: AppointmentFull, first: Boolean, last: Boolean, onC
         }
         Spacer(Modifier.width(8.dp))
         Row(
-            Modifier.weight(1f).padding(vertical = 5.dp).alpha(if (cancelled || past) 0.6f else 1f).clip(RoundedCornerShape(22.dp))
+            Modifier.weight(1f).padding(vertical = 5.dp).alpha(if (cancelled || past) 0.6f else 1f).clip(RoundedCornerShape(24.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
                 .pressable(onClick = onClick)
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -460,7 +458,7 @@ private fun TimelineItem(af: AppointmentFull, first: Boolean, last: Boolean, onC
             Column(Modifier.weight(1f)) {
                 Text(
                     a.title.ifBlank { t("Встреча") },
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     textDecoration = if (cancelled) TextDecoration.LineThrough else null,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
@@ -477,7 +475,7 @@ private fun TimelineItem(af: AppointmentFull, first: Boolean, last: Boolean, onC
                 }
             }
             Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(tileBg), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(u(PeopleDims.Action)).clip(CircleShape).background(tileBg), contentAlignment = Alignment.Center) {
                 Icon(channelIcon(a.notifyChannel) ?: Icons.Default.EventAvailable, null, tint = tileFg, modifier = Modifier.size(18.dp))
             }
         }

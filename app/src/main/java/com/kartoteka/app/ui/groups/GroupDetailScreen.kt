@@ -1,5 +1,11 @@
 package com.kartoteka.app.ui.groups
 
+import androidx.compose.foundation.background
+import com.kartoteka.app.ui.components.HeroButton
+import com.kartoteka.app.ui.components.HeroPillButton
+import com.kartoteka.app.ui.components.ScreenHero
+import com.kartoteka.app.ui.theme.PeopleDims
+import com.kartoteka.app.ui.theme.u
 import com.kartoteka.app.i18n.t
 
 import androidx.compose.foundation.layout.Column
@@ -67,30 +73,24 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
     var adding by remember { mutableStateOf(false) }
 
     val g = group ?: return
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        GroupBadge(g, 34); Spacer(Modifier.width(12.dp)); Text(g.name)
-                    }
-                },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
-                actions = {
-                    IconButton(onClick = { editing = true }) { Icon(Icons.Default.Edit, t("Изменить")) }
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, t("Удалить")) }
-                },
-            )
-        },
-    ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 32.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentPadding = PaddingValues(bottom = 32.dp)) {
             item {
-                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onBroadcast, enabled = members.isNotEmpty(), modifier = Modifier.weight(1f)) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null); Spacer(Modifier.width(8.dp)); Text(t("Рассылка"))
-                    }
-                    FilledTonalButton(onClick = { adding = true }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.GroupAdd, null); Spacer(Modifier.width(8.dp)); Text(t("Добавить"))
+                ScreenHero(
+                    g.name,
+                    count = members.size,
+                    subtitle = t("Группа · %1\$s", "${members.size} ${ArchiveLogic.plural(members.size.toLong(), "человек", "человека", "человек")}"),
+                    onBack = onBack,
+                    actions = {
+                        HeroButton(Icons.Default.Edit, t("Изменить"), { editing = true })
+                        HeroButton(Icons.Default.Delete, t("Удалить"), { confirmDelete = true })
+                    },
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = u(PeopleDims.HeaderPad)),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+                    ) {
+                        HeroPillButton(Icons.AutoMirrored.Filled.Send, t("Рассылка"), enabled = members.isNotEmpty(), primary = true, modifier = Modifier.weight(1f), onClick = onBroadcast)
+                        HeroPillButton(Icons.Default.GroupAdd, t("Добавить"), modifier = Modifier.weight(1f)) { adding = true }
                     }
                 }
             }
@@ -107,7 +107,6 @@ fun GroupDetailScreen(groupId: Long, onBack: () -> Unit, onOpenPerson: (Long) ->
                     }) { Icon(Icons.Default.RemoveCircleOutline, t("Убрать из группы"), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
             }
-        }
     }
 
     if (editing) {

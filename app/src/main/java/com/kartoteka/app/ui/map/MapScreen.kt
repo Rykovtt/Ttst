@@ -103,28 +103,15 @@ fun MapScreen(onOpenPerson: (Long) -> Unit, onBack: (() -> Unit)? = null) {
             styled = true,
             modifier = Modifier.fillMaxSize(),
         )
-        // Затемнение сверху — под заголовок и фильтры.
-        Box(Modifier.fillMaxWidth().height(190.dp).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Rv.HeroBg.copy(alpha = 0.92f), Color.Transparent))))
-
-        Column(Modifier.statusBarsPadding().padding(top = 4.dp)) {
-            Row(Modifier.fillMaxWidth().padding(start = if (onBack != null) 6.dp else 22.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), tint = Rv.HeroText) }
-                Text(t("Карта"), style = MaterialTheme.typography.headlineLarge, color = Rv.HeroText, modifier = Modifier.weight(1f))
-                CountPill(markers.size, dark = true)
-            }
-            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                item {
-                    FilterChip(kind == null, { kind = null }, label = { Text(t("Все адреса")) }, leadingIcon = { Icon(Icons.Default.Map, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = null)
-                }
-                item {
-                    FilterChip(kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, label = { Text(t("Где живут")) }, leadingIcon = { Icon(Icons.Default.Home, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = null)
-                }
-                item {
-                    FilterChip(kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, label = { Text(t("Где работают")) }, leadingIcon = { Icon(Icons.Default.Work, null, Modifier.size(18.dp)) }, colors = chipColors(), shape = CircleShape, border = null, elevation = null)
-                }
-                items(groups, key = { it.group.id }) { g ->
+        // Шапка как на главном: горы, заголовок со счётчиком, стеклянные фильтры.
+        com.kartoteka.app.ui.components.ScreenHero(t("Карта"), count = markers.size, onBack = onBack, compact = true) {
+            com.kartoteka.app.ui.components.HeroChipRow {
+                com.kartoteka.app.ui.components.CategoryChip(t("Все адреса"), kind == null, { kind = null })
+                com.kartoteka.app.ui.components.CategoryChip(t("Где живут"), kind == PlaceKind.HOME, { kind = if (kind == PlaceKind.HOME) null else PlaceKind.HOME }, dot = com.kartoteka.app.ui.theme.RvColors.Green)
+                com.kartoteka.app.ui.components.CategoryChip(t("Где работают"), kind == PlaceKind.WORK, { kind = if (kind == PlaceKind.WORK) null else PlaceKind.WORK }, dot = com.kartoteka.app.ui.theme.RvColors.Violet)
+                groups.forEach { g ->
                     val sel = groupId == g.group.id
-                    FilterChip(sel, { groupId = if (sel) null else g.group.id }, label = { Text("${g.group.emoji} ${g.group.name}".trim()) }, leadingIcon = { ColorDot(g.group.color) }, colors = chipColors(), shape = CircleShape, border = null, elevation = null)
+                    com.kartoteka.app.ui.components.CategoryChip("${g.group.emoji} ${g.group.name}".trim(), sel, { groupId = if (sel) null else g.group.id }, dot = Color(g.group.color))
                 }
             }
         }
@@ -138,8 +125,8 @@ fun MapScreen(onOpenPerson: (Long) -> Unit, onBack: (() -> Unit)? = null) {
         SmallFloatingActionButton(
             onClick = { fitKey++ },
             shape = CircleShape,
-            containerColor = Rv.HeroSurface,
-            contentColor = Rv.HeroText,
+            containerColor = com.kartoteka.app.ui.theme.RvColors.DarkSurface,
+            contentColor = com.kartoteka.app.ui.theme.RvColors.NavActive,
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = if (selected != null) 120.dp else 16.dp),
         ) { Icon(Icons.Default.CenterFocusStrong, t("Показать всех")) }
 
@@ -152,8 +139,8 @@ fun MapScreen(onOpenPerson: (Long) -> Unit, onBack: (() -> Unit)? = null) {
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(28.dp)).background(Rv.HeroSurface)
-                        .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
+                    Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(32.dp)).background(com.kartoteka.app.ui.theme.RvColors.DarkSurface)
+                        .border(1.dp, com.kartoteka.app.ui.theme.RvColors.NavPillBorder, RoundedCornerShape(32.dp))
                         .pressable { onOpenPerson(pf.person.id) }.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -161,19 +148,19 @@ fun MapScreen(onOpenPerson: (Long) -> Unit, onBack: (() -> Unit)? = null) {
                         coil.compose.AsyncImage(
                             model = java.io.File(pf.person.avatarPath), contentDescription = null,
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            modifier = Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)),
+                            modifier = Modifier.size(56.dp).clip(CircleShape),
                         )
-                    } else Avatar(pf.person, 64.dp)
+                    } else Avatar(pf.person, 56.dp)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(pf.person.displayName, style = MaterialTheme.typography.titleMedium, color = Rv.HeroText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(pl.label.ifBlank { pl.placeKind.title }, style = MaterialTheme.typography.labelMedium, color = Rv.Peach)
+                        Text(pf.person.displayName, style = com.kartoteka.app.ui.theme.PeopleType.contactName, color = Rv.HeroText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(pl.label.ifBlank { pl.placeKind.title }, style = MaterialTheme.typography.labelMedium, color = com.kartoteka.app.ui.theme.RvColors.NavDot)
                         Text(pl.address, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = Rv.HeroMuted)
                     }
                     Box(
-                        Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).pressable { Messaging.navigate(context, pl) },
+                        Modifier.size(46.dp).clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipActiveBg).pressable { Messaging.navigate(context, pl) },
                         contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Default.Directions, t("Маршрут"), tint = Rv.HeroText) }
+                    ) { Icon(Icons.Default.Directions, t("Маршрут"), tint = com.kartoteka.app.ui.theme.RvColors.ChipActiveText) }
                 }
             }
         }

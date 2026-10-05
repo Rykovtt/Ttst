@@ -59,7 +59,7 @@ fun GlassSearchBar(
     searchDescription: String,
     filterDescription: String,
     clearDescription: String,
-    onFilters: () -> Unit,
+    onFilters: (() -> Unit)?,
     modifier: Modifier = Modifier,
     source: MutableInteractionSource = remember { MutableInteractionSource() },
     backdrop: @Composable BoxScope.() -> Unit = {},
@@ -95,6 +95,7 @@ fun GlassSearchBar(
                     contentAlignment = Alignment.Center,
                 ) { CrossGlyph(Modifier.size(u(22)), Color.White) }
             }
+            if (onFilters == null) return@Row
             Box(Modifier.width(1.dp).height(u(PeopleDims.SearchDividerH)).background(RvColors.SearchDivider))
             val src = remember { MutableInteractionSource() }
             Box(

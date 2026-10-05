@@ -235,7 +235,7 @@ fun PersonDetailScreen(
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(state = listState, contentPadding = PaddingValues(bottom = 32.dp), modifier = Modifier.fillMaxSize()) {
             item(key = "hero") {
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 34.dp, bottomEnd = 34.dp)).background(com.kartoteka.app.ui.theme.Rv.HeroBg)) {
+                Column(Modifier.fillMaxWidth().clip(com.kartoteka.app.ui.theme.PeopleShapes.header()).background(com.kartoteka.app.ui.theme.RvColors.HeaderBottom)) {
                     Hero(pf, onOpenPhoto = { if (pf.photos.isNotEmpty()) onOpenPhoto(pf.photos.indexOfFirst { it.path == p.avatarPath }.coerceAtLeast(0)) })
                     QuickActions(pf, onNewAppointment)
                 }
@@ -411,23 +411,16 @@ fun PersonDetailScreen(
         }
 
         TopAppBar(
-            title = { if (scrolled) Text(p.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            title = { if (scrolled) Text(p.displayName, style = com.kartoteka.app.ui.theme.PeopleType.contactName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
-                FilledTonalIconButton(onClick = onBack, colors = overlayButtonColors(scrolled)) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"))
-                }
+                Box(Modifier.padding(start = 8.dp)) { com.kartoteka.app.ui.components.HeroButton(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), onBack) }
             },
             actions = {
-                FilledTonalIconButton(onClick = vm::toggleFavorite, colors = overlayButtonColors(scrolled)) {
-                    Icon(if (p.favorite) Icons.Default.Star else Icons.Default.StarBorder, t("Избранное"))
-                }
-                FilledTonalIconButton(onClick = onEdit, colors = overlayButtonColors(scrolled)) {
-                    Icon(Icons.Default.Edit, t("Редактировать"))
-                }
+                Row(Modifier.padding(end = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.kartoteka.app.ui.components.HeroButton(if (p.favorite) Icons.Default.Star else Icons.Default.StarBorder, t("Избранное"), { vm.toggleFavorite() }, active = p.favorite)
+                com.kartoteka.app.ui.components.HeroButton(Icons.Default.Edit, t("Редактировать"), onEdit)
                 Box {
-                    FilledTonalIconButton(onClick = { menu = true }, colors = overlayButtonColors(scrolled)) {
-                        Icon(Icons.Default.MoreVert, t("Ещё"))
-                    }
+                    com.kartoteka.app.ui.components.HeroButton(Icons.Default.MoreVert, t("Ещё"), { menu = true })
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
                             text = { Text(t("Удалить")) },
@@ -436,9 +429,11 @@ fun PersonDetailScreen(
                         )
                     }
                 }
+                }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = if (scrolled) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent,
+                containerColor = if (scrolled) com.kartoteka.app.ui.theme.RvColors.HeaderBottom else Color.Transparent,
+                titleContentColor = Color.White,
             ),
         )
     }
@@ -475,7 +470,7 @@ private fun overlayButtonColors(scrolled: Boolean) = IconButtonDefaults.filledTo
 @Composable
 private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
     val p = pf.person
-    val hero = com.kartoteka.app.ui.theme.Rv.HeroBg
+    val hero = com.kartoteka.app.ui.theme.RvColors.HeaderBottom
     Box(Modifier.fillMaxWidth().aspectRatio(0.92f)) {
         if (p.avatarPath != null) {
             AsyncImage(
@@ -485,19 +480,19 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
                 modifier = Modifier.fillMaxSize().sharedPhoto(p.id).clickable(onClick = onOpenPhoto),
             )
         } else {
-            // Без фото — фирменная композиция: крупные инициалы на тёмном фоне со свечением цвета человека.
-            val c = accentFor(p.displayName)
-            Box(
-                Modifier.fillMaxSize().heroBackground(glow = c, glowAt = androidx.compose.ui.geometry.Offset(0f, 0f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(initials(p), color = c.copy(alpha = 0.85f), style = MaterialTheme.typography.displayLarge.copy(fontSize = 120.sp), fontWeight = FontWeight.ExtraBold)
+            // Без фото — горы, как на главном, и круглый аватар с инициалами в светлой кромке.
+            com.kartoteka.app.ui.components.MountainBackdrop(Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().padding(bottom = 70.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(132.dp).clip(CircleShape).border(2.dp, com.kartoteka.app.ui.theme.RvColors.AvatarBorder, CircleShape)) {
+                    Avatar(p, 132.dp)
+                }
             }
         }
         // Затемнение сверху (под кнопки) и плавный переход в тёмный блок снизу.
         Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent))))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to hero)))
-        Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 6.dp)) {
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.45f), 0.6f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to hero.copy(alpha = 0.95f))))
+        Column(Modifier.align(Alignment.BottomStart).padding(horizontal = com.kartoteka.app.ui.theme.u(36), vertical = 6.dp)) {
             // Точка категории идёт сразу за последним словом имени, даже при переносе строки.
             val dot = pf.groups.firstOrNull()?.let { Color(it.color) } ?: com.kartoteka.app.ui.components.categoryColor(p.relation)
             Text(
@@ -507,8 +502,10 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
                         withStyle(androidx.compose.ui.text.SpanStyle(color = dot, fontSize = 22.sp)) { append(" ●") }
                     }
                 },
-                style = MaterialTheme.typography.displaySmall.copy(fontSize = if (p.fullName.length > 22) 28.sp else 36.sp),
-                color = com.kartoteka.app.ui.theme.Rv.HeroText, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                style = com.kartoteka.app.ui.theme.PeopleType.title.copy(
+                    fontSize = if (p.fullName.length > 22) 28.sp else 34.sp, lineHeight = if (p.fullName.length > 22) 32.sp else 38.sp,
+                ),
+                color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             val sub = listOfNotNull(
                 p.nickname.takeIf { it.isNotBlank() }?.let { "«${it}»" },
@@ -516,10 +513,10 @@ private fun Hero(pf: PersonFull, onOpenPhoto: () -> Unit) {
                 p.company.ifBlank { p.position }.takeIf { it.isNotBlank() },
                 p.city.takeIf { it.isNotBlank() },
             ).joinToString(" · ")
-            if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodyMedium, color = com.kartoteka.app.ui.theme.Rv.HeroMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (sub.isNotBlank()) Text(sub, style = com.kartoteka.app.ui.theme.PeopleType.subtitle, color = com.kartoteka.app.ui.theme.RvColors.Subtitle, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
             if (p.closeness > 0) {
                 Spacer(Modifier.height(4.dp))
-                ClosenessStars(p.closeness, size = 16.dp, tint = com.kartoteka.app.ui.theme.Rv.Peach)
+                ClosenessStars(p.closeness, size = 16.dp, tint = com.kartoteka.app.ui.theme.RvColors.StarActive)
             }
         }
     }
@@ -572,27 +569,23 @@ private fun QuickActions(pf: PersonFull, onNewAppointment: () -> Unit) {
     // «Стеклянные» плитки на тёмном: полупрозрачная заливка и тонкая светлая кромка.
     @Composable
     fun Tile(icon: ImageVector, label: String, action: () -> Unit, modifier: Modifier) {
-        Column(
-            modifier.clip(RoundedCornerShape(20.dp))
-                .background(Color.White.copy(alpha = 0.08f))
-                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
-                .pressable(onClick = action)
-                .padding(vertical = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Icon(icon, label, tint = com.kartoteka.app.ui.theme.Rv.HeroText, modifier = Modifier.size(24.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(label, style = MaterialTheme.typography.labelSmall, color = com.kartoteka.app.ui.theme.Rv.HeroText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(modifier.pressable(onClick = action), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                Modifier.size(54.dp).clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipBg).border(1.dp, com.kartoteka.app.ui.theme.RvColors.ChipBorder, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Icon(icon, label, tint = com.kartoteka.app.ui.theme.RvColors.TextOnDark, modifier = Modifier.size(22.dp)) }
+            Spacer(Modifier.height(7.dp))
+            Text(label, style = com.kartoteka.app.ui.theme.PeopleType.quickAction, color = com.kartoteka.app.ui.theme.RvColors.ChipText, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
     if (actions.size <= 5) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 26.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             actions.forEach { (icon, label, action) -> Tile(icon, label, action, Modifier.weight(1f)) }
         }
     } else {
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 26.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             actions.forEach { (icon, label, action) -> Tile(icon, label, action, Modifier.width(76.dp)) }
         }

@@ -75,10 +75,7 @@ fun LocationPickerDialog(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(t("Точка на карте")) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, t("Закрыть")) } },
-                )
+                com.kartoteka.app.ui.components.ScreenHero(t("Точка на карте"), compact = true, onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"))
             },
         ) { padding ->
             Column(Modifier.fillMaxSize().padding(padding)) {

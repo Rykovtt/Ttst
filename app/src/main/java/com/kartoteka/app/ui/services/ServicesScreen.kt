@@ -83,10 +83,7 @@ fun ServicesScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(t("Услуги")) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
-            )
+            com.kartoteka.app.ui.components.ScreenHero(t("Услуги"), compact = true, subtitle = t("Тексты, длительность и напоминания по умолчанию"), onBack = onBack)
         },
         floatingActionButton = {
             Button(
@@ -181,14 +178,12 @@ fun ServiceEditor(
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(if (service.id == 0L) t("Новая услуга") else t("Услуга")) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, t("Закрыть")) } },
+                com.kartoteka.app.ui.components.ScreenHero(
+                    if (service.id == 0L) t("Новая услуга") else t("Услуга"), compact = true,
+                    onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"),
                     actions = {
-                        if (onDelete != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Default.Delete, t("Удалить")) }
-                        Button(onClick = { onSave(result()) }, enabled = s.name.isNotBlank(), modifier = Modifier.padding(end = 8.dp)) {
-                            Icon(Icons.Default.Check, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(t("Сохранить"))
-                        }
+                        if (onDelete != null) com.kartoteka.app.ui.components.HeroButton(Icons.Default.Delete, t("Удалить"), { confirmDelete = true })
+                        com.kartoteka.app.ui.components.HeroPillButton(Icons.Default.Check, t("Сохранить"), enabled = s.name.isNotBlank(), primary = true) { onSave(result()) }
                     },
                 )
             },

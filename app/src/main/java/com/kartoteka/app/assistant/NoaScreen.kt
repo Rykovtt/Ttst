@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -198,25 +199,21 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         t("Открой календарь"),
     )
 
-    Column(Modifier.fillMaxSize().heroBackground(glow = Rv.Lavender).statusBarsPadding().imePadding()) {
-        Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад"), tint = Rv.HeroText) }
-            Column(Modifier.weight(1f)) {
-                Text(t("Ассистент %1\$s", name), style = MaterialTheme.typography.headlineSmall, color = Rv.HeroText)
-                Text(
-                    when (orbState) {
-                        OrbState.LISTENING -> t("Слушаю…")
-                        OrbState.THINKING -> t("Думаю…")
-                        OrbState.ERROR -> t("Не получилось")
-                        OrbState.SUCCESS -> t("Готово")
-                        OrbState.IDLE -> if (brainReady) t("Умный режим 🧠") else t("Ваш личный помощник")
-                    },
-                    style = MaterialTheme.typography.bodySmall, color = Rv.HeroMuted,
-                )
+    // Тёмный экран как плитка «Ноа» на главном: шапка с горами, сфера, стеклянные реплики.
+    Column(Modifier.fillMaxSize().background(com.kartoteka.app.ui.theme.RvColors.NoaBg).imePadding()) {
+        com.kartoteka.app.ui.components.ScreenHero(
+            t("Ассистент %1\$s", name), compact = true, onBack = onBack,
+            subtitle = when (orbState) {
+                OrbState.LISTENING -> t("Слушаю…")
+                OrbState.THINKING -> t("Думаю…")
+                OrbState.ERROR -> t("Не получилось")
+                OrbState.SUCCESS -> t("Готово")
+                OrbState.IDLE -> if (brainReady) t("Умный режим 🧠") else t("Ваш личный помощник")
+            },
+        ) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                NoaOrb(Modifier.size(orbSize), orbState, level)
             }
-        }
-        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-            NoaOrb(Modifier.size(orbSize), orbState, level)
         }
         LazyColumn(
             state = listState, modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -228,9 +225,9 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                 items(examples) { ex ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         Text(
-                            ex, style = MaterialTheme.typography.bodyMedium, color = Rv.HeroText,
-                            modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.07f))
-                                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                            ex, style = MaterialTheme.typography.bodyMedium, color = com.kartoteka.app.ui.theme.RvColors.ChipText,
+                            modifier = Modifier.clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipBg)
+                                .border(1.dp, com.kartoteka.app.ui.theme.RvColors.ChipBorder, CircleShape)
                                 .pressable { send(ex) }.padding(horizontal = 14.dp, vertical = 10.dp),
                         )
                     }
@@ -239,17 +236,17 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
         }
         if (pendingYes != null) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(t("Да"), style = MaterialTheme.typography.labelLarge, color = Rv.Ink,
-                    modifier = Modifier.clip(CircleShape).background(Rv.Peach).pressable { send(t("да")) }.padding(horizontal = 22.dp, vertical = 10.dp))
+                Text(t("Да"), style = MaterialTheme.typography.labelLarge, color = com.kartoteka.app.ui.theme.RvColors.ChipActiveText,
+                    modifier = Modifier.clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipActiveBg).pressable { send(t("да")) }.padding(horizontal = 22.dp, vertical = 10.dp))
                 Text(t("Нет"), style = MaterialTheme.typography.labelLarge, color = Rv.HeroText,
-                    modifier = Modifier.clip(CircleShape).background(Rv.HeroSurface).pressable { send(t("нет")) }.padding(horizontal = 22.dp, vertical = 10.dp))
+                    modifier = Modifier.clip(CircleShape).background(com.kartoteka.app.ui.theme.RvColors.ChipBg).border(1.dp, com.kartoteka.app.ui.theme.RvColors.ChipBorder, CircleShape).pressable { send(t("нет")) }.padding(horizontal = 22.dp, vertical = 10.dp))
             }
         }
-        // Поле ввода-«капсула» с переливающейся кромкой.
+        // Поле ввода — стекло как поиск на главном, кромка тёплая, как у плитки «Ноа».
         Row(
-            Modifier.fillMaxWidth().padding(12.dp).clip(CircleShape)
-                .border(1.5.dp, androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Rv.Lavender, Color(0xFF6CE3FF), Rv.Peach)), CircleShape)
-                .background(Rv.HeroSurface).padding(start = 6.dp, end = 6.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp).clip(CircleShape)
+                .border(1.dp, com.kartoteka.app.ui.theme.RvColors.NoaBorder.copy(alpha = 0.7f), CircleShape)
+                .background(com.kartoteka.app.ui.theme.RvColors.SearchBg).padding(start = 6.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val scale by animateFloatAsState(if (listening) 1f + level * 0.25f else 1f, label = "mic")
@@ -263,15 +260,15 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
                 value = if (listening && input.isEmpty()) partial else input,
                 onValueChange = { input = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text(if (listening) t("Слушаю…") else t("Скажите или напишите команду"), color = Rv.HeroMuted) },
+                placeholder = { Text(if (listening) t("Слушаю…") else t("Скажите или напишите команду"), color = com.kartoteka.app.ui.theme.RvColors.SearchHint) },
                 singleLine = true,
                 colors = androidx.compose.material3.TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = Rv.HeroText, unfocusedTextColor = Rv.HeroText, cursorColor = Rv.Peach,
+                    focusedTextColor = Rv.HeroText, unfocusedTextColor = Rv.HeroText, cursorColor = com.kartoteka.app.ui.theme.RvColors.WarmLight,
                 ),
             )
-            if (input.isNotBlank()) IconButton(onClick = { send(input) }) { Icon(Icons.AutoMirrored.Filled.Send, t("Отправить"), tint = Rv.Peach) }
+            if (input.isNotBlank()) IconButton(onClick = { send(input) }) { Icon(Icons.AutoMirrored.Filled.Send, t("Отправить"), tint = com.kartoteka.app.ui.theme.RvColors.WarmLight) }
         }
     }
 }
@@ -281,13 +278,14 @@ private fun BubbleRow(b: Bubble) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (b.mine) Arrangement.End else Arrangement.Start) {
         if (b.mine) {
             Text(
-                b.text, color = Rv.Ink, style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.clip(RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp)).background(Rv.Peach).padding(horizontal = 14.dp, vertical = 10.dp),
+                b.text, color = com.kartoteka.app.ui.theme.RvColors.ChipActiveText, style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.clip(RoundedCornerShape(22.dp, 22.dp, 6.dp, 22.dp)).background(com.kartoteka.app.ui.theme.RvColors.ChipActiveBg).padding(horizontal = 14.dp, vertical = 10.dp),
             )
         } else {
             Text(
                 b.text, color = Rv.HeroText, style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.clip(RoundedCornerShape(20.dp, 20.dp, 20.dp, 6.dp)).background(Color.White.copy(alpha = 0.07f))
+                modifier = Modifier.clip(RoundedCornerShape(22.dp, 22.dp, 22.dp, 6.dp)).background(com.kartoteka.app.ui.theme.RvColors.ChipBg)
+                    .border(1.dp, com.kartoteka.app.ui.theme.RvColors.ChipBorder, RoundedCornerShape(22.dp, 22.dp, 22.dp, 6.dp))
                     .padding(horizontal = 14.dp, vertical = 10.dp),
             )
         }
@@ -298,10 +296,13 @@ private fun BubbleRow(b: Bubble) {
 private fun MicButton(active: Boolean, scale: Float, onClick: () -> Unit) {
     Box(
         Modifier.size(44.dp).scale(scale).clip(CircleShape)
-            .background(if (active) Rv.Coral else Rv.Peach)
+            .background(
+                if (active) androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Rv.Coral, Rv.Coral))
+                else androidx.compose.ui.graphics.Brush.verticalGradient(listOf(com.kartoteka.app.ui.theme.RvColors.FabBodyTop, com.kartoteka.app.ui.theme.RvColors.FabBodyBottom))
+            )
             .pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(if (active) Icons.Default.GraphicEq else Icons.Default.Mic, t("Говорить"), tint = Rv.Ink) }
+    ) { Icon(if (active) Icons.Default.GraphicEq else Icons.Default.Mic, t("Говорить"), tint = com.kartoteka.app.ui.theme.RvColors.DarkSurface) }
 }
 
 private fun startListening(listener: NoaListener, setListening: (Boolean) -> Unit, onLevel: (Float) -> Unit, onPartial: (String) -> Unit, onText: (String) -> Unit) {

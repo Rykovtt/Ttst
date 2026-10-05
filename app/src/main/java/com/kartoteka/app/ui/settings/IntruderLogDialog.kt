@@ -72,11 +72,10 @@ fun IntruderLogDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(t("Попытки входа")) },
-                    navigationIcon = { IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, t("Назад")) } },
+                com.kartoteka.app.ui.components.ScreenHero(
+                    t("Попытки входа"), compact = true, onBack = onDismiss,
                     actions = {
-                        if (attempts.isNotEmpty()) IconButton(onClick = { confirmClear = true }) { Icon(Icons.Default.DeleteSweep, t("Очистить журнал")) }
+                        if (attempts.isNotEmpty()) com.kartoteka.app.ui.components.HeroButton(Icons.Default.DeleteSweep, t("Очистить журнал"), { confirmClear = true })
                     },
                 )
             },
