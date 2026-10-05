@@ -36,6 +36,27 @@ class Noa(private val app: KartotekaApp) {
     /** Последний человек, о котором шла речь: «…и добавь ей заметку», «а где она живёт?». */
     var lastPerson: PersonFull? = null
         private set
+    /** Запись, для которой ещё не хватает человека или времени (ждём ответ на уточняющий вопрос). */
+    var pendingBooking: NoaIntent.CreateAppointment? = null
+
+    /**
+     * Ответ на «Кого записать?» / «На какое время?»: дополняем ожидающую запись.
+     * Если фраза — самостоятельная новая команда, возвращаем null (её выполнят как обычно).
+     */
+    fun continueBooking(text: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent? {
+        val pending = pendingBooking ?: return null
+        val own = NoaParser.parse(text, now)
+        if (own !is NoaIntent.Unknown && own !is NoaIntent.CreateAppointment) { pendingBooking = null; return null }
+        val m = NoaParser.parse("запиши " + text, now) as? NoaIntent.CreateAppointment ?: return null
+        return NoaIntent.CreateAppointment(
+            personQuery = pending.personQuery.ifBlank { m.personQuery },
+            dateTime = pending.dateTime ?: m.dateTime,
+            hadTime = pending.hadTime || m.hadTime,
+            serviceQuery = pending.serviceQuery ?: m.serviceQuery,
+            confirm = false,
+        )
+    }
+
     /** Последняя созданная запись — для «отправь ему об этом». */
     var lastAppointmentId: Long? = null
         private set
@@ -206,8 +227,10 @@ class Noa(private val app: KartotekaApp) {
     }
 
     private suspend fun createAppointment(intent: NoaIntent.CreateAppointment, now: LocalDateTime): Reply {
-        if (intent.personQuery.isBlank()) return Reply.Say(t("Кого записать?"))
-        if (intent.dateTime == null) return Reply.Say(t("На какое число и время записать %1\$s?", intent.personQuery))
+        // Не хватает человека или времени — спрашиваем и ждём ответ; следующая фраза дополнит эту же запись.
+        if (intent.personQuery.isBlank()) { pendingBooking = intent; return Reply.Choose(t("Кого записать?"), emptyList()) }
+        if (intent.dateTime == null) { pendingBooking = intent; return Reply.Choose(t("На какое число и время записать %1\$s?", intent.personQuery), emptyList()) }
+        pendingBooking = null
         return withPerson(intent.personQuery) { pf ->
             val service = intent.serviceQuery?.let { q -> repo.getServices().firstOrNull { it.name.lowercase().contains(q) } }
             val dt = intent.dateTime

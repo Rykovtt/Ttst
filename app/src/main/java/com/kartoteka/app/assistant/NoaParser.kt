@@ -58,6 +58,7 @@ object NoaParser {
     val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "him", "her", "them")
 
     fun parse(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
+        // Кавычки сохраняем как есть (в них текст), остальное — без знаков препинания.
         val parts = input.split(CHAIN).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size < 2) return parseOne(input, now)
         // Если какая-то часть — не команда («ну а открой…»), это не цепочка: разбираем фразу целиком.
@@ -90,8 +91,17 @@ object NoaParser {
         else -> i
     }
 
+    /**
+     * Распознаватель речи сам расставляет знаки («Запиши, Илья Рыков, на завтра.»). Убираем их,
+     * кроме двоеточия/точки во времени (12:00, 12.30) и кавычек (в них — текст заметки/сообщения).
+     */
+    fun normalize(input: String): String = input
+        .replace(Regex("[,!?;…]+"), " ")
+        .replace(Regex("\\.(?!\\d)|(?<!\\d)\\."), " ")
+        .replace(Regex("\\s+"), " ").trim()
+
     fun parseOne(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
-        val original = input.trim()
+        val original = normalize(input)
         val s = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
         if (original.isBlank()) return NoaIntent.Unknown(original)
 
@@ -143,7 +153,7 @@ object NoaParser {
         }
 
         // запись на приём
-        if (has(s, "запиши", "запис", "записать", "назнач", "book", "appointment", "schedule")) {
+        if (has(s, "запиши", "запиш", "запис", "записать", "назнач", "book", "appointment", "schedule")) {
             val service = extractService(s)
             val person = extractPerson(s, afterCreate = true)
             val dt = NoaDateTime.parse(original, now)
@@ -189,7 +199,7 @@ object NoaParser {
         "консультацию","консультацію","консультац","консультації","сегодня","завтра","послезавтра","сьогодні","післязавтра","today","tomorrow",
         "клиента","клієнта","client","числа","час","часов","года","the","to","at","for","про","что","о","том","about",
         "добавь","добав","додай","запиши","хронику","хроніку","тату","tattoo","маникюр","манікюр","стрижк","стрижку","маникюра",
-        "сделай","зроби","make","отправь","надішли","надішлі","send","тату-сеанс","о","от",
+        "сделай","зроби","make","запишіть","запишите","записати","запиши","запишіть-но","отправь","надішли","надішлі","send","тату-сеанс","о","от",
         "контакт","контакта","контакты","контакт","ну","а","же","ещё","еще","пожалуйста","будь","ласка",
         "рассылку","рассылка","рассылки","розсилку","календарь","календар","карту","карта","настройки","налаштування",
         "меню","раздел","вкладку","услуги","послуги","людей","людини",
@@ -232,7 +242,7 @@ object NoaParser {
             val c = w.trim('-', '«', '»', '"').lowercase()
             c.isNotEmpty() && c !in STOP && !c.all { ch -> ch.isDigit() } &&
                 !Regex("\\d").containsMatchIn(c) && MONTH_WORDS.none { c.startsWith(it) } &&
-                !isWeekdayWord(c) && c.length > 1
+                !isWeekdayWord(c) && !NoaDateTime.isHourWord(c) && c.length > 1
         }
         return words.joinToString(" ").trim()
     }

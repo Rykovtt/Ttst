@@ -111,4 +111,13 @@ class NoaExecutorTest {
         val fused = noa.handle("напиши ильерикову в вотсап", now)
         assertTrue("reply=$fused", fused is Noa.Reply.Do)
     }
+
+    @Test fun askedWhomThenAnswerCompletesTheBooking() = runBlocking {
+        app.repository.savePerson(Person(firstName = "Ілля", lastName = "Риков"), emptyList(), emptyList(), emptyList())
+        val noa = Noa(app)
+        assertTrue(noa.handle("запиши", now) is Noa.Reply.Choose)                 // «Кого записать?» — ждём ответ
+        val merged = noa.continueBooking("Илья Рыков на завтра на 12", now)!!
+        val reply = noa.handleIntent(merged, now)
+        assertTrue("reply=$reply", reply is Noa.Reply.Confirm && reply.text.contains("12:00"))
+    }
 }

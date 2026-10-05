@@ -86,4 +86,20 @@ class NoaCommandsTest {
         assertTrue(msg.aboutAppointment); assertEquals(NoaIntent.Channel.WHATSAPP, msg.channel)
         assertEquals("илья рыков", msg.personQuery.lowercase())
     }
+
+    @Test fun recognizerPunctuationAndUkrainianForms() {
+        fun appt(t: String) = p(t) as NoaIntent.CreateAppointment
+        listOf(
+            "Запиши, Илья Рыков, на завтра на 12:00.", "Запиши. Илья Рыков на завтра на 12:00",
+            "запиши Илья Рыков на завтра на 12", "запиши Илью Рыкова на завтра на 12 00",
+            "Запиши Ілля Риков на завтра на дванадцяту",
+        ).forEach { t ->
+            val a = appt(t)
+            assertTrue("$t -> ${a.personQuery}", a.personQuery.lowercase().replace(Regex("[^а-яіїєё ]"), "").trim().split(" ").size == 2)
+            assertEquals(t, 12, a.dateTime!!.hour); assertEquals(t, now.toLocalDate().plusDays(1), a.dateTime!!.toLocalDate())
+        }
+        assertEquals("іллю рикова", appt("Запишіть Іллю Рикова на завтра на 12:00").personQuery)
+        assertEquals(15, appt("запиши Аню в пятницу на 3").dateTime!!.hour)
+        assertEquals(12, appt("запиши Машу на 12 октября в 15:00").dateTime!!.dayOfMonth)
+    }
 }

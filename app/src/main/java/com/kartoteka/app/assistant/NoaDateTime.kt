@@ -31,10 +31,25 @@ object NoaDateTime {
     )
 
     fun parse(raw: String, now: LocalDateTime = LocalDateTime.now()): Parsed? {
-        val s = " " + raw.lowercase().replace(Regex("[,.]"), " ").replace(Regex("\\s+"), " ") + " "
-        val time = parseTime(s)
+        var s = " " + words(raw.lowercase()).replace(Regex("(?<=\\d)\\.(?=\\d)"), ":").replace(Regex("[,.]"), " ").replace(Regex("\\s+"), " ") + " "
+        // «12 00» — так распознаватель иногда пишет «12:00».
+        s = s.replace(Regex(" (\\d{1,2}) ([0-5]\\d) "), " $1:$2 ")
+        var time = parseTime(s)
+        // «на завтра на 12», «в пятницу на 3» — когда день назван словом, «на N» означает час.
+        val dayWord = listOf("завтра", "сегодня", "сьогодні", "tomorrow", "today").any { s.contains(it) } ||
+            WEEKDAYS.any { (_, w) -> w.any { s.contains(it) } }
+        if (time == null && dayWord) {
+            Regex(" (?:на|к|до|by) (\\d{1,2})(?: |$)").find(s)?.let { m ->
+                val h = m.groupValues[1].toInt()
+                if (h in 0..23) {
+                    time = withAmPm(s, m.groups[1]!!.range, LocalTime.of(if (h in 1..7) h + 12 else h, 0))
+                    s = s.replaceRange(m.groups[1]!!.range, " ".repeat(m.groupValues[1].length))
+                }
+            }
+        }
         // Число, которым оказалось время («в 8 утра»), не должно потом стать днём месяца — вырезаем его.
         val sForDate = timeRange(s)?.let { s.replaceRange(it, " ".repeat(it.last - it.first + 1)) } ?: s
+        val timeFound = time
         var date: LocalDate? = null
         var hadDate = false
 
@@ -64,11 +79,34 @@ object NoaDateTime {
         }
 
         val finalDate = date ?: now.toLocalDate()
-        var dt = LocalDateTime.of(finalDate, time ?: LocalTime.of(9, 0))
+        var dt = LocalDateTime.of(finalDate, timeFound ?: LocalTime.of(9, 0))
         // «сегодня» без даты, но время уже прошло → перенос на завтра
-        if (!hadDate && time != null && dt.isBefore(now)) dt = dt.plusDays(1)
-        if (time == null && !hadDate) return null
-        return Parsed(dt, hadTime = time != null, hadDate = hadDate)
+        if (!hadDate && timeFound != null && dt.isBefore(now)) dt = dt.plusDays(1)
+        if (timeFound == null && !hadDate) return null
+        return Parsed(dt, hadTime = timeFound != null, hadDate = hadDate)
+    }
+
+    /** Часы словами → цифрами: «на дванадцяту», «в двенадцать». Только точные формы — «семья», «пятница» не трогаем. */
+    private val HOUR_WORDS: Map<String, Int> = buildMap {
+        fun put(h: Int, vararg w: String) = w.forEach { put(it, h) }
+        put(1, "один", "одну", "одна", "першу", "первый")
+        put(2, "два", "две", "дві", "другу")
+        put(3, "три", "третю", "третий")
+        put(4, "четыре", "чотири", "четверту")
+        put(5, "пять", "п'ять", "пʼять", "п'яту", "пʼяту")
+        put(6, "шесть", "шість", "шосту")
+        put(7, "семь", "сім", "сьому")
+        put(8, "восемь", "вісім", "восьму")
+        put(9, "девять", "дев'ять", "девʼять", "дев'яту", "девʼяту")
+        put(10, "десять", "десяту")
+        put(11, "одиннадцать", "одинадцять", "одинадцяту")
+        put(12, "двенадцать", "дванадцять", "дванадцяту", "полдень", "полудень")
+    }
+
+    fun isHourWord(w: String) = HOUR_WORDS.containsKey(w)
+
+    private fun words(s: String): String = s.split(" ").joinToString(" ") { w ->
+        HOUR_WORDS[w.trim(',', '.', '!', '?')]?.toString() ?: w
     }
 
     // Границы вокруг предлога «в/о/at» делаем по пробелам, а не \b (Cyrillic + Android regex).

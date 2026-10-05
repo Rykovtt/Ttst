@@ -22,6 +22,8 @@ class NoaListener(private val context: Context) {
         fun onEnd()
         /** Уровень громкости 0..1 — для анимации сферы. */
         fun onLevel(level: Float) {}
+        /** Человек начал говорить (в этом отрезке). */
+        fun onSpeechStart() {}
     }
 
     private var recognizer: SpeechRecognizer? = null
@@ -68,7 +70,7 @@ class NoaListener(private val context: Context) {
                 safe { partialResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.let(cb::onPartial) }
             }
             override fun onError(error: Int) { finish { safe { cb.onError(error.toString()) } } }
-            override fun onBeginningOfSpeech() = Unit
+            override fun onBeginningOfSpeech() = safe { cb.onSpeechStart() }
             override fun onRmsChanged(rmsdB: Float) = safe { cb.onLevel(((rmsdB + 2f) / 12f).coerceIn(0f, 1f)) }
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() = Unit
@@ -185,6 +187,7 @@ class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
     private val buffer = StringBuilder()
     private var partial = ""
     private var active = false
+    private var retries = 0
     private val finishTask = Runnable { finish() }
 
     fun available() = listener.available()
@@ -192,7 +195,7 @@ class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
     fun start(e: Events) {
         stop()
         events = e; active = true
-        buffer.clear(); partial = ""
+        buffer.clear(); partial = ""; retries = 0
         e.onListening(true)
         segment()
     }
@@ -217,9 +220,21 @@ class VoiceSession(context: Context, private val silenceMs: Long = 1500L) {
                 main.post { segment() }
             }
             override fun onError(message: String?) {
+                val code = message?.toIntOrNull()
+                val silence = code == android.speech.SpeechRecognizer.ERROR_NO_MATCH || code == android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                // Сбой перезапуска (занят, клиент) посреди фразы — не обрываем её, а пробуем слушать дальше.
+                if (!silence && buffer.isNotEmpty() && retries < 3) {
+                    retries++
+                    main.postDelayed({ segment() }, 300)
+                    return
+                }
                 // Тишина/нет совпадения: если что-то уже сказано — заканчиваем фразу, иначе — «ничего не услышали».
                 main.removeCallbacks(finishTask)
                 finish()
+            }
+            override fun onSpeechStart() {
+                // Снова заговорили — фраза продолжается.
+                main.removeCallbacks(finishTask)
             }
             override fun onReady() = Unit
             override fun onEnd() = Unit

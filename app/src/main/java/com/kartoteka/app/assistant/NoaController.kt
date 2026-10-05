@@ -172,7 +172,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         pendingYes = null
                         // Правила — точные и мгновенные: если поняли команду (в т.ч. цепочку), выполняем их разбор.
                         // Модель — только для того, что правила не поняли: свободная речь и разговор.
-                        val rules = NoaParser.parse(text)
+                        val rules = noa.continueBooking(text) ?: NoaParser.parse(text)
                         if (rules !is NoaIntent.Unknown) run(rules)
                         else {
                             val smart = if (brainReady) runCatching {
