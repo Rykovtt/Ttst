@@ -31,6 +31,8 @@ open class KartotekaApp : Application(), coil.ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // Процесс языковой модели («:brain») — только модель, без напоминаний, карт и фоновой работы приложения.
+        if (isBrainProcess()) return
         com.kartoteka.app.i18n.I18n.init(this, com.kartoteka.app.i18n.UiLang.of(settings.uiLang.value.value))
         // Карта OpenStreetMap: кэш плиток во внутренней памяти приложения.
         Configuration.getInstance().apply {
@@ -43,6 +45,13 @@ open class KartotekaApp : Application(), coil.ImageLoaderFactory {
         appScope.launch(Dispatchers.IO) { runCatching { rescheduleAppointmentReminders() } }
         appScope.launch(Dispatchers.IO) { runCatching { repository.encryptLegacyPhotos() } }
     }
+
+    private fun isBrainProcess(): Boolean = runCatching {
+        val name = if (android.os.Build.VERSION.SDK_INT >= 28) android.app.Application.getProcessName()
+        else getSystemService(android.app.ActivityManager::class.java).runningAppProcesses
+            ?.firstOrNull { it.pid == android.os.Process.myPid() }?.processName
+        name?.endsWith(":brain") == true
+    }.getOrDefault(false)
 
     /** Coil умеет показывать зашифрованные фото архива. */
     override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)

@@ -154,6 +154,18 @@ private fun BrainModelRow() {
         }
         has -> {
             val m = brain.installed()
+            var crashed by remember { mutableStateOf(brain.crashed) }
+            if (crashed) {
+                Text(
+                    t("Телефону не хватило памяти для этой модели. Выберите быструю модель в настройках ассистента."),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+                ActionRow(Icons.Default.AutoAwesome, t("Попробовать снова"), t("Закройте другие приложения и запустите модель ещё раз")) {
+                    brain.clearCrash(); crashed = false
+                }
+            }
             ActionRow(
                 Icons.Default.AutoAwesome, t("Модель установлена: %1\$s", m?.title ?: t("своя")),
                 t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb()),

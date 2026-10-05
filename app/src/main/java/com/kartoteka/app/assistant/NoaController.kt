@@ -206,7 +206,11 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                 val dl = app.brain.syncDownload()
                 if (dl is LlmBrain.Download.Running) t("Модель скачивается · %1\$s", "${dl.percent}%") else t("Без ИИ · скачайте модель")
             }
-            else -> t("Быстрые команды")
+            else -> {
+                // Модель не запустилась (чаще всего — не хватило памяти): объясняем один раз, работаем на правилах.
+                app.brain.detail.takeIf { it.isNotBlank() }?.let { bubbles.add(Bubble(it, mine = false)) }
+                if (app.brain.crashed) t("Мало памяти · быстрые команды") else t("Быстрые команды")
+            }
         }
     }
 }

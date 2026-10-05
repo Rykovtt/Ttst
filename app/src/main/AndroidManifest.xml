@@ -56,6 +56,12 @@
         android:theme="@style/Theme.Kartoteka"
         tools:targetApi="35">
 
+        <!-- Языковая модель в отдельном процессе: нехватка памяти не роняет приложение. -->
+        <service
+            android:name=".assistant.BrainService"
+            android:exported="false"
+            android:process=":brain" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
