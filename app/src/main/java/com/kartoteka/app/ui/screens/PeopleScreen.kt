@@ -1,4 +1,4 @@
-package com.kartoteka.app.ui.home
+package com.kartoteka.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -14,6 +14,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,15 +25,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -63,11 +67,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -82,19 +82,20 @@ import com.kartoteka.app.data.PersonFull
 import com.kartoteka.app.data.PersonHint
 import com.kartoteka.app.data.SortMode
 import com.kartoteka.app.i18n.t
+import com.kartoteka.app.ui.animations.appearOnce
 import com.kartoteka.app.ui.app
-import com.kartoteka.app.ui.components.Avatar
-import com.kartoteka.app.ui.components.ColorDot
+import com.kartoteka.app.ui.components.ContactCard
 import com.kartoteka.app.ui.components.EmptyState
+import com.kartoteka.app.ui.components.HeaderData
+import com.kartoteka.app.ui.components.MountainHeader
+import com.kartoteka.app.ui.components.PeopleFilter
 import com.kartoteka.app.ui.components.StatusBarOverDark
-import com.kartoteka.app.ui.components.categoryColor
-import com.kartoteka.app.ui.theme.Brand
-import com.kartoteka.app.ui.theme.HomeDims
-import com.kartoteka.app.ui.theme.Inter
+import com.kartoteka.app.ui.theme.AnimationTokens
 import com.kartoteka.app.ui.theme.LocalReducedMotion
-import com.kartoteka.app.ui.theme.Motion
-import com.kartoteka.app.ui.theme.Rv
-import com.kartoteka.app.ui.theme.homePalette
+import com.kartoteka.app.ui.theme.PeopleDims
+import com.kartoteka.app.ui.theme.PeopleType
+import com.kartoteka.app.ui.theme.RvColors
+import com.kartoteka.app.ui.theme.u
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -108,27 +109,26 @@ import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-sealed interface PeopleFilter {
-    data object All : PeopleFilter
-    data object Favorites : PeopleFilter
-    data class InGroup(val id: Long) : PeopleFilter
-}
+/** Однократные вступительные анимации главного экрана — только при первом показе за запуск. */
+object HomeIntro { var played = false }
 
-data class HomeState(
+/** Просьба для календаря: открыть с фильтром «Дни рождения». */
+object CalendarRequest { var birthdays = false }
+
+data class PeopleState(
     val loading: Boolean = true,
     val error: Boolean = false,
     val total: Int = 0,
     val results: List<ArchiveLogic.SearchHit> = emptyList(),
     val birthdays: List<Pair<PersonFull, Long>> = emptyList(),
     val groups: List<GroupWithCount> = emptyList(),
-    /** Подсказка под именем для каждого человека. */
     val hints: Map<Long, PersonHint> = emptyMap(),
-    /** Записи на сегодня (для круга «Сегодня»). */
     val today: List<AppointmentFull> = emptyList(),
 )
 
+/** MVVM: поиск с задержкой 150 мс, фильтры, подсказки по встречам и дням рождения. */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
+class PeopleViewModel(private val app: KartotekaApp) : ViewModel() {
     val query = MutableStateFlow("")
     val filter = MutableStateFlow<PeopleFilter>(PeopleFilter.All)
     val sort = app.settings.sortMode
@@ -141,53 +141,42 @@ class HomeViewModel(private val app: KartotekaApp) : ViewModel() {
             AppointmentLogic.millis(d.plusDays(30).atStartOfDay()),
         )
     }
-
-    // Поиск с задержкой 300 мс; очистка — сразу.
-    private val searchQuery = query.debounce { if (it.isBlank()) 0L else 300L }
+    private val searchQuery = query.debounce { if (it.isBlank()) 0L else AnimationTokens.SearchDebounce }
 
     val state = retry.flatMapLatest {
-        val base = combine(
-            app.repository.observeAll(), app.repository.observeGroups(), searchQuery, filter, sort,
-        ) { all, groups, q, f, s ->
+        val base = combine(app.repository.observeAll(), app.repository.observeGroups(), searchQuery, filter, sort) { all, groups, q, f, s ->
             val filtered = when (f) {
                 PeopleFilter.All -> all
                 PeopleFilter.Favorites -> all.filter { it.person.favorite }
                 is PeopleFilter.InGroup -> all.filter { pf -> pf.groups.any { it.id == f.id } }
             }
-            HomeState(
-                loading = false,
-                total = all.size,
+            PeopleState(
+                loading = false, total = all.size,
                 results = ArchiveLogic.sort(ArchiveLogic.search(filtered, q), s),
-                birthdays = ArchiveLogic.upcomingBirthdays(all, 30),
-                groups = groups,
+                birthdays = ArchiveLogic.upcomingBirthdays(all, 30), groups = groups,
             ) to all
         }
         combine(base, appts) { (st, all), list ->
             val now = LocalDateTime.now()
             val byPerson = list.groupBy { it.appointment.personId }
-            val today = now.toLocalDate()
             st.copy(
                 hints = all.mapNotNull { pf -> PeopleHints.hint(pf, byPerson[pf.person.id].orEmpty(), now)?.let { pf.person.id to it } }.toMap(),
                 today = list.filter {
                     it.appointment.appointmentStatus != AppointmentStatus.CANCELLED &&
-                        AppointmentLogic.zoned(it.appointment.start).toLocalDate() == today
+                        AppointmentLogic.zoned(it.appointment.start).toLocalDate() == now.toLocalDate()
                 }.sortedBy { it.appointment.start },
             )
-        }.catch { emit(HomeState(loading = false, error = true)) }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeState())
+        }.catch { emit(PeopleState(loading = false, error = true)) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), PeopleState())
 
     fun setSort(mode: SortMode) = app.settings.setSortMode(mode)
     fun retry() { retry.value++ }
 }
 
-/** Просьба для календаря: открыть с фильтром «Дни рождения». */
-object CalendarRequest {
-    var birthdays = false
-}
-
+/** Главный экран «Люди». */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
+fun PeopleScreen(
     onOpen: (Long) -> Unit,
     onAdd: () -> Unit,
     onImport: () -> Unit,
@@ -202,9 +191,10 @@ fun HomeScreen(
     onSettings: () -> Unit = {},
 ) {
     val app = app()
-    val c = homePalette()
+    val dark = isSystemInDarkTheme()
+    val bg = if (dark) Color(0xFF0E0E10) else RvColors.Background
     val reduced = LocalReducedMotion.current
-    val vm: HomeViewModel = viewModel { HomeViewModel(app) }
+    val vm: PeopleViewModel = viewModel { PeopleViewModel(app) }
     val state by vm.state.collectAsState()
     val query by vm.query.collectAsState()
     val filter by vm.filter.collectAsState()
@@ -212,30 +202,26 @@ fun HomeScreen(
     val showCounts by app.settings.homeCounts.value.collectAsState()
     val listState = rememberLazyListState()
     var filtersOpen by remember { mutableStateOf(false) }
-    val density = LocalDensity.current
+    val seen = remember { mutableSetOf<Any>() }
+    val intro = remember { !HomeIntro.played && !reduced }
+    LaunchedEffect(Unit) { delay(1200); HomeIntro.played = true }
 
-    // Значки статус-бара: светлые, пока под ним тёмная шапка.
+    // Значки статус-бара светлые, пока под ними тёмная шапка.
+    val density = LocalDensity.current
     var heroHeight by remember { mutableIntStateOf(0) }
     val statusPx = WindowInsets.statusBars.getTop(density)
-    val heroUnder by remember {
-        derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < (heroHeight - statusPx).coerceAtLeast(1) }
-    }
+    val heroUnder by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < (heroHeight - statusPx).coerceAtLeast(1) } }
     StatusBarOverDark(heroUnder)
-
-    // Вступление: элементы списка появляются по очереди только при первом показе.
-    val intro = remember { !HomeIntro.played && !reduced }
-    LaunchedEffect(Unit) { delay(1400); HomeIntro.played = true }
 
     // Смена фильтра — короткий переход прозрачности списка.
     val listFade = remember { Animatable(1f) }
     var firstFilter by remember { mutableStateOf(true) }
     LaunchedEffect(filter, sort) {
         if (firstFilter) { firstFilter = false; return@LaunchedEffect }
-        if (!reduced) { listFade.snapTo(0.2f); listFade.animateTo(1f, tween(220)) }
+        if (!reduced) { listFade.snapTo(0.2f); listFade.animateTo(1f, tween(AnimationTokens.Category, easing = AnimationTokens.Enter)) }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(c.content)) {
-        val narrow = maxWidth < 360.dp
+    BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize().align(Alignment.TopCenter).widthIn(max = 760.dp),
@@ -243,21 +229,22 @@ fun HomeScreen(
         ) {
             item(key = "hero") {
                 Box(Modifier.onSizeChanged { heroHeight = it.height }) {
-                    PeopleHeader(
-                        state = state, query = query, onQuery = { vm.query.value = it },
+                    MountainHeader(
+                        data = HeaderData(state.total, state.groups, state.today, state.birthdays),
+                        query = query, onQuery = { vm.query.value = it },
                         filter = filter, onFilter = { vm.filter.value = it },
                         showCounts = showCounts, filtersOpen = filtersOpen, onOpenFilters = { filtersOpen = true },
+                        intro = intro,
                         scrollOffset = { if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset else 0 },
-                        onOpen = onOpen, onAdd = onAdd, onGroups = onGroups, onNoa = onNoa, onMap = onMap, onStats = onStats,
-                        onToday = onCalendar,
+                        onAdd = onAdd, onToday = onCalendar,
                         onBirthdays = { CalendarRequest.birthdays = true; onCalendar() },
-                        onSettings = onSettings,
+                        onMap = onMap, onNoa = onNoa, onGroups = onGroups, onStats = onStats, onSettings = onSettings,
                     )
                 }
             }
 
             when {
-                state.loading -> items(5) { SkeletonPulse() }
+                state.loading -> items(5) { SkeletonRow(dark) }
                 state.error -> item(key = "error") {
                     EmptyState(Icons.Default.ErrorOutline, t("Не удалось загрузить данные"), t("Попробуйте ещё раз. Данные на устройстве не пострадали.")) {
                         Button(onClick = vm::retry) { Text(t("Повторить")) }
@@ -279,39 +266,38 @@ fun HomeScreen(
             }
 
             if (!state.loading && !state.error) {
+                val firstVisible = { listState.firstVisibleItemIndex }
                 val grouped = sort == SortMode.NAME && query.isBlank()
-                var index = 0
                 if (grouped) {
-                    state.results.groupBy { it.person.person.sortKey.firstOrNull()?.uppercaseChar() ?: '#' }
-                        .forEach { (letter, hits) ->
-                            stickyHeader(key = "h_${letter}") { LetterHeader(letter) }
-                            hits.forEachIndexed { i, hit ->
-                                val order = index++
-                                item(key = hit.person.person.id) {
-                                    IntroItem(intro, order, { listFade.value }, Modifier.animateItem()) {
-                                        PersonListItem(
-                                            hit, state.hints[hit.person.person.id], query, last = i == hits.lastIndex, narrow = narrow,
-                                            onOpen = onOpen, onEdit = onEdit, onNewAppointment = onNewAppointment, onOpenPhoto = onOpenPhoto,
-                                        )
-                                    }
+                    var order = 0
+                    state.results.groupBy { it.person.person.sortKey.firstOrNull()?.uppercaseChar() ?: '#' }.forEach { (letter, hits) ->
+                        stickyHeader(key = "h_$letter") { LetterHeader(letter, bg, dark) }
+                        hits.forEachIndexed { i, hit ->
+                            val o = order++
+                            item(key = hit.person.person.id) {
+                                Box(Modifier.animateItem().appearOnce(hit.person.person.id, o - firstVisible(), seen).graphicsLayer { alpha = listFade.value }) {
+                                    ContactCard(
+                                        hit, state.hints[hit.person.person.id], query, last = i == hits.lastIndex, dark = dark, background = bg,
+                                        onOpen = onOpen, onEdit = onEdit, onNewAppointment = onNewAppointment, onOpenPhoto = onOpenPhoto,
+                                    )
                                 }
                             }
                         }
+                    }
                 } else {
                     if (state.results.isNotEmpty() && query.isNotBlank()) {
                         item(key = "count") {
                             Text(
-                                t("Найдено: %1\$s", state.results.size),
-                                style = TextStyle(fontFamily = Inter, fontSize = 15.sp, fontWeight = FontWeight.Medium),
-                                color = c.textSecondary,
-                                modifier = Modifier.padding(start = HomeDims.sidePad + 4.dp, top = 18.dp, bottom = 4.dp),
+                                t("Найдено: %1\$s", state.results.size), style = PeopleType.contactMeta,
+                                color = if (dark) Color(0xFF9A979E) else RvColors.TextSecondary,
+                                modifier = Modifier.padding(start = u(PeopleDims.LetterLeft), top = u(PeopleDims.LetterTop)),
                             )
                         }
                     }
                     itemsIndexed(state.results, key = { _, it -> it.person.person.id }) { i, hit ->
-                        IntroItem(intro, i, { listFade.value }, Modifier.animateItem()) {
-                            PersonListItem(
-                                hit, state.hints[hit.person.person.id], query, last = i == state.results.lastIndex, narrow = narrow,
+                        Box(Modifier.animateItem().appearOnce(hit.person.person.id, i - firstVisible(), seen).graphicsLayer { alpha = listFade.value }) {
+                            ContactCard(
+                                hit, state.hints[hit.person.person.id], query, last = i == state.results.lastIndex, dark = dark, background = bg,
                                 onOpen = onOpen, onEdit = onEdit, onNewAppointment = onNewAppointment, onOpenPhoto = onOpenPhoto,
                             )
                         }
@@ -319,7 +305,6 @@ fun HomeScreen(
                 }
             }
         }
-
         FastLetter(listState, state, sort == SortMode.NAME && query.isBlank(), Modifier.align(Alignment.CenterEnd))
     }
 
@@ -336,8 +321,11 @@ fun HomeScreen(
                     }
                 }
                 Spacer(Modifier.size(10.dp))
-                Row(Modifier.fillMaxWidth().clickable { vm.filter.value = if (filter == PeopleFilter.Favorites) PeopleFilter.All else PeopleFilter.Favorites }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, null, tint = Brand.StarActive)
+                Row(
+                    Modifier.fillMaxWidth().clickable { vm.filter.value = if (filter == PeopleFilter.Favorites) PeopleFilter.All else PeopleFilter.Favorites }.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Star, null, tint = RvColors.StarActive)
                     Spacer(Modifier.width(12.dp))
                     Text(t("Только избранные"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     Switch(checked = filter == PeopleFilter.Favorites, onCheckedChange = { vm.filter.value = if (it) PeopleFilter.Favorites else PeopleFilter.All })
@@ -351,110 +339,59 @@ fun HomeScreen(
     }
 }
 
-/** Последовательное появление строки: 80 мс + 45 мс на каждую следующую; затем — только мягкая смена фильтра. */
+/** Буква алфавитной группы: 18 sp Bold, отступы 36 / 22 / 12 (ед.). */
 @Composable
-private fun IntroItem(intro: Boolean, order: Int, fade: () -> Float, modifier: Modifier, content: @Composable () -> Unit) {
-    val play = intro && order < 12
-    val a = remember { Animatable(if (play) 0f else 1f) }
-    LaunchedEffect(Unit) {
-        if (play) { delay(80L + order * 45L); a.animateTo(1f, tween(300, easing = Motion.Ease)) }
-    }
-    val density = LocalDensity.current
-    Box(modifier.graphicsLayer {
-        alpha = a.value * fade()
-        translationY = (1f - a.value) * with(density) { 14.dp.toPx() }
-    }) { content() }
-}
-
-@Composable
-private fun LetterHeader(letter: Char) {
-    val c = homePalette()
+private fun LetterHeader(letter: Char, bg: Color, dark: Boolean) {
     Text(
-        letter.toString(),
-        style = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 17.sp),
-        color = c.letter,
-        modifier = Modifier.fillMaxWidth().background(c.content).padding(start = HomeDims.sidePad + 4.dp, end = HomeDims.sidePad, top = 18.dp, bottom = 4.dp),
+        letter.toString(), style = PeopleType.letter, color = if (dark) Color(0xFFE6E2DC) else RvColors.Letter,
+        modifier = Modifier.fillMaxWidth().background(bg)
+            .padding(start = u(PeopleDims.LetterLeft), end = u(PeopleDims.LetterLeft), top = u(PeopleDims.LetterTop), bottom = u(PeopleDims.LetterBottom)),
     )
 }
 
 /** Плавающая буква справа — только при быстрой прокрутке длинного списка. */
 @Composable
-private fun FastLetter(listState: androidx.compose.foundation.lazy.LazyListState, state: HomeState, enabled: Boolean, modifier: Modifier) {
+private fun FastLetter(listState: LazyListState, state: PeopleState, enabled: Boolean, modifier: Modifier) {
     if (!enabled || state.results.size < 30) return
     val letters = remember(state.results) { state.results.associate { it.person.person.id to (it.person.person.sortKey.firstOrNull()?.uppercaseChar() ?: '#') } }
     val current by remember(letters) {
         derivedStateOf {
             listState.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { info ->
-                when (val k = info.key) { is Long -> letters[k]; is String -> k.removePrefix("h_").firstOrNull()?.takeIf { k.startsWith("h_") }; else -> null }
+                when (val k = info.key) { is Long -> letters[k]; is String -> if (k.startsWith("h_")) k.removePrefix("h_").firstOrNull() else null; else -> null }
             }
         }
     }
     var fast by remember { mutableStateOf(false) }
     LaunchedEffect(listState) {
-        var lastIndex = listState.firstVisibleItemIndex
+        var last = listState.firstVisibleItemIndex
         while (true) {
             delay(120)
             val idx = listState.firstVisibleItemIndex
-            val speed = kotlin.math.abs(idx - lastIndex)
-            lastIndex = idx
+            val speed = kotlin.math.abs(idx - last); last = idx
             if (listState.isScrollInProgress && speed >= 3) fast = true
             else if (!listState.isScrollInProgress && fast) { delay(600); fast = false }
         }
     }
     AnimatedVisibility(fast && current != null, modifier = modifier.padding(end = 14.dp), enter = fadeIn(tween(150)) + scaleIn(tween(150), 0.8f), exit = fadeOut(tween(250)) + scaleOut(tween(250), 0.9f)) {
-        Box(Modifier.size(52.dp).clip(CircleShape).background(Brand.Panel), contentAlignment = Alignment.Center) {
-            Text((current ?: ' ').toString(), style = TextStyle(fontFamily = Inter, fontWeight = FontWeight.SemiBold, fontSize = 22.sp), color = Brand.Milk)
+        Box(Modifier.size(52.dp).clip(CircleShape).background(RvColors.DarkSurface), contentAlignment = Alignment.Center) {
+            Text((current ?: ' ').toString(), style = PeopleType.letter, color = RvColors.WarmLight)
         }
     }
 }
 
-/** Строка человека для других экранов (группы и т. п.) — компактная. */
+/** Скелет строки при загрузке. */
 @Composable
-fun PersonRow(hit: ArchiveLogic.SearchHit, onClick: () -> Unit, modifier: Modifier = Modifier, trailing: @Composable () -> Unit = {}) {
-    val pf = hit.person
-    val p = pf.person
-    val days = ArchiveLogic.daysUntilBirthday(p)
-    val ring = pf.groups.firstOrNull()?.let { Color(it.color) } ?: categoryColor(p.relation)
-    Row(
-        modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(Modifier.size(56.dp)) {
-            Avatar(p, 52.dp, Modifier.align(Alignment.Center))
-            if (ring != Color.Transparent) {
-                Box(Modifier.align(Alignment.TopEnd).size(14.dp).clip(CircleShape).background(MaterialTheme.colorScheme.background).padding(2.5.dp).clip(CircleShape).background(ring))
-            }
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(p.displayName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (p.favorite) {
-                    Spacer(Modifier.width(5.dp))
-                    Icon(Icons.Default.Star, null, tint = Rv.Peach, modifier = Modifier.size(15.dp))
-                }
-                pf.groups.drop(1).take(3).forEach { Spacer(Modifier.width(4.dp)); ColorDot(it.color, 7.dp) }
-            }
-            val sub = listOf(t(p.relation), p.company.ifBlank { p.position }, p.city).filter { it.isNotBlank() }.joinToString(" · ")
-            if (hit.matchedIn != null) {
-                Text(hit.matchedIn, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            } else if (sub.isNotBlank()) {
-                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-        if (days != null && days <= 7) {
-            Spacer(Modifier.width(8.dp))
-            com.kartoteka.app.ui.components.Badge("🎂 " + ArchiveLogic.daysString(days))
-        }
-        trailing()
-    }
-}
-
-/** Скелет строки с мягкой пульсацией прозрачности. */
-@Composable
-private fun SkeletonPulse() {
+private fun SkeletonRow(dark: Boolean) {
     val reduced = LocalReducedMotion.current
-    val a = if (reduced) null else rememberInfiniteTransition(label = "skeleton")
-        .animateFloat(0.55f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "skeletonA")
-    PersonSkeleton(alpha = { a?.value ?: 1f })
+    val a = if (reduced) null else rememberInfiniteTransition(label = "skeleton").animateFloat(0.55f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "skA")
+    val c1 = if (dark) Color(0xFF222225) else RvColors.PillBg
+    Row(Modifier.fillMaxWidth().padding(horizontal = u(PeopleDims.CardPad), vertical = u(26)).graphicsLayer { alpha = a?.value ?: 1f }, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(u(PeopleDims.ContactAvatar)).clip(CircleShape).background(c1))
+        Spacer(Modifier.width(u(22)))
+        Column(Modifier.weight(1f)) {
+            Box(Modifier.fillMaxWidth(0.6f).height(u(26)).clip(RoundedCornerShape(8.dp)).background(c1))
+            Spacer(Modifier.height(u(14)))
+            Box(Modifier.fillMaxWidth(0.4f).height(u(18)).clip(RoundedCornerShape(6.dp)).background(c1))
+        }
+    }
 }

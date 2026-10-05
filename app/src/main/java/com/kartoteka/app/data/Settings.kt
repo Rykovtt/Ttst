@@ -32,6 +32,9 @@ class Settings(context: Context) {
     fun setBirthdayReminders(v: Boolean) { prefs.edit().putBoolean(BIRTHDAYS, v).apply(); _birthdayReminders.value = v }
     fun setSortMode(v: SortMode) { prefs.edit().putString(SORT, v.name).apply(); _sortMode.value = v }
 
+    /** Фото владельца для аватара на главном экране (путь в зашифрованном хранилище). */
+    val ownerPhoto = StringPref("owner_photo", "")
+
     /** Показывать число людей в фильтрах на главном экране. */
     val homeCounts = BoolPref("home_counts", true)
 

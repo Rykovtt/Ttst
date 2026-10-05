@@ -130,30 +130,15 @@ private val Dark = darkColorScheme(
     inverseOnSurface = Rv.Ink,
 )
 
-// ---- Типографика: Inter (как системный шрифт макета) + Montserrat для словесного знака ----
-@OptIn(ExperimentalTextApi::class)
-private fun inter(w: Int) = Font(
-    R.font.inter, FontWeight(w),
-    variationSettings = FontVariation.Settings(FontVariation.weight(w), FontVariation.Setting("opsz", 28f)),
-)
-
-@OptIn(ExperimentalTextApi::class)
-private fun montserrat(w: Int) = Font(
-    R.font.montserrat, FontWeight(w),
-    variationSettings = FontVariation.Settings(FontVariation.weight(w)),
-)
-
-val Inter = FontFamily(inter(300), inter(400), inter(500), inter(600), inter(700), inter(800))
-
-/** Шрифт тонкого логотипа «RVAULT». */
-val Wordmark = FontFamily(montserrat(200), montserrat(300), montserrat(400))
-
-/** Совместимость: старое имя основного шрифта. */
-val Manrope = Inter
+// ---- Типографика: Manrope (локальные файлы начертаний, см. Typography.kt) ----
+/** Совместимость со старыми именами: всё приложение набрано Manrope. */
+val Inter = ManropeFamily
+val Wordmark = ManropeFamily
+val Manrope = ManropeFamily
 
 private val AppTypography = Typography().let { t ->
     fun TextStyle.m(w: FontWeight, size: Int? = null, ls: Float? = null, lh: Int? = null) = copy(
-        fontFamily = Inter, fontWeight = w,
+        fontFamily = ManropeFamily, fontWeight = w,
         fontSize = size?.sp ?: fontSize,
         letterSpacing = ls?.sp ?: letterSpacing,
         lineHeight = lh?.sp ?: lineHeight,
@@ -247,7 +232,7 @@ fun KartotekaTheme(content: @Composable () -> Unit) {
             colorScheme = if (isSystemInDarkTheme()) Dark else Light,
             typography = AppTypography,
             shapes = AppShapes,
-        ) { com.kartoteka.app.ui.components.ProvideSheen(content) }
+        ) { ProvideLayoutScale { com.kartoteka.app.ui.components.ProvideSheen(content) } }
     }
 }
 

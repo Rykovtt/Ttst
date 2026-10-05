@@ -147,8 +147,8 @@ fun CalendarScreen(onNew: (LocalDate) -> Unit, onOpen: (Long) -> Unit, onOpenPer
     var filter by rememberSaveable { mutableStateOf(CalFilter.ALL) }
     // С главного экрана «Дни рождения» — сразу нужный фильтр.
     LaunchedEffect(Unit) {
-        if (com.kartoteka.app.ui.home.CalendarRequest.birthdays) {
-            com.kartoteka.app.ui.home.CalendarRequest.birthdays = false
+        if (com.kartoteka.app.ui.screens.CalendarRequest.birthdays) {
+            com.kartoteka.app.ui.screens.CalendarRequest.birthdays = false
             filter = CalFilter.BIRTHDAYS
         }
     }

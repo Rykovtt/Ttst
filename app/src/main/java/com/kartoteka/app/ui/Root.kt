@@ -71,7 +71,13 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Map
 import com.kartoteka.app.ui.groups.GroupDetailScreen
 import com.kartoteka.app.ui.groups.GroupsScreen
-import com.kartoteka.app.ui.home.HomeScreen
+import com.kartoteka.app.ui.screens.PeopleScreen
+import com.kartoteka.app.ui.components.AddActionRadialMenu
+import com.kartoteka.app.ui.components.CustomBottomNavigation
+import com.kartoteka.app.ui.components.NavItem
+import com.kartoteka.app.ui.components.QuickAction
+import com.kartoteka.app.ui.components.QuickIcons
+import com.kartoteka.app.ui.components.fabAnchorBelowBarTop
 import com.kartoteka.app.ui.importer.ImportContactsScreen
 import com.kartoteka.app.ui.person.PersonDetailScreen
 import com.kartoteka.app.ui.person.PersonEditScreen
@@ -171,12 +177,12 @@ fun KartotekaRoot(
         bottomBar = {
             if (showBar) {
                 val items = tabs.map { NavItem(it.base, it.title, it.icon, it.selectedIcon, badge = it.base == "calendar" && hasToday) }
-                RvNavBar(
+                CustomBottomNavigation(
                     items = items,
                     selected = tabs.firstOrNull { route.startsWith(it.base) }?.base,
-                    quickOpen = quick,
+                    menuOpen = quick,
                     onSelect = { item -> quick = false; nav.switchTab(tabs.first { it.base == item.key }.route) },
-                    onQuick = { quick = !quick },
+                    onFab = { quick = !quick },
                 )
             }
         },
@@ -209,7 +215,7 @@ fun KartotekaRoot(
         ) {
             composable(Routes.PEOPLE) {
                 androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalNavScope provides this) {
-                HomeScreen(
+                PeopleScreen(
                     onOpen = { nav.navigate(Routes.person(it)) },
                     onAdd = { nav.navigate(Routes.edit()) },
                     onImport = { nav.navigate(Routes.IMPORT) },
@@ -358,18 +364,16 @@ fun KartotekaRoot(
         }
         }
         }
-        QuickActionsOverlay(
+        AddActionRadialMenu(
             open = quick,
-            anchorBelow = QuickFabCenterBelowBarTop,
+            anchorBelow = fabAnchorBelowBarTop(),
             actions = listOf(
-                QuickAction(t("Человек"), QuickIcons.person, com.kartoteka.app.ui.theme.Rv.PeachDeep, t("Добавить человека")) { nav.navigate(Routes.edit()) },
-                QuickAction(t("Встреча"), QuickIcons.appointment, com.kartoteka.app.ui.theme.Rv.Lavender, t("Создать встречу")) {
+                QuickAction(t("Добавить человека"), QuickIcons.person) { nav.navigate(Routes.edit()) },
+                QuickAction(t("Создать запись"), QuickIcons.appointment) {
                     nav.navigate(Routes.appointment(date = java.time.LocalDate.now().toEpochDay()))
                 },
-                QuickAction(t("Заметка"), QuickIcons.note, Color(0xFF2E9C6A), t("Добавить заметку")) { notePicker = true },
-                QuickAction(t("Напоминание"), QuickIcons.reminder, com.kartoteka.app.ui.theme.Rv.Cobalt, t("Создать напоминание")) {
-                    nav.navigate(Routes.appointment(date = java.time.LocalDate.now().toEpochDay(), kind = "reminder"))
-                },
+                QuickAction(t("Добавить событие"), QuickIcons.event) { notePicker = true },
+                QuickAction(t("Создать рассылку"), QuickIcons.broadcast) { nav.switchTab(Routes.broadcast()) },
             ),
             onDismiss = { quick = false },
         )

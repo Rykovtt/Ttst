@@ -14,6 +14,8 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -149,7 +151,7 @@ class ScreensTest {
         compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
-        compose.onNodeWithText("Анна Смирнова").performClick()
+        openCard("Анна Смирнова")
         settle()
         shot("02_person")
         compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Семья и связи"))
@@ -176,7 +178,7 @@ class ScreensTest {
         compose.onNodeWithContentDescription("Назад").performClick()
         settle()
 
-        compose.onNodeWithContentDescription("Ещё").performClick()
+        compose.onNodeWithContentDescription("Профиль").performClick()
         settle()
         compose.onNodeWithText("Группы").performClick()
         settle()
@@ -218,7 +220,7 @@ class ScreensTest {
         shot("14_map")
         compose.onNodeWithText("Люди").performClick()
         settle()
-        compose.onNodeWithContentDescription("Ещё").performClick()
+        compose.onNodeWithContentDescription("Профиль").performClick()
         settle()
         compose.onNodeWithText("Статистика").performClick()
         settle()
@@ -294,10 +296,14 @@ class ScreensTest {
         compose.setContent { KartotekaTheme { KartotekaRoot(openPersonId = null, onPersonOpened = {}) } }
         settle()
         shot("07_home_dark")
-        compose.onNodeWithText("Анна Смирнова").performClick()
+        openCard("Анна Смирнова")
         settle()
         shot("08_person_dark")
     }
+
+    /** Тап по левой части карточки (аватар): центр карточки может попасть в звезду «Избранное». */
+    private fun openCard(name: String) =
+        compose.onNodeWithText(name).performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.1f, centerY)) }
 
     private fun settle() {
         repeat(4) {
