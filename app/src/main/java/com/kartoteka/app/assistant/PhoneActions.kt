@@ -38,7 +38,7 @@ object PhoneActions {
         listOf("калькулятор", "calculator") to listOf("com.sec.android.app.popupcalculator", "com.google.android.calculator"),
         listOf("часы", "годинник", "будильник", "clock") to listOf("com.sec.android.app.clockpackage", "com.google.android.deskclock"),
         listOf("настройки", "налаштування", "settings") to listOf("com.android.settings"),
-        listOf("музыка", "музика", "spotify", "спотифай") to listOf("com.spotify.music", "com.google.android.apps.youtube.music"),
+        listOf("музыка", "музика", "spotify", "спотифай", "спотіфай") to listOf("com.spotify.music", "com.google.android.apps.youtube.music"),
         listOf("плей маркет", "плеймаркет", "маркет", "play store", "play market") to listOf("com.android.vending"),
     )
 
