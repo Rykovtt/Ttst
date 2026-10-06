@@ -169,6 +169,14 @@ object PhoneActions {
         Intent(AlarmClock.ACTION_SET_ALARM).putExtra(AlarmClock.EXTRA_HOUR, hour).putExtra(AlarmClock.EXTRA_MINUTES, minute)
             .apply { label?.let { putExtra(AlarmClock.EXTRA_MESSAGE, it) } })
 
+    /** Новое событие в календаре телефона: открывается форма с названием и временем — остаётся нажать «Сохранить». */
+    fun calendarEvent(context: Context, title: String, startMillis: Long, durationMin: Int = 30): Boolean = start(context,
+        Intent(Intent.ACTION_INSERT).setData(android.provider.CalendarContract.Events.CONTENT_URI)
+            .putExtra(android.provider.CalendarContract.Events.TITLE, title)
+            .putExtra(android.provider.CalendarContract.Events.HAS_ALARM, true)
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
+            .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, startMillis + durationMin * 60_000L))
+
     fun timer(context: Context, seconds: Int): Boolean = start(context,
         Intent(AlarmClock.ACTION_SET_TIMER).putExtra(AlarmClock.EXTRA_LENGTH, seconds).putExtra(AlarmClock.EXTRA_SKIP_UI, true))
 

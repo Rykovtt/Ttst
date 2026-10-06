@@ -49,18 +49,65 @@ class Noa(private val app: KartotekaApp) {
      * Если фраза — самостоятельная новая команда, возвращаем null (её выполнят как обычно).
      */
     fun continueBooking(text: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent? {
-        val pending = pendingBooking ?: return null
+        val confirmOpen = awaitingConfirm != null && System.currentTimeMillis() - awaitingAt < 120_000
+        val pending = pendingBooking ?: awaitingConfirm?.takeIf { confirmOpen } ?: return null
+        val question = pendingBooking != null
         val own = NoaParser.parse(text, now)
-        if (own !is NoaIntent.Unknown && own !is NoaIntent.CreateAppointment) { pendingBooking = null; return null }
-        val m = NoaParser.parse("запиши " + text, now) as? NoaIntent.CreateAppointment ?: return null
+        val clean = NoaParser.normalize(NoaParser.stripAddress(text)).lowercase().replace('ё', 'е')
+        // «Отмена», «забудь», «стоп» — бросаем вопрос; на вопрос «кого записать?» ещё и «нет» значит отмену.
+        val stop = clean in setOf("стоп", "стой", "хватит", "досить", "stop", "отмени", "отменить", "отмените", "скасуй", "скасувати", "відміни", "cancel") ||
+            (question && clean in setOf("нет", "ні", "no", "не надо", "не нужно", "не треба", "неа", "нет не надо"))
+        if (own is NoaIntent.Dismiss || stop) { pendingBooking = null; awaitingConfirm = null; return NoaIntent.Dismiss }
+        // «Повтори» не сбрасывает ожидание: повторится вопрос.
+        if (own is NoaIntent.Repeat) return own
+        if (own !is NoaIntent.Unknown && own !is NoaIntent.CreateAppointment) { pendingBooking = null; awaitingConfirm = null; return null }
+        val yn = NoaParser.yesNo(text)
+        // «нет, на пятницу», «не в три, а в четыре», «лучше в четыре» — поправка к тому, что поняла
+        val lead = Regex("^(?:лучше|краще|давай|давайте)\\s+").find(clean)
+        val negated = yn == false
+        if (!negated && lead == null && !question) return null              // «да» / не по делу — подтверждение обработает экран
+        var body = clean.replace(Regex("^(?:(?:нет|не|ні|no|nope|неа|нее)(?:-нет|-ні)?(?:\\s+|$))+"), "")
+        body = body.replace(Regex("^(?:лучше|краще|давай|давайте|а|ну)\\s+"), "")
+        // «в пятницу а в субботу» → берём то, что после «а»
+        val after = Regex("(?:^|\\s)(?:а|но|але)\\s+(?:лучше\\s+|краще\\s+)?(.+)$").find(body)?.groupValues?.get(1)
+        val corr = (after ?: body).trim()
+        if (corr.isBlank()) return null
+        val parsed = NoaDateTime.parse(corr, now, workHours = true)
+        val m = NoaParser.parse("запиши $corr", now) as? NoaIntent.CreateAppointment
+        val newPerson = m?.personQuery.orEmpty()
+        if (!question && parsed == null && newPerson.isBlank()) return null
+        // Поправка заменяет названное; на вопрос «кого/когда?» — дополняет то, чего не хватало.
+        val replace = negated || !question
+        val dt: LocalDateTime? = when {
+            parsed == null -> pending.dateTime
+            pending.dateTime == null -> parsed.dateTime
+            else -> {
+                val old = pending.dateTime!!
+                if (!replace) old
+                else {
+                    var time = if (parsed.hadTime) parsed.dateTime.toLocalTime() else old.toLocalTime()
+                    // «не в три, а в четыре» к записи на 15:00 — это 16:00, а не 4 утра
+                    if (parsed.hadTime && old.hour >= 12 && time.hour in 1..7 && !Regex("утр|ранк|ранок|\\bam\\b").containsMatchIn(corr)) time = time.plusHours(12)
+                    LocalDateTime.of(if (parsed.hadDate) parsed.dateTime.toLocalDate() else old.toLocalDate(), time)
+                }
+            }
+        }
         return NoaIntent.CreateAppointment(
-            personQuery = pending.personQuery.ifBlank { m.personQuery },
-            dateTime = pending.dateTime ?: m.dateTime,
-            hadTime = pending.hadTime || m.hadTime,
-            serviceQuery = pending.serviceQuery ?: m.serviceQuery,
+            personQuery = if (replace && newPerson.isNotBlank()) newPerson else pending.personQuery.ifBlank { newPerson },
+            dateTime = dt,
+            hadTime = pending.hadTime || parsed?.hadTime == true,
+            serviceQuery = pending.serviceQuery ?: m?.serviceQuery,
             confirm = false,
         )
     }
+
+    /** Запись, по которой задан вопрос «Записать…?» и ответа ещё нет: «нет, на пятницу» её поправит. */
+    private var awaitingConfirm: NoaIntent.CreateAppointment? = null
+    private var awaitingAt = 0L
+
+    /** Последний ответ: «повтори» говорит его снова (действие — выполняет снова). */
+    var lastReply: Reply? = null
+        private set
 
     /** Последняя созданная запись — для «отправь ему об этом». */
     var lastAppointmentId: Long? = null
@@ -69,8 +116,24 @@ class Noa(private val app: KartotekaApp) {
     suspend fun handle(text: String, now: LocalDateTime = LocalDateTime.now()): Reply =
         handleIntent(NoaParser.parse(text, now), now)
 
-    suspend fun handleIntent(intent: NoaIntent, now: LocalDateTime = LocalDateTime.now()): Reply =
+    suspend fun handleIntent(intent: NoaIntent, now: LocalDateTime = LocalDateTime.now()): Reply {
+        // «Повтори» — последний ответ (действие выполнится снова); сам он в память не попадает.
+        if (intent is NoaIntent.Repeat) return lastReply ?: Reply.Say(t("Мне пока нечего повторять."))
+        awaitingConfirm = null
+        val r = execute(intent, now)
+        if (intent !is NoaIntent.Select && intent !is NoaIntent.Dismiss && !(r is Reply.Say && r.text.isEmpty())) lastReply = r
+        return r
+    }
+
+    private suspend fun execute(intent: NoaIntent, now: LocalDateTime): Reply =
         when (intent) {
+            is NoaIntent.Remind -> remind(intent, now)
+            is NoaIntent.Tool -> tool(intent, now)
+            is NoaIntent.Calc -> calc(intent)
+            is NoaIntent.Convert -> convert(intent)
+            is NoaIntent.Crm -> crm(intent, now)
+            is NoaIntent.Dismiss -> { pendingBooking = null; awaitingConfirm = null; Reply.Say(t("Хорошо, отменила.")) }
+            is NoaIntent.Repeat -> lastReply ?: Reply.Say(t("Мне пока нечего повторять."))
             is NoaIntent.Lock -> Reply.Confirm(t("Заблокировать приложение?")) {
                 app.settings.setLockEnabled(true); Reply.Say(t("Готово, заблокировала."))
             }
@@ -309,7 +372,10 @@ class Noa(private val app: KartotekaApp) {
             val durationMin = service?.durationMin ?: app.settings.apptDuration.value.value.toIntOrNull() ?: 60
             val whenText = AppointmentLogic.whenText(dt, now, AppointmentLogic.uiLang()) + " " + t("в %1\$s", AppointmentLogic.timeText(dt))
             val serviceLabel = service?.name?.let { " ($it)" }.orEmpty()
+            // Запоминаем вопрос: «нет, на пятницу» / «не в три, а в четыре» поправят эту запись (см. continueBooking).
+            awaitingConfirm = intent; awaitingAt = System.currentTimeMillis()
             Reply.Confirm(t("Записать %1\$s%2\$s на %3\$s?", pf.person.displayName, serviceLabel, whenText)) {
+                awaitingConfirm = null
                 val appt = Appointment(
                     personId = pf.person.id, start = AppointmentLogic.millis(dt), durationMin = durationMin,
                     title = service?.name.orEmpty(), place = service?.place.orEmpty(),
@@ -380,6 +446,174 @@ class Noa(private val app: KartotekaApp) {
             com.kartoteka.app.reminders.ReminderScheduler.schedule(app, reminders)
             Reply.Say(t("Перенесла запись %1\$s на %2\$s.", pf.person.displayName, newText))
         }
+    }
+
+    // ---------- напоминания, инструменты, вопросы по картотеке ----------
+
+    private fun dayLabel(date: java.time.LocalDate, today: java.time.LocalDate): String = when (date) {
+        today -> t("Сегодня"); today.plusDays(1) -> t("Завтра")
+        else -> AppointmentLogic.dateText(date.atStartOfDay()) + ", " + AppointmentLogic.weekday(date)
+    }
+
+    private fun speakNumber(v: Double, digits: Int = 4) =
+        NoaTools.format(v, comma = com.kartoteka.app.i18n.I18n.lang != com.kartoteka.app.i18n.UiLang.EN, digits = digits)
+
+    /**
+     * «Напомни завтра в 10 позвонить Ане»: ближайшие сутки — будильник с подписью, дальше — форма нового события в календаре
+     * (пользователь нажимает «Сохранить»). Только стандартные системные переходы.
+     */
+    private fun remind(intent: NoaIntent.Remind, now: LocalDateTime): Reply {
+        if (intent.text.isBlank()) return Reply.Say(t("О чём напомнить? Скажите, например: «напомни завтра в 10 позвонить Ане»."))
+        val dt = intent.dateTime ?: return Reply.Say(t("Когда напомнить? Скажите, например: «напомни завтра в 10 %1\$s».", intent.text))
+        val whenText = AppointmentLogic.whenText(dt, now, AppointmentLogic.uiLang()) + " " + t("в %1\$s", AppointmentLogic.timeText(dt))
+        val within = dt.isAfter(now) && java.time.Duration.between(now, dt).toMinutes() <= 24 * 60
+        return if (within) Reply.Do(t("Напоминание %1\$s: «%2\$s». Поставила будильник с этой подписью.", whenText, intent.text)) {
+            PhoneActions.alarm(it, dt.hour, dt.minute, intent.text)
+        } else Reply.Do(t("Напоминание %1\$s: «%2\$s». Открываю календарь — осталось нажать «Сохранить».", whenText, intent.text)) {
+            PhoneActions.calendarEvent(it, intent.text, AppointmentLogic.millis(dt))
+        }
+    }
+
+    /** Время, число, день недели — по часам телефона, без сети. */
+    private fun tool(intent: NoaIntent.Tool, now: LocalDateTime): Reply {
+        val today = now.toLocalDate()
+        val d = intent.date ?: today
+        val label = when (d) { today -> t("Сегодня"); today.plusDays(1) -> t("Завтра"); else -> null }
+        val dateText = AppointmentLogic.dateText(d.atStartOfDay())
+        val weekday = AppointmentLogic.weekday(d)
+        return Reply.Say(when (intent.kind) {
+            NoaIntent.ToolKind.TIME -> t("Сейчас %1\$s.", AppointmentLogic.timeText(now))
+            NoaIntent.ToolKind.DATE -> if (label != null) t("%1\$s %2\$s, %3\$s.", label, dateText, weekday) else t("%1\$s — %2\$s.", dateText, weekday)
+            NoaIntent.ToolKind.WEEKDAY -> if (label != null) t("%1\$s %2\$s.", label, weekday) else t("%1\$s — %2\$s.", dateText, weekday)
+        })
+    }
+
+    private fun calc(intent: NoaIntent.Calc): Reply {
+        if (Regex("/\\s*0(?![0-9.])").containsMatchIn(intent.expression)) return Reply.Say(t("На ноль делить нельзя."))
+        val v = NoaTools.evaluate(intent.expression)
+            ?: return Reply.Say(t("Не получилось посчитать. Скажите пример ещё раз, например: «посчитай 15 процентов от 2400»."))
+        return Reply.Say(t("Получится %1\$s.", speakNumber(v)))
+    }
+
+    private fun unitLabel(key: String): String = when (key) {
+        "km" -> t("км"); "m" -> t("м"); "cm" -> t("см"); "mi" -> t("миль"); "ft" -> t("футов"); "in" -> t("дюймов")
+        "kg" -> t("кг"); "g" -> t("г"); "lb" -> t("фунтов"); "oz" -> t("унций"); "l" -> t("л"); "gal" -> t("галлонов")
+        "c" -> "°C"; "f" -> "°F"; else -> key.uppercase()
+    }
+
+    private fun convert(intent: NoaIntent.Convert): Reply {
+        if (NoaTools.kindOf(intent.from) == NoaTools.Kind.MONEY || NoaTools.kindOf(intent.to) == NoaTools.Kind.MONEY)
+            return Reply.Say(t("Курсы валют мне недоступны: без интернета я их не знаю."))
+        val r = NoaTools.convert(NoaTools.Conversion(intent.value, intent.from, intent.to))
+            ?: return Reply.Say(t("Не получилось перевести эти единицы."))
+        return Reply.Say(t("%1\$s %2\$s — это %3\$s %4\$s.", speakNumber(intent.value, 2), unitLabel(intent.from), speakNumber(r, 2), unitLabel(intent.to)))
+    }
+
+    /** Предстоящие и прошедшие записи без отменённых — для вопросов по картотеке. */
+    private suspend fun liveAppointments(fromMs: Long, toMs: Long, personId: Long?) =
+        repo.appointmentsBetween(fromMs, toMs)
+            .filter { it.appointment.appointmentStatus != com.kartoteka.app.data.AppointmentStatus.CANCELLED }
+            .filter { personId == null || it.appointment.personId == personId }
+            .sortedBy { it.appointment.start }
+
+    private suspend fun crm(intent: NoaIntent.Crm, now: LocalDateTime): Reply {
+        val today = now.toLocalDate()
+        val nowMs = AppointmentLogic.millis(now)
+        fun dayStartMs(d: java.time.LocalDate) = AppointmentLogic.millis(d.atStartOfDay())
+        // Человек, если назван: без него вопрос про всю картотеку.
+        val named = intent.personQuery.split(" ").filter { it.isNotBlank() && it.lowercase() !in NoaParser.PRONOUNS }.joinToString(" ")
+        if (intent.kind == NoaIntent.CrmKind.LAST_CONTACT) return withPerson(intent.personQuery) { pf -> lastContact(pf, now) }
+        val who: PersonFull? = if (named.isNotBlank() && intent.kind in setOf(NoaIntent.CrmKind.NEXT, NoaIntent.CrmKind.COUNT)) {
+            matches(named).firstOrNull() ?: return Reply.Say(t("Не нашла человека по имени «%1\$s».", named))
+        } else null
+        return when (intent.kind) {
+            NoaIntent.CrmKind.NEXT -> {
+                val next = liveAppointments(nowMs, nowMs + 366L * 86_400_000, who?.person?.id)
+                    .firstOrNull { it.appointment.appointmentStatus == com.kartoteka.app.data.AppointmentStatus.PLANNED }
+                    ?: return Reply.Say(if (who != null) t("У %1\$s нет предстоящих записей.", who.person.displayName) else t("Предстоящих записей нет."))
+                val title = next.appointment.title.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+                Reply.Say(t("Следующая запись: %1\$s — %2\$s.", next.person?.displayName.orEmpty() + title, apptWhen(next.appointment.start, now)))
+            }
+            NoaIntent.CrmKind.COUNT -> {
+                val from: java.time.LocalDate; val to: java.time.LocalDate
+                val label: String
+                when (intent.period) {
+                    NoaIntent.CrmPeriod.WEEK -> {
+                        from = intent.date ?: NoaDateTime.weekStart(today); to = from.plusDays(7)
+                        label = when (from) { NoaDateTime.weekStart(today) -> t("На этой неделе"); NoaDateTime.weekStart(today).plusDays(7) -> t("На следующей неделе"); else -> t("На неделе с %1\$s", AppointmentLogic.dateText(from.atStartOfDay())) }
+                    }
+                    NoaIntent.CrmPeriod.MONTH -> {
+                        from = (intent.date ?: today).withDayOfMonth(1); to = from.plusMonths(1)
+                        label = when (from) { today.withDayOfMonth(1) -> t("В этом месяце"); today.plusMonths(1).withDayOfMonth(1) -> t("В следующем месяце"); else -> t("В месяце с %1\$s", AppointmentLogic.dateText(from.atStartOfDay())) }
+                    }
+                    else -> { from = intent.date ?: today; to = from.plusDays(1); label = dayLabel(from, today) }
+                }
+                val n = liveAppointments(dayStartMs(from), dayStartMs(to), who?.person?.id).size
+                Reply.Say(if (n == 0) t("%1\$s записей нет.", label) else t("%1\$s записей: %2\$s.", label, n))
+            }
+            NoaIntent.CrmKind.FREE -> {
+                val day = intent.date ?: today
+                val startH = app.settings.dayStartHour.value.value.toIntOrNull() ?: 8
+                val endH = app.settings.dayEndHour.value.value.toIntOrNull() ?: 21
+                val busy = liveAppointments(dayStartMs(day), dayStartMs(day.plusDays(1)), null)
+                    .map { AppointmentLogic.zoned(it.appointment.start) to AppointmentLogic.zoned(it.appointment.end) }
+                val slots = NoaTools.freeSlots(busy, day, startH, endH, notBefore = if (day == today) now else null)
+                val label = dayLabel(day, today)
+                if (slots.isEmpty()) Reply.Say(t("%1\$s свободных окон нет.", label))
+                else Reply.Say(t("%1\$s свободно: %2\$s.", label, slots.take(4).joinToString(", ") { (a, b) -> "${a.format(HM)}–${b.format(HM)}" }))
+            }
+            NoaIntent.CrmKind.WHO_AT -> {
+                val day = intent.date ?: today
+                val time = intent.time ?: return Reply.Say(t("На какое время?"))
+                val at = AppointmentLogic.millis(LocalDateTime.of(day, time))
+                val hits = liveAppointments(dayStartMs(day), dayStartMs(day.plusDays(1)), null).filter { at >= it.appointment.start && at < it.appointment.end }
+                val label = dayLabel(day, today) + " " + t("в %1\$s", time.format(HM))
+                if (hits.isEmpty()) Reply.Say(t("%1\$s никого — свободно.", label))
+                else Reply.Say(t("%1\$s: %2\$s.", label, hits.joinToString(", ") { (it.person?.displayName.orEmpty()) + it.appointment.title.takeIf { s -> s.isNotBlank() }?.let { s -> " ($s)" }.orEmpty() }))
+            }
+            NoaIntent.CrmKind.BIRTHDAYS -> birthdays(intent, today)
+            NoaIntent.CrmKind.LAST_CONTACT -> Reply.Say("")
+        }
+    }
+
+    private val HM = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+
+    /** Когда в последний раз были на связи: звонок/сообщение (последний контакт), прошедшая запись или запись в хронике. */
+    private suspend fun lastContact(pf: PersonFull, now: LocalDateTime): Reply {
+        val nowMs = AppointmentLogic.millis(now)
+        val lastAppt = liveAppointments(nowMs - 5L * 366 * 86_400_000, nowMs, pf.person.id).maxOfOrNull { it.appointment.start }
+        val lastJournal = pf.journal.maxOfOrNull { it.date }
+        val last = listOfNotNull(lastAppt, lastJournal, pf.person.lastContactAt).filter { it <= nowMs }.maxOrNull()
+            ?: return Reply.Say(t("С %1\$s контактов пока нет.", pf.person.displayName))
+        val date = AppointmentLogic.zoned(last).toLocalDate()
+        val days = java.time.temporal.ChronoUnit.DAYS.between(date, now.toLocalDate())
+        val ago = when (days) {
+            0L -> t("сегодня"); 1L -> t("вчера")
+            else -> "$days " + com.kartoteka.app.data.ArchiveLogic.plural(days, "день", "дня", "дней") + " " + t("назад")
+        }
+        return Reply.Say(t("Последний контакт с %1\$s: %2\$s (%3\$s).", pf.person.displayName, ago, AppointmentLogic.dateText(date.atStartOfDay())))
+    }
+
+    /** Дни рождения за день / неделю / месяц (или ближайшие 30 дней), не больше пяти. */
+    private suspend fun birthdays(intent: NoaIntent.Crm, today: java.time.LocalDate): Reply {
+        val (from, to, label) = when (intent.period) {
+            NoaIntent.CrmPeriod.WEEK -> {
+                val mon = intent.date ?: NoaDateTime.weekStart(today)
+                Triple(maxOf(mon, today), mon.plusDays(6), if (mon == NoaDateTime.weekStart(today)) t("На этой неделе") else t("На следующей неделе"))
+            }
+            NoaIntent.CrmPeriod.MONTH -> {
+                val first = intent.date
+                if (first == null) Triple(today, today.plusDays(30), t("Скоро"))
+                else Triple(maxOf(first, today), first.withDayOfMonth(first.lengthOfMonth()), if (first.month == today.month) t("В этом месяце") else t("В следующем месяце"))
+            }
+            else -> { val d = intent.date ?: today; Triple(d, d, dayLabel(d, today)) }
+        }
+        val hits = repo.getAll().mapNotNull { pf ->
+            com.kartoteka.app.data.ArchiveLogic.nextBirthday(pf.person, from)?.takeIf { !it.isAfter(to) }?.let { pf to it }
+        }.sortedBy { it.second }
+        if (hits.isEmpty()) return Reply.Say(t("%1\$s дней рождения нет.", label))
+        val items = hits.take(5).joinToString("; ") { (pf, d) -> pf.person.displayName + " — " + com.kartoteka.app.i18n.I18n.dayMonth(d.dayOfMonth, d.monthValue) }
+        return Reply.Say(t("%1\$s день рождения: %2\$s.", label, items))
     }
 
     private fun durationText(sec: Int): String = when {
