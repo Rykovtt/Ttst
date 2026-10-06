@@ -32,12 +32,12 @@ class NoaInterpreterTest {
 
     @Test fun callMessageNoteFindOpen() {
         assertTrue((j("""{"action":"call","person":"мама"}""", "позвони маме")!!.intent) is NoaIntent.Call)
-        val m = j("""{"action":"message","person":"Петя","channel":"telegram","text":"привет"}""", "x")!!.intent as NoaIntent.Message
+        val m = j("""{"action":"message","person":"Петя","channel":"telegram","text":"привет"}""", "напиши Пете привет в телеграм")!!.intent as NoaIntent.Message
         assertEquals(NoaIntent.Channel.TELEGRAM, m.channel); assertEquals("привет", m.text)
-        val note = j("""{"action":"add_note","person":"Аня","text":"любит кофе"}""", "x")!!.intent as NoaIntent.AddNote
+        val note = j("""{"action":"add_note","person":"Аня","text":"любит кофе"}""", "добавь Ане заметку любит кофе")!!.intent as NoaIntent.AddNote
         assertEquals("любит кофе", note.text)
         assertTrue(j("""{"action":"find","query":"клиенты"}""", "x")!!.intent is NoaIntent.Find)
-        assertTrue(j("""{"action":"open_person","person":"Олег"}""", "x")!!.intent is NoaIntent.Open)
+        assertTrue(j("""{"action":"open_person","person":"Олег"}""", "открой Олега")!!.intent is NoaIntent.Open)
         assertEquals(NoaIntent.Section.BROADCAST, (j("""{"action":"open_screen","section":"broadcast"}""", "x")!!.intent as NoaIntent.OpenScreen).section)
         assertTrue(j("""{"action":"lock"}""", "x")!!.intent is NoaIntent.Lock)
     }

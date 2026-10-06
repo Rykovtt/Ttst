@@ -51,7 +51,7 @@ class NoaInterpreterTest {
     }
 
     @Test fun replyAndReadMessages() {
-        val r = j("""{"actions":[{"action":"reply","person":"Олег","text":"буду о сьомій"},{"action":"read_messages","wait":true}],"reply":"Відповідаю"}""")!!
+        val r = j("""{"actions":[{"action":"reply","person":"Олег","text":"буду о сьомій"},{"action":"read_messages","wait":true}],"reply":"Відповідаю"}""", "відповідай Олегу буду о сьомій і прочитай")!!
         val seq = r.intent as NoaIntent.Sequence
         assertEquals(NoaIntent.Reply("Олег", "буду о сьомій"), seq.steps[0])
         // Человек переходит в следующий шаг.
@@ -70,7 +70,7 @@ class NoaInterpreterTest {
 
     @Test fun trailingCommasAndSmartQuotes() {
         val raw = "{\u201Cactions\u201D:[{\u201Caction\u201D:\u201Ccall\u201D,\u201Cperson\u201D:\u201Cмама\u201D,},],\u201Creply\u201D:\u201CЗвоню\u201D,}"
-        val r = j(raw)!!
+        val r = j(raw, "позвони маме")!!
         assertEquals(NoaIntent.Call("мама"), r.intent); assertEquals("Звоню", r.reply)
     }
 
@@ -82,7 +82,7 @@ class NoaInterpreterTest {
     }
 
     @Test fun unknownActionsAreSkipped() {
-        val r = j("""{"actions":[{"action":"teleport","person":"Аня"},{"action":"launch_app","app":"youtube"}],"reply":"Запускаю"}""")!!
+        val r = j("""{"actions":[{"action":"teleport","person":"Аня"},{"action":"launch_app","app":"youtube"}],"reply":"Запускаю"}""", "запусти ютуб")!!
         assertEquals(NoaIntent.LaunchApp("youtube"), r.intent)
         // Только незнакомое, но есть реплика — это разговор.
         val c = j("""{"actions":[{"action":"fly"}],"reply":"Не умею летать"}""")!!
@@ -97,14 +97,14 @@ class NoaInterpreterTest {
     }
 
     @Test fun truncatedOutputKeepsFinishedActions() {
-        val r = j("""{"actions":[{"action":"call","person":"мама"}],"reply":"Звоню ма""")!!
+        val r = j("""{"actions":[{"action":"call","person":"мама"}],"reply":"Звоню ма""", "позвони маме")!!
         assertEquals(NoaIntent.Call("мама"), r.intent); assertNull(r.reply)
     }
 
     @Test fun unquotedKeysSingleQuotesAndInnerQuotes() {
-        val a = j("{actions:[{action:'add_note',person:'Аня',text:'любит м'ятний чай'}]}")!!.intent as NoaIntent.AddNote
+        val a = j("{actions:[{action:'add_note',person:'Аня',text:'любит м'ятний чай'}]}", "добавь Ане заметку любит м'ятний чай")!!.intent as NoaIntent.AddNote
         assertEquals("любит м'ятний чай", a.text)
-        val m = j("""{"actions":[{"action":"message","person":"Петя","text":"скажи "привет" маме"}]}""")!!.intent as NoaIntent.Message
+        val m = j("""{"actions":[{"action":"message","person":"Петя","text":"скажи "привет" маме"}]}""", "напиши Пете скажи привет маме")!!.intent as NoaIntent.Message
         assertEquals("скажи \"привет\" маме", m.text); assertEquals(NoaIntent.Channel.WHATSAPP, m.channel)
     }
 
@@ -123,7 +123,7 @@ class NoaInterpreterTest {
     }
 
     @Test fun pronounPersonInheritsFromPreviousStep() {
-        val seq = j("""{"actions":[{"action":"open_person","person":"Илья"},{"action":"add_note","person":"ему","text":"вернул долг"},{"action":"share_data","data":"phone","to":"telegram"}]}""")!!.intent as NoaIntent.Sequence
+        val seq = j("""{"actions":[{"action":"open_person","person":"Илья"},{"action":"add_note","person":"ему","text":"вернул долг"},{"action":"share_data","data":"phone","to":"telegram"}]}""", "открой Илью и добавь ему заметку вернул долг и скинь телефон в телеграм")!!.intent as NoaIntent.Sequence
         assertEquals(NoaIntent.AddNote("Илья", "вернул долг"), seq.steps[1])
         assertEquals(NoaIntent.ShareData("Илья", NoaIntent.Data.PHONE, "app:telegram"), seq.steps[2])
     }

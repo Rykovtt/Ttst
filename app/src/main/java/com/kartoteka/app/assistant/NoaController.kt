@@ -58,6 +58,9 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
     private var chain = false
     /** Уточняющий вопрос, на который ждём ответ («Кому написать?»): следующая фраза читается вместе с ним. */
     private var pendingAsk: Clarify? = null
+    /** Команда от модели ждёт «да/нет»: фраза и разбор — для журнала (если он включён); «нет» тоже полезно знать. */
+    private class ModelPending(val phrase: String, val rules: String, val model: String, val reply: String)
+    private var pendingModel: ModelPending? = null
 
     val orbState: OrbState get() = flash ?: when {
         listening -> OrbState.LISTENING
@@ -202,6 +205,8 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         live = text
         answer = ""
         val yes = pendingYes
+        val modelCmd = pendingModel
+        pendingModel = null
         val asked = pendingAsk
         pendingAsk = null
         NoaParser.setAssistantName(app.settings.assistantName.value.value)
@@ -213,9 +218,17 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                 val yn = NoaParser.yesNo(text)
                 val fix = if (yes != null && yn == true) null else noa.continueBooking(text)
                 when {
-                    yes != null && yn == true -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
+                    yes != null && yn == true -> {
+                        pendingYes = null
+                        modelCmd?.let { logSig("model", it.phrase, it.rules, it.model, "confirmed") }
+                        val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r)
+                    }
                     fix != null -> { pendingYes = null; run(fix) }
-                    yes != null && yn == false -> { pendingYes = null; say(t("Хорошо, отменила.")) }
+                    yes != null && yn == false -> {
+                        pendingYes = null
+                        modelCmd?.let { logSig("model", it.phrase, it.rules, it.model, "denied") }
+                        say(t("Хорошо, отменила."))
+                    }
                     else -> {
                         pendingYes = null
                         // Правила — точные и мгновенные: если поняли команду (в т.ч. цепочку), выполняем их разбор.
@@ -264,7 +277,15 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                             when {
                                 // Не хватило данных — спрашиваем и ждём ответ (микрофон остаётся открытым).
                                 smart?.ask != null -> { pendingAsk = smart.ask; say(smart.ask.question, expectAnswer = true) }
-                                smart?.intent != null -> { log("model", text, rules, smart.intent); lastExchange = Exchange(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(smart.intent), smart.reply.orEmpty()); run(smart.intent, smart.reply) }
+                                smart?.intent != null -> {
+                                    lastExchange = Exchange(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(smart.intent), smart.reply.orEmpty())
+                                    val intent = smart.intent
+                                    if (NoaTrust.needsConfirm(intent)) {
+                                        // Модель ненадёжна: всё, что пишет, звонит, меняет данные или лезет в другие приложения, — только после «да».
+                                        pendingModel = ModelPending(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(intent), smart.reply.orEmpty())
+                                        apply(Noa.Reply.Confirm(NoaDescribe.confirmQuestion(intent)) { run(intent, smart.reply); Noa.Reply.Say("") })
+                                    } else { log("model", text, rules, intent); run(intent, smart.reply) }
+                                }
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
                                 // Модель промолчала или вернула мусор: подсказка по теме фразы вместо общего «не поняла».
                                 rules is NoaIntent.Unknown -> { log("unknown", text, rules, reply = app.brain.lastError.orEmpty()); say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text)) }
