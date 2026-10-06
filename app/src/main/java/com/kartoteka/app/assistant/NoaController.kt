@@ -267,7 +267,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                                 smart?.intent != null -> { log("model", text, rules, smart.intent); lastExchange = Exchange(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(smart.intent), smart.reply.orEmpty()); run(smart.intent, smart.reply) }
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
                                 // Модель промолчала или вернула мусор: подсказка по теме фразы вместо общего «не поняла».
-                                rules is NoaIntent.Unknown -> { log("unknown", text, rules); say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text)) }
+                                rules is NoaIntent.Unknown -> { log("unknown", text, rules, reply = app.brain.lastError.orEmpty()); say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text)) }
                                 else -> { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                             }
                         } else if (rules is NoaIntent.Unknown) { log("unknown", text, rules); say(NoaFallback.message(text)) }

@@ -323,12 +323,29 @@ class LlmBrain(context: Context) {
     }
 
     /** Спросить модель. Возвращает текст ответа или null при любой ошибке. */
+    /** Почему последний запрос не дал ответа (для проверки ИИ и подсказок): «too_long:N», «no_model», текст ошибки движка. */
+    @Volatile var lastError: String? = null
+        private set
+    /** Размер последнего запроса в токенах (−1 — неизвестно). */
+    @Volatile var lastTokens: Int = -1
+        private set
+
     suspend fun ask(prompt: String): String? = withContext(Dispatchers.IO) {
-        if (!isReady) return@withContext null
+        lastError = null; lastTokens = -1
+        if (!isReady) { lastError = "not_ready"; return@withContext null }
         val id = ids.incrementAndGet()
-        request(BrainService.MSG_ASK, id, android.os.Bundle().apply {
+        val r = request(BrainService.MSG_ASK, id, android.os.Bundle().apply {
             putInt(BrainService.KEY_ID, id); putString(BrainService.KEY_PROMPT, wrap(prompt))
-        }, 90_000)?.getString(BrainService.KEY_TEXT)
+        }, 90_000)
+        if (r == null) { lastError = "no_reply"; return@withContext null }
+        lastError = r.getString(BrainService.KEY_ERR)
+        lastTokens = r.getInt(BrainService.KEY_TOKENS, -1)
+        // Служба перешла с видеокарты на процессор — запоминаем, чтобы не просить видеокарту снова.
+        r.getString(BrainService.KEY_BACKEND)?.takeIf { it.isNotBlank() && it != backend }?.let {
+            backend = it
+            if (it == "cpu") prefs.edit().putBoolean(KEY_GPU_BAD + currentKind(), true).apply()
+        }
+        r.getString(BrainService.KEY_TEXT)
     }
 
     /** Оборачиваем запрос в формат диалога, который понимает конкретная модель. */

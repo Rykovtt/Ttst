@@ -46,12 +46,23 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList(), context: String = "",
         history: String = "", hasLast: Boolean = false, pending: Clarify? = null,
     ): Interpreted? {
-        val p = prompt(userText, now, names, context, history, pending)
         lastRaw = null
-        val raw = askOverride?.invoke(p) ?: brain?.ask(p) ?: return null
-        lastRaw = raw
+        // Запрос не влез в окно модели («too_long») — повторяем короче: без истории, затем без данных, затем без списка людей.
+        val attempts = listOf(
+            Triple(names, context, history),
+            Triple(names.take(12), context.take(260), ""),
+            Triple(names.take(6), "", ""),
+        )
+        var raw: String? = null
+        for ((nm, ctx, hist) in attempts) {
+            val p = prompt(userText, now, nm, ctx, hist, pending)
+            raw = askOverride?.invoke(p) ?: brain?.ask(p)
+            if (raw != null || brain?.lastError?.startsWith("too_long") != true) break
+        }
+        val text = raw ?: return null
+        lastRaw = text
         val phrase = if (pending != null) pending.phrase + " " + userText else userText
-        return fromJson(raw, phrase, now, names, hasLast, context, (pending?.round ?: 0) + 1)
+        return fromJson(text, phrase, now, names, hasLast, context, (pending?.round ?: 0) + 1)
     }
 
     /**

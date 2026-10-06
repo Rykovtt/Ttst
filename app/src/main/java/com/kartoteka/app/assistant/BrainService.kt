@@ -19,6 +19,7 @@ class BrainService : Service() {
     private var llm: LlmInference? = null
     private var loadedPath: String? = null
     private var backend = ""
+    private var loadedMax = 1280
     private lateinit var worker: Handler
 
     override fun onCreate() {
@@ -37,6 +38,7 @@ class BrainService : Service() {
             MSG_PREPARE -> {
                 val path = msg.data.getString(KEY_PATH).orEmpty()
                 val max = msg.data.getInt(KEY_MAX, 1280)
+                loadedMax = max
                 val gpu = msg.data.getBoolean(KEY_GPU, false)
                 val result = runCatching {
                     if (llm == null || loadedPath != path || (gpu && backend != "gpu")) {
@@ -59,11 +61,44 @@ class BrainService : Service() {
             }
             MSG_ASK -> {
                 val id = msg.data.getInt(KEY_ID)
-                val text = runCatching { llm?.generateResponse(msg.data.getString(KEY_PROMPT).orEmpty()) }.getOrNull()
-                send(reply, MSG_ANSWER, Bundle().apply { putInt(KEY_ID, id); putString(KEY_TEXT, text) })
+                val prompt = msg.data.getString(KEY_PROMPT).orEmpty()
+                var text: String? = null
+                var err: String? = null
+                var tokens = -1
+                val model = llm
+                if (model == null) err = "no_model"
+                else {
+                    tokens = runCatching { model.sizeInTokens(prompt) }.getOrDefault(-1)
+                    // Запрос не влезает в окно модели (оно общее для запроса и ответа) — не гоним впустую, пусть сократят.
+                    if (tokens > 0 && tokens > loadedMax - OUT_RESERVE) err = "too_long:$tokens"
+                    else {
+                        try { text = model.generateResponse(prompt) }
+                        catch (t: Throwable) {
+                            err = (t.message ?: t::class.java.simpleName).take(160)
+                            // Видеокарта не потянула этот запрос — переходим на процессор и пробуем ещё раз.
+                            if (backend == "gpu" && reloadOnCpu()) {
+                                try { text = llm?.generateResponse(prompt); err = null } catch (t2: Throwable) { err = (t2.message ?: t2::class.java.simpleName).take(160) }
+                            }
+                        }
+                    }
+                }
+                send(reply, MSG_ANSWER, Bundle().apply {
+                    putInt(KEY_ID, id); putString(KEY_TEXT, text); putString(KEY_ERR, err); putInt(KEY_TOKENS, tokens); putString(KEY_BACKEND, backend)
+                })
             }
             MSG_CLOSE -> { runCatching { llm?.close() }; llm = null; loadedPath = null }
         }
+    }
+
+    /** Пересоздать модель на процессоре (после сбоя видеокарты). */
+    private fun reloadOnCpu(): Boolean {
+        val path = loadedPath ?: return false
+        return runCatching {
+            runCatching { llm?.close() }
+            llm = LlmInference.createFromOptions(applicationContext, LlmInference.LlmInferenceOptions.builder()
+                .setModelPath(path).setMaxTokens(loadedMax).setMaxTopK(40).setPreferredBackend(LlmInference.Backend.CPU).build())
+            backend = "cpu"
+        }.isSuccess
     }
 
     private fun send(to: Messenger, what: Int, data: Bundle) {
@@ -88,6 +123,10 @@ class BrainService : Service() {
         const val KEY_ID = "id"
         const val KEY_PROMPT = "prompt"
         const val KEY_TEXT = "text"
+        const val KEY_ERR = "err"
+        const val KEY_TOKENS = "tokens"
+        /** Сколько токенов окна оставляем под ответ модели. */
+        const val OUT_RESERVE = 220
         const val KEY_GPU = "gpu"
         const val KEY_BACKEND = "backend"
     }

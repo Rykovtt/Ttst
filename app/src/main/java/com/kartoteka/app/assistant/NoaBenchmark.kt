@@ -34,7 +34,7 @@ object NoaBenchmark {
 
     data class Row(val phrase: String, val expected: String, val got: String, val millis: Long, val raw: String, val personOk: Boolean?)
 
-    data class Report(val model: String, val backend: String, val rows: List<Row>, val note: String? = null) {
+    data class Report(val model: String, val backend: String, val rows: List<Row>, val note: String? = null, val tokens: List<Int> = emptyList(), val lastError: String? = null) {
         private val answered get() = rows.count { it.got != "—" }
         private val exact get() = rows.count { it.got == it.expected }
         private val firstOk get() = rows.count { firstStep(it.got) == firstStep(it.expected) }
@@ -47,6 +47,8 @@ object NoaBenchmark {
             val ms = rows.map { it.millis }.sorted()
             val people = rows.mapNotNull { it.personOk }
             append(t("Фраз: %1\$s", rows.size)).append('\n')
+            if (tokens.isNotEmpty()) append(t("Размер запроса: в среднем %1\$s токенов (окно модели — 1280)", tokens.average().toInt())).append('\n')
+            if (answered == 0 && lastError != null) append(t("Причина: %1\$s", explain(lastError))).append('\n')
             append(t("Ответ получен: %1\$s из %2\$s (%3\$s%%)", answered, rows.size, pct(answered, rows.size))).append('\n')
             append(t("Команда верная целиком: %1\$s из %2\$s (%3\$s%%)", exact, rows.size, pct(exact, rows.size))).append('\n')
             append(t("Первое действие верное: %1\$s из %2\$s (%3\$s%%)", firstOk, rows.size, pct(firstOk, rows.size))).append('\n')
@@ -64,6 +66,14 @@ object NoaBenchmark {
         }
     }
 
+    internal fun explain(err: String): String = when {
+        err.startsWith("too_long") -> t("запрос не помещается в окно модели (%1\$s токенов)", err.substringAfter(':'))
+        err == "no_model" -> t("модель не загружена в службе")
+        err == "not_ready" -> t("модель не готова")
+        err == "no_reply" -> t("служба модели не ответила (возможно, не хватило памяти)")
+        else -> err
+    }
+
     /** Прогон. [count] — сколько фраз (короткая проверка ~30, полная ~140); [cancelled] прерывает между фразами. */
     suspend fun run(app: KartotekaApp, count: Int, onProgress: (Int, Int) -> Unit, cancelled: () -> Boolean): Report {
         val title = app.brain.installed()?.title ?: t("своя модель")
@@ -76,6 +86,8 @@ object NoaBenchmark {
         val interpreter = NoaInterpreter(app.brain)
         val list = phrases(app, count)
         val rows = ArrayList<Row>()
+        val tokens = ArrayList<Int>()
+        var lastErr: String? = null
         for ((n, phrase) in list.withIndex()) {
             if (cancelled()) break
             onProgress(n, list.size)
@@ -93,10 +105,13 @@ object NoaBenchmark {
             val wantPerson = NoaParser.personOf(if (rules is NoaIntent.Sequence) rules.steps.first() else rules).trim()
             val gotPerson = r?.intent?.let { NoaParser.personOf(if (it is NoaIntent.Sequence) it.steps.first() else it) }?.trim().orEmpty()
             val personOk = wantPerson.takeIf { it.isNotBlank() }?.let { samePerson(it, gotPerson) }
-            rows += Row(phrase, expected, got, ms, interpreter.lastRaw.orEmpty(), personOk)
+            val err = app.brain.lastError
+            if (app.brain.lastTokens > 0) tokens += app.brain.lastTokens
+            if (err != null) lastErr = err
+            rows += Row(phrase, expected, got, ms, if (got == "—" && err != null) "${t("ошибка")}: ${explain(err)}" else interpreter.lastRaw.orEmpty(), personOk)
         }
         onProgress(list.size, list.size)
-        return Report(title, app.brain.backend.uppercase(), rows)
+        return Report(title, app.brain.backend.uppercase(), rows, tokens = tokens, lastError = lastErr)
     }
 
     /** Имя из фразы («Илью») и из ответа модели («Илья») — один человек: совпадают первые 3–4 буквы. */
