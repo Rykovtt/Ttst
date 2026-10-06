@@ -56,6 +56,8 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
     private var leaving = false
     private var deferredNav: (() -> Unit)? = null
     private var chain = false
+    /** Уточняющий вопрос, на который ждём ответ («Кому написать?»): следующая фраза читается вместе с ним. */
+    private var pendingAsk: Clarify? = null
 
     val orbState: OrbState get() = flash ?: when {
         listening -> OrbState.LISTENING
@@ -184,6 +186,8 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         live = text
         answer = ""
         val yes = pendingYes
+        val asked = pendingAsk
+        pendingAsk = null
         scope.launch {
             thinking = true; syncWake()
             runCatching {
@@ -212,19 +216,34 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                             prepareBrain(true)
                         }
                         val doubtful = brainReady && doubtfulSteps
+                        // Ответ на уточняющий вопрос — короткая фраза без команды («Ане», «в пять»): правила её не разбирают.
+                        val answering = asked != null && rules is NoaIntent.Unknown
                         if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
-                        else {
-                            val smart = if (brainReady) runCatching {
-                                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    interpreter.interpret(text, names = noa.knownNames(), context = noa.contextFor(text), history = recentDialogue())
+                        else if (answering || brainReady) {
+                            // Модель думает на фоновом потоке; если долго — показываем, что не зависли (без голоса, чтобы не мешать микрофону).
+                            val slow = scope.launch { delay(7000); if (thinking && answer.isBlank()) answer = t("Думаю…") }
+                            val smart = runCatching {
+                                kotlinx.coroutines.withTimeoutOrNull(BRAIN_TIMEOUT_MS) {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        val names = noa.knownNames(200)
+                                        val last = noa.lastPerson != null
+                                        if (answering) interpreter.answer(asked!!, text, names = names, context = noa.contextFor(asked.phrase + " " + text), history = recentDialogue(), hasLast = last)
+                                        else interpreter.interpret(text, names = names, context = noa.contextFor(text), history = recentDialogue(), hasLast = last)
+                                    }
                                 }
-                            }.getOrNull() else null
+                            }.getOrNull()
+                            slow.cancel()
                             when {
+                                // Не хватило данных — спрашиваем и ждём ответ (микрофон остаётся открытым).
+                                smart?.ask != null -> { pendingAsk = smart.ask; say(smart.ask.question, expectAnswer = true) }
                                 smart?.intent != null -> run(smart.intent, smart.reply)
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
+                                // Модель промолчала или вернула мусор: подсказка по теме фразы вместо общего «не поняла».
+                                rules is NoaIntent.Unknown -> say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text))
                                 else -> run(rules)
                             }
-                        }
+                        } else if (rules is NoaIntent.Unknown) say(NoaFallback.message(text))
+                        else run(rules)
                     }
                 }
             }.onSuccess { flash = OrbState.SUCCESS }
@@ -262,6 +281,9 @@ internal fun sendMessage(context: Context, pf: PersonFull?, m: NoaActions.Messag
         NoaIntent.Channel.SMS -> pf.phone?.let { Messaging.sms(context, listOf(it), m.text) }
     }
 }
+
+/** Дольше модель не ждём: лучше подсказка, чем зависший ассистент. */
+private const val BRAIN_TIMEOUT_MS = 60_000L
 
 // Без \b — на Android он не ловит кириллические границы. Сравниваем по словам.
 private val YES = listOf("да", "ага", "давай", "подтвер", "так", "yes", "yeah", "ok", "окей", "добре")

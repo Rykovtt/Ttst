@@ -685,38 +685,10 @@ class Noa(private val app: KartotekaApp) {
      * Данные для модели по запросу: карточки упомянутых людей (или того, о ком говорили), план на сегодня и завтра.
      * Так модель отвечает по вашей картотеке, а не выдумывает.
      */
-    suspend fun contextFor(text: String): String {
-        val words = text.lowercase().split(Regex("[^\\p{L}]+")).filter { it.length > 2 }.map(::stem)
-        val all = repo.getAll()
-        val named = all.filter { pf ->
-            val p = pf.person
-            listOf(p.firstName, p.lastName, p.nickname).filter { it.length > 1 }.map { stem(it.lowercase()) }
-                .any { nw -> words.any { stemMatch(it, nw) && it.length >= 3 } }
-        }.take(2)
-        val people = named.ifEmpty { if (words.any { it in NoaParser.PRONOUNS }) listOfNotNull(lastPerson) else emptyList() }
-        val today = java.time.LocalDate.now()
-        suspend fun dayLine(d: java.time.LocalDate, label: String): String? {
-            val from = AppointmentLogic.millis(d.atStartOfDay()); val to = AppointmentLogic.millis(d.plusDays(1).atStartOfDay())
-            val list = repo.appointmentsBetween(from, to)
-                .filter { it.appointment.appointmentStatus != com.kartoteka.app.data.AppointmentStatus.CANCELLED }
-                .sortedBy { it.appointment.start }
-            if (list.isEmpty()) return null
-            return label + ": " + list.joinToString("; ") {
-                AppointmentLogic.timeText(AppointmentLogic.zoned(it.appointment.start)) + " " + it.person?.displayName.orEmpty() +
-                    it.appointment.title.takeIf { t -> t.isNotBlank() }?.let { t -> " ($t)" }.orEmpty()
-            }
-        }
-        return buildList {
-            people.forEach { add(cardText(it).take(500)) }
-            dayLine(today, t("Сегодня"))?.let(::add)
-            dayLine(today.plusDays(1), t("Завтра"))?.let(::add)
-            add(t("Людей в книжке: %1\$s", all.size))
-        }.joinToString("\n---\n")
-    }
+    suspend fun contextFor(text: String): String = NoaContext.build(repo, text, lastPerson)
 
     /** Имена из картотеки — подсказка модели, чтобы она называла людей так, как они записаны. */
-    suspend fun knownNames(limit: Int = 60): List<String> =
-        repo.getAll().sortedByDescending { it.person.lastContactAt ?: 0L }.take(limit).map { it.person.displayName }
+    suspend fun knownNames(limit: Int = 60): List<String> = NoaContext.names(repo, limit)
 
     private fun sameName(hits: List<PersonFull>, query: String): Boolean {
         val q = query.lowercase().split(" ").map { stem(it.trim()) }.filter { it.length > 1 }
