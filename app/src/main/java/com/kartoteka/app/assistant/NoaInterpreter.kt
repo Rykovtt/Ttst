@@ -85,12 +85,15 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     fun fromJson(
         raw: String, userText: String, now: LocalDateTime = LocalDateTime.now(),
         names: List<String> = emptyList(), hasLast: Boolean = false, data: String = "", round: Int = 1,
-    ): Interpreted? = runCatching { parse(raw, Ctx(userText, now, NoaMatch.refs(names), data, hasLast), round) }.getOrNull()
+    ): Interpreted? = runCatching { parse(raw, Ctx(userText, now, NoaMatch.refs(names), data, hasLast, answering = round > 1), round) }.getOrNull()
 
     // ---- контекст и разбор JSON ----
 
     /** Всё, что нужно починке: фраза пользователя, «сейчас», люди из книжки, данные, которые видела модель. */
-    internal class Ctx(val phrase: String, val now: LocalDateTime, val people: List<NoaMatch.Ref>, val data: String, val hasLast: Boolean)
+    internal class Ctx(val phrase: String, val now: LocalDateTime, val people: List<NoaMatch.Ref>, val data: String, val hasLast: Boolean, val answering: Boolean = false) {
+        /** Починка поменяла или выбросила действие модели: её реплика («Поставлено») уже не про то, что мы делаем. */
+        var repaired = false
+    }
 
     private fun parse(raw: String, ctx: Ctx, round: Int): Interpreted? {
         val root = Lenient.extract(raw) ?: return null
@@ -107,12 +110,18 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         }
         val chat = list.any { nameOf(it) in CHAT } || (obj != null && nameOf(obj) in CHAT)
         // Повтор одного и того же шага подряд — зацикливание модели: оставляем один; шагов не больше пяти.
-        val steps = list.mapNotNull { m -> toStep(m) }
+        val raw0 = list.mapNotNull { m -> toStep(m) }
             .fold(ArrayList<Step>()) { acc, s -> if (acc.lastOrNull() != s) acc.add(s); acc }.take(MAX_ACTIONS)
+        // Счёт («calculate»): модель пыталась что-то сделать не нашим набором — её реплике верить нельзя, пусть решают правила.
+        val failedNamed = list.mapNotNull { nameOf(it) }.any { it in CALC_NAMES }
+        var steps = repair(raw0, ctx)
+        // Модель промолчала про действие, а фраза — прямое «загугли …»: это поиск.
+        if (raw0.isEmpty() && !failedNamed && !chat) searchRescue(ctx)?.let { steps = listOf(it); ctx.repaired = true }
         val out = process(steps, ctx, round)
-        val cleanReply = cleanReply(reply, ctx)
-        val ask = askRaw?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) }
-        return finish(out, cleanReply, ctx, ask, chat, steps.isNotEmpty())
+        val acted = out is Out.Ready && out.intents.isNotEmpty()
+        val cleanReply = if (acted && ctx.repaired) null else cleanReply(reply, ctx, acted)
+        val ask = askRaw?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) && saneText(it, ctx) }
+        return finish(out, cleanReply, ctx, ask, chat, raw0.isNotEmpty() || failedNamed)
     }
 
     /** Из результата починки — ответ контроллеру. [hadSteps] — модель называла известные действия (если все отброшены, реплике верить нельзя). */
@@ -133,9 +142,55 @@ class NoaInterpreter(private val brain: LlmBrain?) {
 
     private fun free(question: String, ctx: Ctx) = Clarify(question, null, emptyList(), 0, emptyList(), ctx.phrase)
 
-    private fun cleanReply(reply: String?, ctx: Ctx): String? {
+    private fun cleanReply(reply: String?, ctx: Ctx, acted: Boolean): String? {
         val r = reply?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) } ?: return null
-        return NoaText.speakable(NoaText.scrubNumbers(r, ctx.phrase + "\n" + ctx.data)).takeIf { it.isNotBlank() }
+        val text = NoaText.speakable(NoaText.scrubNumbers(r, ctx.phrase + "\n" + ctx.data)).takeIf { it.isNotBlank() } ?: return null
+        // Команда выполняется — результат озвучит исполнитель; «Пауза наложена», «Калькулятор открыт», «Я не могу…» от модели не нужны.
+        if (acted && (CLAIMS.containsMatchIn(text.lowercase()) || REFUSALS.containsMatchIn(text.lowercase()))) return null
+        return text.takeIf { saneText(it, ctx) }
+    }
+
+    /** Реплика/вопрос пригодны для озвучки: без каши из алфавитов, без чужих имён, на языке фразы (или совсем короткие). */
+    private fun saneText(text: String, ctx: Ctx): Boolean {
+        if (mixedScript(text) || inventsNames(text, ctx)) return false
+        return !languageClash(ctx.phrase, text) || NoaMatch.words(text).size <= 3
+    }
+
+    /** Слово из кириллицы и латиницы вперемешку («вамneephone») — признак сломанной генерации. */
+    internal fun mixedScript(s: String): Boolean = s.split(Regex("[^\\p{L}]+")).any { w ->
+        w.any { it in 'a'..'z' || it in 'A'..'Z' } && w.any { it in 'а'..'я' || it in 'А'..'Я' || it in "іїєґІЇЄҐёЁ" }
+    }
+
+    /** Язык фразы (по буквам) не совпадает с языком текста: украинский ответ на русскую фразу и наоборот. */
+    internal fun languageClash(phrase: String, text: String): Boolean {
+        val ukL = text.any { it in "іїєґІЇЄҐ" }
+        val ruL = text.any { it in "ыэёъЫЭЁЪ" }
+        return when (langFor(phrase)) {
+            "Russian" -> phrase.any { it in 'а'..'я' || it in 'А'..'Я' } && ukL && !ruL
+            "Ukrainian" -> ruL && !ukL
+            else -> false
+        }
+    }
+
+    /** Имена людей из книжки в тексте, которых не было ни во фразе, ни в данных, — выдумка модели («У Ильи Рикова сегодня…»). */
+    private fun inventsNames(text: String, ctx: Ctx): Boolean {
+        if (ctx.people.isEmpty()) return false
+        val tw = NoaMatch.words(text).filter { it.length >= 2 }.map(NoaMatch::stem)
+        val known = NoaMatch.words(ctx.phrase + " " + ctx.data).filter { it.length >= 2 }.map(NoaMatch::stem)
+        return ctx.people.any { p ->
+            val ns = (listOf(p.first) + p.rest.takeLast(1)).filter { it.length >= 3 }.map(NoaMatch::stem)
+            ns.any { n -> tw.any { nameMatch(it, n) } && known.none { nameMatch(it, n) } }
+        }
+    }
+
+    /** Слово похоже на имя: равные основы, начало одной в другой («Аня» ~ «Анну», «Илья» ~ «Ілля») или одна опечатка в длинной основе. */
+    internal fun nameMatch(a: String, b: String): Boolean {
+        if (NoaMatch.stemStrict(a, b)) return true
+        val lo = minOf(a.length, b.length)
+        if (lo < 2 || a[0] != b[0]) return false
+        // «ан» ~ «анн» (одна лишняя буква в начале общего), «ил» ~ «илл»; для длинных основ допускаем одну опечатку.
+        if (Math.abs(a.length - b.length) <= 1 && (a.startsWith(b) || b.startsWith(a))) return true
+        return lo >= 4 && NoaMatch.lev(a, b) <= 1
     }
 
     private fun named(m: Map<*, *>, name: String): Map<*, *> = HashMap<Any?, Any?>(m).apply { put("action", name) }
@@ -316,7 +371,215 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             keys.firstNotNullOfOrNull { k -> args[k]?.takeIf { it.isNotBlank() } }?.let { args[f] = it } ?: args.remove(f)
         }
         spec.implies[raw]?.let { (k, v) -> args.putIfAbsent(k, v) }
+        // Управление плеером: модель кладёт команду в любое поле («text":"pause»), берём первое, что похоже на команду.
+        if (spec.name == "media" && control(args["control"]) == null) {
+            listOf("control", "command", "text", "value", "mode", "state", "action_type", "what", "name").firstNotNullOfOrNull { k ->
+                args[k]?.split(Regex("[^\\p{L}_]+"))?.firstOrNull { control(it) != null }
+            }?.let { args["control"] = it }
+        }
         return Step(spec.name, args)
+    }
+
+    // ---- проверка действий модели по самой фразе ----
+
+    /** Счёт — дело правил: модель «считает» уверенно и ошибается; её ответ («Сума становить 4») не берём. */
+    private val CALC_NAMES = setOf("calculate", "calc", "math", "compute", "calculator", "calculation", "solve")
+    /** «Пауза наложена», «Калькулятор открыт», «Поставлено»: модель рапортует о том, что делает исполнитель. */
+    private val CLAIMS = Regex("(?<![\\p{L}])(?:открыт\\p{L}*|открыла|наложен\\p{L}*|поставлен\\p{L}*|включен\\p{L}*|выключен\\p{L}*|выполнен\\p{L}*|готов\\p{L}*|сделан\\p{L}*|отправлен\\p{L}*|добавлен\\p{L}*|создан\\p{L}*|записан\\p{L}*|закрыт\\p{L}*|запущен\\p{L}*|відкрит\\p{L}*|вимкнен\\p{L}*|виконан\\p{L}*|зроблен\\p{L}*|надіслан\\p{L}*|додан\\p{L}*|створен\\p{L}*|закрит\\p{L}*|done|opened|started)(?![\\p{L}])")
+    private val REFUSALS = Regex("не могу|не можу|не умею|не вмію|не знаю|не вмею|не получится|can't|cannot|unable")
+    private val CLOSE_START = arrayOf("закр", "close", "kill", "заверш")
+    private val OPEN_START = arrayOf("откр", "відкр", "open", "запуст", "launch", "start")
+    private val REPLY_START = arrayOf("ответ", "відпов", "reply", "answer")
+    private val NOTE_START = arrayOf("замет", "нотат", "запиш", "запис", "добав", "додай", "додат", "note", "запомн", "запамʼят", "запам'ят", "отмет", "комментар", "хроник")
+    private val MOVE_START = arrayOf("перенес", "перенест", "перемест", "перемі", "переназнач", "reschedule", "postpone", "move")
+    private val CARD_START = arrayOf("карточ", "картк", "card", "профил", "профіл", "profile", "контакт", "досье", "анкет")
+    private val LOCK_START = arrayOf("сейф", "заблок", "блокир", "блокув", "lock", "замкн", "блокуй")
+    private val SEARCH_START = arrayOf("загугл", "погугл", "гугл", "поищи", "пошукай", "google", "search")
+    private val SETTINGS_KNOWN = setOf("wifi", "bluetooth", "display", "sound")
+    /** Слова, которые не могут быть именем человека во фразе (глаголы команд, темы, предлоги, названия сетей). */
+    private val NOT_A_NAME = arrayOf("откр", "відкр", "запуст", "закр", "скин", "перен", "передай", "покаж", "найд", "знайд", "когда", "коли", "како", "яки", "що", "что", "сколь", "скільк",
+        "день", "рожд", "народ", "телеф", "номер", "адрес", "план", "распис", "розклад", "карточ", "картк", "заметк", "нотат", "блокн", "инст", "інст", "insta", "фейс", "вайб", "вибер", "вібер",
+        "вотс", "ватс", "вацап", "телег", "сайт", "почт", "пошт", "приложен", "програм", "пожал", "будь", "мне", "мені", "про", "для", "ноа", "noa", "профил", "профіл", "контакт", "данн", "дані",
+        "календ", "ему", "ей", "его", "её", "ее", "йому", "їй", "його", "її", "open", "show", "info", "card")
+
+    private fun lw(s: String) = NoaMatch.words(s.replace('ё', 'е').replace('Ё', 'Е'))
+
+    private fun hasWord(w: List<String>, pre: Array<String>) = w.any { x -> pre.any { x.startsWith(it) } }
+
+    /** Фраза начинается (в первых словах) с одного из глаголов: «закрой …», «ноа, открой …». */
+    private fun startsWith(ctx: Ctx, pre: Array<String>) = lw(ctx.phrase).take(3).any { x -> pre.any { x.startsWith(it) } }
+
+    /** Человек из ответа модели назван во фразе: по основам слов (любое слово имени), с поправкой на падеж и «Аня»/«Анну». */
+    private fun personMentioned(raw: String, ctx: Ctx): Boolean {
+        if (NoaText.looksLikePhone(raw)) return digits(ctx.phrase).contains(digits(raw))
+        if (NoaMatch.mentions(ctx.phrase, raw)) return true
+        val pw = lw(ctx.phrase).filter { it.length >= 2 }.map(NoaMatch::stem)
+        return lw(raw).filter { it.length >= 2 }.map(NoaMatch::stem).any { n -> pw.any { nameMatch(it, n) } }
+    }
+
+    /** Имя из фразы: человек из книжки или первое слово, которое не похоже на глагол/тему/название сети. */
+    private fun personGuess(ctx: Ctx): String {
+        NoaMatch.fromPhrase(ctx.phrase, ctx.people)?.let { return it.display }
+        return lw(ctx.phrase).firstOrNull { w -> w.length >= 3 && NOT_A_NAME.none { w.startsWith(it) } && socialOf(w) == null } ?: ""
+    }
+
+    private fun bestPerson(a: Map<String, String>, ctx: Ctx): String =
+        a["person"]?.takeIf { it.isNotBlank() && !isPronoun(it) && personMentioned(it, ctx) } ?: personGuess(ctx)
+
+    /** Название приложения из фразы: «открой камеру» → «камеру»; «закрой приложение» → пусто. */
+    private fun appGuess(ctx: Ctx): String {
+        val w = lw(ctx.phrase)
+        val i = w.indexOfFirst { x -> (CLOSE_START + OPEN_START).any { x.startsWith(it) } }
+        if (i < 0) return ""
+        val filler = setOf("приложение", "приложения", "программу", "программа", "додаток", "програму", "app", "application", "пожалуйста", "будь", "ласка", "мне", "мені", "the", "my")
+        return w.drop(i + 1).filter { it.length >= 2 && it !in filler }.joinToString(" ")
+    }
+
+    private fun socialOf(s: String?): String? {
+        val w = lw(s ?: return null)
+        return w.firstNotNullOfOrNull { x ->
+            when {
+                x.startsWith("insta") || x.startsWith("инста") || x.startsWith("інста") -> "instagram"
+                x.startsWith("facebook") || x.startsWith("фейсбук") || x == "фб" || x == "fb" -> "facebook"
+                x.startsWith("viber") || x.startsWith("вайбер") || x.startsWith("вибер") || x.startsWith("вібер") -> "viber"
+                x.startsWith("telegram") || x.startsWith("телеграм") || x.startsWith("телега") -> "telegram"
+                x.startsWith("whatsapp") || x.startsWith("ватсап") || x.startsWith("вотсап") || x.startsWith("вацап") -> "whatsapp"
+                x == "vk" || x == "вк" || x.startsWith("вконтакт") -> "vk"
+                x == "email" || x == "mail" || x.startsWith("почт") || x.startsWith("пошт") -> "email"
+                x == "site" || x == "website" || x.startsWith("сайт") -> "website"
+                else -> null
+            }
+        }
+    }
+
+    private fun samePerson(x: String?, y: String?): Boolean {
+        if (x.isNullOrBlank() || y.isNullOrBlank()) return true
+        val xs = lw(x).map(NoaMatch::stem); val ys = lw(y).map(NoaMatch::stem)
+        return xs.any { a -> ys.any { b -> nameMatch(a, b) } }
+    }
+
+    private fun searchRescue(ctx: Ctx): Step? {
+        val m = Regex("^\\s*(\\S+)\\s+(.+)$").find(ctx.phrase) ?: return null
+        if (SEARCH_START.none { m.groupValues[1].lowercase().startsWith(it) }) return null
+        val q = m.groupValues[2].replace(Regex("^(?:мне|мені|в интернете|в інтернеті|в гугле|в гуглі)\\s+", RegexOption.IGNORE_CASE), "").trim()
+        return q.takeIf { it.isNotBlank() }?.let { Step("web_search", mapOf("query" to it)) }
+    }
+
+    /** Вопросы, на которые отвечают правила (время, дата, счёт, единицы): интернет-поиск по ним — нелепость. */
+    private val LOCAL_Q = Regex("который час|сколько времени|котор(?:ый|а) годин|скільки часу|current time|what time|time is it|what.s the time|какое сегодня число|какое число|какой сегодня день|який сьогодні день|яке число|current date|what.s the date|день недели|сколько будет|скільки буде|сколько получится|километров в|километр|кілометр|килограмм|сколько миль|\\bмиль\\b|convert|переведи|конверт|how many (?:km|kilometers|miles|kg|pounds)|\\bsqrt\\b|процент")
+
+    private fun navOverlap(query: String, phrase: String): Boolean {
+        val q = lw(query).filter { it.length >= 3 }.map(NoaMatch::stem)
+        val p = lw(phrase).filter { it.length >= 3 }.map(NoaMatch::stem)
+        if (q.isEmpty()) return false
+        return q.count { x -> p.any { NoaMatch.stemStrict(x, it) } }.toFloat() / q.size >= 0.6f
+    }
+
+    private val CMD_START = arrayOf("откр", "відкр", "закр", "перестро", "построй", "проложи", "прокласти", "маршрут", "включи", "выключи", "увімкни", "вимкни", "постав", "позвони", "набери",
+        "напиши", "запиши", "перенес", "отмени", "сверни", "згорни", "запусти", "launch", "open", "close", "route", "navigate", "call", "веди", "поехали", "поїхали")
+
+    /** Цепочка: «отменить + записать» одного человека на фразу «перенеси…» — это один перенос. */
+    private fun mergeMove(steps: List<Step>, ctx: Ctx): List<Step> {
+        if (!hasWord(lw(ctx.phrase), MOVE_START)) return steps
+        val out = ArrayList<Step>()
+        var i = 0
+        while (i < steps.size) {
+            val s = steps[i]; val n = steps.getOrNull(i + 1)
+            val pair = n != null && setOf(s.action, n.action).let { it == setOf("cancel_appointment", "create_appointment") || it == setOf("delete_appointment", "create_appointment") } &&
+                samePerson(s.args["person"], n.args["person"])
+            if (pair) {
+                val p = s.args["person"]?.takeIf { it.isNotBlank() } ?: n!!.args["person"].orEmpty()
+                out += Step("move_appointment", mapOf("person" to p)); ctx.repaired = true; i += 2
+            } else { out += s; i++ }
+        }
+        return out
+    }
+
+    private fun repair(steps: List<Step>, ctx: Ctx): List<Step> = mergeMove(steps, ctx).flatMap { repairStep(it, ctx) }
+
+    private fun shareRescue(ctx: Ctx): Step? = NoaParser.shareData(ctx.phrase)?.let { sd ->
+        Step("share_data", mapOf("person" to sd.personQuery, "data" to sd.data.name.lowercase(), "to" to when {
+            sd.target.startsWith("app:") -> sd.target.removePrefix("app:")
+            else -> sd.target
+        }))
+    }
+
+    private fun socialRescue(ctx: Ctx): Step? {
+        if (!startsWith(ctx, OPEN_START)) return null
+        val soc = socialOf(ctx.phrase) ?: return null
+        return Step("open_contact", mapOf("person" to personGuess(ctx), "contact" to soc))
+    }
+
+    /** Одно действие модели → ноль или несколько шагов: подменяем явно перепутанные, выбрасываем бессмысленные. */
+    private fun repairStep(st: Step, ctx: Ctx): List<Step> {
+        val a = LinkedHashMap(st.args)
+        val w = lw(ctx.phrase)
+        fun keep() = listOf(Step(st.action, a))
+        fun swap(action: String, args: Map<String, String>): List<Step> { ctx.repaired = true; return listOf(Step(action, args)) }
+        fun drop(): List<Step> { ctx.repaired = true; return emptyList() }
+        fun swap(s: Step?): List<Step> = s?.let { swap(it.action, it.args) } ?: drop()
+        return when (st.action) {
+            // Ответ человеку — только если сказали «ответь…»; иначе модель отвечает вместо команды («открой календарь» → «Календарь я не знаю»).
+            "reply" -> if (hasWord(w, REPLY_START)) keep() else swap(shareRescue(ctx) ?: socialRescue(ctx))
+            "add_note" -> shareRescue(ctx)?.let { swap(it) } ?: if (hasWord(w, NOTE_START)) keep() else drop()
+            "find" -> {
+                val q = NoaMatch.words(a["query"].orEmpty()) + w
+                val topic = when {
+                    hasWord(q, arrayOf("рожд", "народж", "birthday")) -> "birthday"
+                    hasWord(q, arrayOf("телефон", "номер", "phone")) -> "phone"
+                    hasWord(q, arrayOf("адрес", "address")) -> "address"
+                    else -> null
+                }
+                val plans = hasWord(w, arrayOf("план", "распис", "розклад", "agenda", "schedule")) || (w.take(3).containsAll(listOf("что", "у")) && "меня" in w)
+                when {
+                    plans && topic == null -> swap("agenda", emptyMap())
+                    topic != null && hasWord(w, arrayOf("когда", "какой", "какая", "какие", "какое", "що", "коли", "який", "яка", "яке", "які", "what", "when", "скажи", "расскажи", "розкажи")) ->
+                        swap("person_info", mapOf("person" to personGuess(ctx), "topic" to topic))
+                    else -> keep()
+                }
+            }
+            "open_contact" -> {
+                val c = a["contact"].orEmpty()
+                val soc = socialOf(c)
+                when {
+                    soc != null -> { a["contact"] = soc; keep() }
+                    hasWord(lw(c), CARD_START) || (c.isBlank() && hasWord(w, CARD_START)) -> swap("open_person", mapOf("person" to bestPerson(a, ctx)))
+                    else -> socialOf(ctx.phrase)?.let { swap("open_contact", mapOf("person" to bestPerson(a, ctx), "contact" to it)) } ?: drop()
+                }
+            }
+            "web_search" -> {
+                val q = a["query"].orEmpty()
+                when {
+                    LOCAL_Q.containsMatchIn((q + " " + ctx.phrase).lowercase()) -> drop()
+                    !startsWith(ctx, SEARCH_START) && startsWith(ctx, CMD_START) && navOverlap(q, ctx.phrase) -> drop()
+                    else -> keep()
+                }
+            }
+            "launch_app" -> if (startsWith(ctx, CLOSE_START)) swap("close_app", a) else keep()
+            "go_home" -> if (hasWord(w, LOCK_START) || w.contains("блок")) swap("lock", emptyMap()) else keep()
+            "phone_settings" -> {
+                val what = a["what"]?.lowercase()?.trim()
+                when {
+                    what in SETTINGS_KNOWN -> keep()
+                    startsWith(ctx, CLOSE_START) -> appGuess(ctx).let { app -> if (app.isBlank()) swap("go_home", emptyMap()) else swap("close_app", mapOf("app" to app)) }
+                    hasWord(w, arrayOf("настро", "налашт", "settings")) -> { a.remove("what"); keep() }
+                    startsWith(ctx, OPEN_START) -> appGuess(ctx).let { app -> if (app.isBlank()) drop() else swap("launch_app", mapOf("app" to app)) }
+                    else -> drop()
+                }
+            }
+            // Раздел, которого нет в приложении («Calculator»), — это приложение телефона.
+            "open_screen" -> a["section"].orEmpty().let { sec -> if (section(sec) != null) keep() else if (sec.isNotBlank()) swap("launch_app", mapOf("app" to sec)) else drop() }
+            "create_appointment" -> {
+                a["service"]?.let { sv ->
+                    val pw = w.filter { it.length >= 3 }.map(NoaMatch::stem)
+                    val said = lw(sv).filter { it.length >= 3 }.map(NoaMatch::stem).let { ss -> ss.isNotEmpty() && ss.all { x -> pw.any { NoaMatch.stemStrict(it, x) } } }
+                    // Услуга — только названная во фразе или известная из данных; «зареєстрована» и прочие выдумки не передаём.
+                    if (!said && !ctx.data.contains(sv, ignoreCase = true)) { a.remove("service"); ctx.repaired = true }
+                }
+                keep()
+            }
+            else -> keep()
+        }
     }
 
     // ---- починка ----
@@ -392,7 +655,14 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             val a = LinkedHashMap(st.args)
             a.putAll(spec.prefill(a, ctx))
             if (spec.hasPerson) {
-                val raw = a["person"].orEmpty().trim()
+                var raw = a["person"].orEmpty().trim()
+                // Человек остаётся, только если он назван во фразе (или это местоимение): имена из списка «People» модель копирует без причины.
+                // Ответ на уточняющий вопрос («ту, что отвечает по ночам») — модель может узнать человека по описанию: верим, если он есть в книжке.
+                val known = ctx.answering && NoaMatch.resolve(raw, ctx.people).kind == NoaMatch.Kind.ONE
+                if (raw.isNotBlank() && !isPronoun(raw) && !known && !personMentioned(raw, ctx)) {
+                    val named = NoaMatch.fromPhrase(ctx.phrase, ctx.people)?.display.orEmpty()
+                    raw = named; a["person"] = named
+                }
                 when {
                     raw.isBlank() || isPronoun(raw) -> if (prior.isNotBlank() && spec.inherit(a)) a["person"] = prior
                     else -> when (val f = fixPerson(raw, ctx)) {
@@ -537,7 +807,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         else -> null
     }
 
-    private fun contactType(s: String?): ContactType? = when (s?.lowercase()) {
+    private fun contactType(s: String?): ContactType? = when (socialOf(s) ?: s?.lowercase()) {
         "instagram" -> ContactType.INSTAGRAM
         "facebook" -> ContactType.FACEBOOK
         "viber" -> ContactType.VIBER
