@@ -1,0 +1,289 @@
+мені треба зв'язатися з Дмитром	Call
+дзвякни Мар'яні	Call
+can you ring Oleg for me	Call
+скинь Дмитру у вайбер що передзвоню	Message
+мне надо написать Ане в ватсап что встреча переносится	Message
+напиши в ответ Дмитру да без проблем	Reply
+Ане на завтра на три	CreateAppointment
+давай Ілью на понеділок на одинадцяту	CreateAppointment
+поставь Оксану в расписание на среду на два	CreateAppointment
+а можно Машу сдвинуть на попозже на вечер	MoveAppointment
+Машу с завтра на послезавтра	MoveAppointment
+убери Аню из расписания на четверг	CancelAppointment
+Оксана не придёт завтра сними её запись	CancelAppointment
+Дмитро відміняється	CancelAppointment
+выкинь запись Маши на понедельник	CancelAppointment
+Аня сегодня не сможет отбой ей	CancelAppointment
+запиши про Олега что любит кофе без сахара	AddNote
+помітка для Дмитра хоче приходити вранці	AddNote
+у Маши отметь что она на диете	AddNote
+занеси в карточку Ильи что он вегетарианец	AddNote
+покажи мне карточку Олега	Open
+відкрий картку Оксани будь ласка	Open
+глянь что там у Маши в карточке	Open
+покажи досьє на Дмитра	Open
+напиши Оксані що буду пізно і заблокуй телефон	Seq(Message,Lock)
+знайди Дмитра відкрий картку і подзвони	Seq(Find,Open,Call)
+мне надо в настройки звука	PhoneSettings
+покажи настройки батареи	PhoneSettings
+мне надо проснуться в шесть сорок пять	Alarm
+будильничек на семь утра заведи	Alarm
+set an alarm for six thirty	Alarm
+засікай мені двадцять хвилин	Timer
+отсчитай мне пять минут	Timer
+хочу чтобы ты напомнил мне про таблетки в восемь вечера	Remind
+чем я занят сегодня	Agenda
+чи є в мене щось у понеділок	Agenda
+когда рожденья у Ильи	PersonInfo
+розкажи що в мене є про Оксану	PersonInfo
+поищи кого-нибудь по имени Максим	Find
+мені треба знайти Оксану	Find
+где у меня там Маша записана найди	Find
+відкрий сервіси	OpenScreen
+давай в рассылку	OpenScreen
+мені треба в календар	OpenScreen
+відкрий інстаграм	LaunchApp
+мне нужна камера	LaunchApp
+хочу в галерею	LaunchApp
+вимкни телеграм	CloseApp
+выключи ватсап	CloseApp
+иди домой	GoHome
+погаси экран и запри	Lock
+веди мене до Оксани	Route
+найди ближайшую аптеку на карте	Route
+де тут найближча заправка	Route
+врубай Океан Ельзи	Play
+давай-ка Скриабін	Play
+відправ Оксані адресу Дмитра	ShareData
+перешли Маше заметки Ильи	ShareData
+вишли Оксану з улюблених	Favorite
+выдели Машу	Select
+открой вк у Ани	OpenContact
+відкрий телеграм Дмитра	OpenContact
+что там написала Аня	ReadMessages
+що мені пише Оксана	ReadMessages
+зачитай что Маша прислала	ReadMessages
+є щось нове від Дмитра	ReadMessages
+сохрани всё в архив на всякий случай	Backup
+запиши мне Аню на завтра на десять и скажи Олегу что я занят	Seq(CreateAppointment,Message)
+включи музыку и заблокируй экран	Seq(Play,Lock)
+мне бы дозвониться до Олега	Call
+ой надо Оксане тренькнуть	Call
+дай мені Дмитра на лінії	Call
+соедини меня с Машей	Call
+потрібно терміново набрати Іллю	Call
+зроби дзвінок Оксані	Call
+телефонни Олегу негайно	Call
+дозвонись до Ильи а	Call
+черкани Олегу пару слов что я на месте	Message
+шепни Дмитру в месенджері що запізнююсь	Message
+дай знать Маше что встреча в шесть	Message
+сообщи Илье что я выехал	Message
+повідом Олега що документи готові	Message
+сбрось Олегу в вайбер что освободился	Message
+ответочку Олегу что заеду вечером	Reply
+кинь Дмитру у відповідь що добре	Reply
+Ане в ответ что понял	Reply
+отпиши Ілье что согласен	Reply
+Дмитра на понеділок на п'ятнадцяту	CreateAppointment
+мне надо Аню пристроить на четверг на два часа	CreateAppointment
+впиши Олега на пятницу на двенадцать	CreateAppointment
+Маша придёт в субботу в одиннадцать оформи	CreateAppointment
+закріпи Дмитра за четвергом на три	CreateAppointment
+Ілля на завтра на дві години	CreateAppointment
+Оксану на інший день на четвер	MoveAppointment
+Дмитро хоче трохи пізніше на шосту	MoveAppointment
+Маша просила на среду вместо вторника	MoveAppointment
+Олега лучше на вечер сдвинь	MoveAppointment
+Маша заболела снимай её с завтрашнего	CancelAppointment
+Оксана сьогодні не прийде знімай її	CancelAppointment
+Ілля відпадає на п'ятницю	CancelAppointment
+Ане завтра отмена	CancelAppointment
+Оксані скажи що запису в понеділок вже нема	CancelAppointment
+запомни про Аню что у неё аллергия на мёд	AddNote
+Оксана просила не дзвонити до обіду зафіксуй	AddNote
+прикрепи к Илье пометку что платит наличными	AddNote
+зроби позначку у Ані що день народження забула	AddNote
+пометочку Маше что в долгу	AddNote
+вытащи профиль Оксаны	Open
+гляну що там у Ілі в картці	Open
+розкрий Аню	Open
+Маша в карточку зайду	Open
+позвони Олегу а потом закинь ему заметку что созвонились	Seq(Call,AddNote)
+Дмитру напиши що виїжджаю і зверни додаток	Seq(Message,GoHome)
+набери Машу и потом заблокируй экран	Seq(Call,Lock)
+напиши Олегу что скоро и закрой ватсап	Seq(Message,CloseApp)
+знайди Машу відкрий картку і напиши їй	Seq(Find,Open,Message)
+надо в настройки интернета	PhoneSettings
+хочу сделать экран потемнее зайди куда надо	PhoneSettings
+настройки уведомлений открой на телефоне	PhoneSettings
+мені треба в налаштування мови телефону	PhoneSettings
+отвори налаштування звуку	PhoneSettings
+посвети мне пожалуйста тут темно	Flashlight
+збуди мене о пів на восьму	Alarm
+будильник на дев'яту ранку	Alarm
+хочу проснуться в семь пятнадцать	Alarm
+не дай проспати в шість	Alarm
+пусти обратный отсчёт на три минуты	Timer
+не дай забути завтра о дев'ятій подзвонити лікарю	Remind
+пикни мне в шесть что пора ужинать	Remind
+нагадуй мені в п'ятницю про оплату	Remind
+в пятницу с утра напомни про оплату счёта	Remind
+через два часа напомни что надо выключить духовку	Remind
+хочу не забыть поздравить маму вечером	Remind
+как у меня сегодня с записями	Agenda
+расскажи мой день на послезавтра	Agenda
+чи вільний я завтра по записах	Agenda
+кто ко мне придёт в среду	Agenda
+покажи что стоит на понедельник	Agenda
+где обитает Оксана	PersonInfo
+скажи когда у Олега днюха	PersonInfo
+коли в Маші народини	PersonInfo
+напомни какой номер у Ильи	PersonInfo
+по якій адресі живе Аня	PersonInfo
+мне нужен адрес Дмитра	PersonInfo
+порыщи в базе человека по имени Олег	Find
+хто в мене там Дмитро шукай	Find
+отыщи мне Оксану	Find
+где-то был клиент Андрей поищи	Find
+давай календарь	OpenScreen
+покажи раздел рассылок	OpenScreen
+в розділ сервісів зайди	OpenScreen
+мне надо в настройки самой программы	OpenScreen
+перейди до розкладу в календарі	OpenScreen
+мені потрібен ютуб	LaunchApp
+нужен калькулятор	LaunchApp
+хочу в телеграм	LaunchApp
+ткни в вайбер	LaunchApp
+покажи инстаграм	LaunchApp
+хватит с ютубом выруби его	CloseApp
+закінчуй з інстаграмом закрий його	CloseApp
+убери телеграм	CloseApp
+прибери ватсап з екрану	CloseApp
+больше не надо камеры закрой её	CloseApp
+давай на рабочий стол	GoHome
+виходь на головну	GoHome
+хватит возвращайся домой	GoHome
+на главную уже	GoHome
+запри телефон	Lock
+замкни екран	Lock
+повези меня к Олегу	Route
+как проехать к Оксане	Route
+веди на заправку	Route
+где ближайший банкомат	Route
+давай послушаем что-нибудь из Ляписа	Play
+запусти Скрябіна	Play
+хочу під Кравц	Play
+крутани Металлику	Play
+музычку давай	Play
+замри музыка	Media
+поменяй на другую песню	Media
+звук убавь	Media
+нагугли мне как заменить розетку	WebSearch
+вбий у пошук погода у Львові	WebSearch
+пошукай в сети курс гривни	WebSearch
+узнай в интернете сколько стоит билет в Одессу	WebSearch
+нагугли рецепт вареників	WebSearch
+гугл подскажи что такое ипотека	WebSearch
+отправь Ане карточку Ильи	ShareData
+перекинь Маше контакт Олега	ShareData
+перешли мамі адресу Олега	ShareData
+добавь Олега в любимые	Favorite
+Илью из любимых убери	Favorite
+подсвети Дмитра	Select
+вкажи на Машу	Select
+открой страничку Дмитра в фб	OpenContact
+ссылку Ильи на телеграм открой	OpenContact
+зачитай новое сообщение от Маши	ReadMessages
+Оксана мені щось писала прочитай	ReadMessages
+какие там сообщения от Ильи	ReadMessages
+про що мені Дмитро повідомляє	ReadMessages
+Аня писала озвучь	ReadMessages
+збережи базу в запасний файл	Backup
+сохрани всё на всякий	Backup
+скажи Оксані в телеграм що буду пізно і заблокуй телефон	Seq(Message,Lock)
+could you get Oleg on the phone	Call
+I need to reach Anya right now	Call
+hey drop Maria a line that I'm running late	Message
+put Oksana down for Thursday at four	CreateAppointment
+shift Oleg's slot to Friday afternoon	MoveAppointment
+Ilya can't make it tomorrow so scratch his booking	CancelAppointment
+jot down that Anya is allergic to nuts	AddNote
+pull up Oleg's profile	Open
+wake me up at seven sharp	Alarm
+ping me in twenty minutes to check the oven	Remind
+look up Maxim in my people	Find
+take me to Maria's place	Route
+throw on some Metallica	Play
+send Oleg Anya's number	ShareData
+go back to the home screen	GoHome
+shut down telegram	CloseApp
+fire up the camera	LaunchApp
+дзвонить Оксані треба	Call
+ану брякни Іллі	Call
+мені б додзвонитись до Ані	Call
+наберіть Машу, потрібно	Call
+дай знати Дмитру що все готово	Message
+відпиши Маші що добре	Reply
+Іллі у відповідь що я згоден	Reply
+Олега на четвер на пів на третю	CreateAppointment
+впиши мені Дмитра на завтра на десяту	CreateAppointment
+Максима на суботу на дев'яту вранці	CreateAppointment
+Ані краще на четвер замість середи	MoveAppointment
+Дмитра з понеділка на вівторок	MoveAppointment
+перекинь Іллю на після обіду	MoveAppointment
+Максим занедужав зніми його на завтра	CancelAppointment
+Олега в суботу не чекаємо викресли	CancelAppointment
+Дмитро відмовляється від запису	CancelAppointment
+у картці Іллі допиши що переїхав	AddNote
+Аня алергік занотуй це про неї	AddNote
+покажи мені Оксану в базі	Open
+відкрий настройки звуку на телефоні	PhoneSettings
+зайди в налаштування екрана	PhoneSettings
+хочу змінити мелодію дзвінка де це	PhoneSettings
+збуди мене в шість ранку	Alarm
+відрахуй мені десять хвилин	Timer
+не дай мені забути купити молоко ввечері	Remind
+через пів години нагадай вимкнути плиту	Remind
+чим я завтра зайнятий	Agenda
+скільки в мене клієнтів завтра покажи розклад	Agenda
+підкажи номер Максима	PersonInfo
+коли народився Олег	PersonInfo
+розшукай мені Максима	Find
+давай розділ людей	OpenScreen
+відкрий вкладку сервісів	OpenScreen
+мені треба калькулятор	LaunchApp
+піднімай камеру	LaunchApp
+вимкни ватсап	CloseApp
+більше не треба телеграм прибери	CloseApp
+виходь у меню	GoHome
+вимкни екран і закрий	Lock
+доведи мене до Олега	Route
+де найближчий банкомат	Route
+хочу послухати Вакарчука	Play
+щось веселе вруби	Play
+нагугли мені ціни на квитки до Львова	WebSearch
+перешли Ані контакт Дмитра	ShareData
+Олега з улюблених викинь	Favorite
+зайди на сторінку Оксани у фейсбуці	OpenContact
+що мені Максим відповів	ReadMessages
+напиши Іллі що виїжджаю і заблокуй екран	Seq(Message,Lock)
+відкрий картку Максима і напиши йому	Seq(Open,Message)
+світни мені ліхтариком	Flashlight
+хватит светить гаси фонарик	Flashlight
+вирубай ліхтарик	Flashlight
+таймер хвилин на п'ятнадцять	Timer
+через двадцать минут сигналь таймером	Timer
+экран в сон отправь и заблокируй	Lock
+давай пропустим	Media
+Маша пусть будет в избранном	Favorite
+Оксану в обране	Favorite
+выбери Олега из списка	Select
+вибери Оксану в списку	Select
+зайди во вконтакте к Олегу	OpenContact
+сделай копию всех данных	Backup
+дай бэкап	Backup
+can you flip the torch on	Flashlight
+make it quieter please	Media
+make a backup of everything	Backup
+вибери мені Максима	Select
