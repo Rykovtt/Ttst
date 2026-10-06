@@ -759,7 +759,7 @@ class Noa(private val app: KartotekaApp) {
             NoaMedia.Control.NEXT -> t("Следующий."); NoaMedia.Control.PREV -> t("Предыдущий.")
             NoaMedia.Control.SHUFFLE_ON -> t("Перемешала."); NoaMedia.Control.SHUFFLE_OFF -> t("Играю по порядку.")
             NoaMedia.Control.REPEAT -> t("Повторяю."); NoaMedia.Control.STOP -> t("Остановила.")
-            NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише.")
+            NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише."); NoaMedia.Control.LOUDEST -> t("Громкость на максимум.")
             NoaMedia.Control.WHAT -> ""
         }
         // Короткий ответ без голоса — чтобы не перебивать музыку.

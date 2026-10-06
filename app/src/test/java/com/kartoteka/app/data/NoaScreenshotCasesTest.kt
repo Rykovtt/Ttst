@@ -32,4 +32,19 @@ class NoaScreenshotCasesTest {
         val r = NoaParser.parse("найди на Ютубе какой-то аудиоспектакль и включи его", now) as NoaIntent.Play
         assertEquals("аудиоспектакль", r.query); assertTrue(r.video)
     }
+
+    @Test fun secondBatch() {
+        assertEquals(NoaIntent.Flashlight(false), NoaParser.parse("виключи фонарик", now))
+        val yt = NoaParser.parse("найди на YouTube аудиоспектакль и включи", now) as NoaIntent.Play
+        assertEquals("аудиоспектакль", yt.query); assertEquals("youtube", yt.app)
+        assertEquals("сериал ольга 1 сезон", (NoaParser.parse("включи YouTube и Открой сериал Ольга 1 сезон", now) as NoaIntent.Play).query)
+        assertEquals("серіал ольга 1 сезон", (NoaParser.parse("открой YouTube серіал Ольга 1 сезон", now) as NoaIntent.Play).query)
+        assertTrue(NoaParser.parse("какой средний курс доллара в Украине сейчас", now) is NoaIntent.WebSearch)
+        val seq = NoaParser.parse("включи YouTube Music выбери плейлист понравившийся и включив случайном порядке на максимальной громкости", now) as NoaIntent.Sequence
+        assertEquals(NoaIntent.Media(NoaMedia.Control.LOUDEST), seq.steps[0])
+        val pl = seq.steps[1] as NoaIntent.Play
+        assertTrue(NoaMedia.isLiked(pl.query)); assertTrue(pl.shuffle); assertEquals("youtube music", pl.app)
+        val m = NoaParser.parse("подтверждение Илья рыкову насчёт его записи на завтра Отправь на украинском языке", now) as NoaIntent.Message
+        assertTrue(m.aboutAppointment)
+    }
 }

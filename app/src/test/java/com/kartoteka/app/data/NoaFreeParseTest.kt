@@ -27,7 +27,7 @@ class NoaFreeParseTest {
         for ((i, r) in rows.withIndex()) {
             if (!sel(i + 1)) continue
             val got = sig(r[0])
-            when { got == r[1] -> t.right++; isNone(got) -> t.none++; else -> t.wrong++ }
+            when { got == r[1] -> t.right++; isNone(got) -> t.none++; else -> { t.wrong++; println("WRONG «${r[0]}» → $got (ждали ${r[1]})") } }
         }
         return t
     }

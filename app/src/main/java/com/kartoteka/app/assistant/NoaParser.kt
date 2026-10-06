@@ -211,6 +211,53 @@ object NoaParser {
     }
 
     fun parse(inputRaw: String, now: LocalDateTime = LocalDateTime.now(), names: Collection<String> = assistantNames): NoaIntent {
+        val r = parseCore(inputRaw, now, names)
+        return rescue(canonFirst(normalize(prepare(inputRaw, names))), r) ?: r
+    }
+
+    private val YT_WORD = Regex("(?:ютуб|ютюб|youtube)(?!\\s*(?:music|мьюзик|мюзик|музик|мьюзік))")
+    private val RESCUE_VERBS = arrayOf("найд", "знайд", "включ", "увімк", "ввімк", "откр", "відкр", "запуст", "покаж", "показ", "постав", "find", "play", "open")
+    private val RESCUE_STOP = setOf("найди", "найти", "знайди", "включи", "включить", "увімкни", "ввімкни", "открой", "відкрий", "запусти", "запустить", "покажи", "покаж", "поставь",
+        "постав", "find", "play", "open", "и", "та", "і", "на", "в", "у", "с", "со", "ютуб", "ютубе", "ютюб", "ютюбе", "youtube", "пожалуйста", "будь", "ласка")
+    private val QUESTION_START = Regex("^(?:какой|какая|какое|какие|сколько|где|когда|кто|что такое|почему|зачем|как|який|яка|яке|які|скільки|де|коли|хто|чому|навіщо|що таке)\\s")
+    private val WORLD_Q = Regex("курс|валют|доллар|долар|евро|євро|биткоин|біткоїн|bitcoin|погод|новост|новин|цена|цены|ціна|ціни|стоит|коштує|столиц|столиця|температур|что такое|що таке|кто такой|хто такий|рецепт|население|населення|сколько лет|скільки років|результат матч|счёт матч")
+    private val PERSONAL_Q = Regex("у меня|у мене|в мене|мой|моя|моё|мои|мій|моя|мої|клиент|клієнт|запис|контакт|человек|людин|друг|жена|муж|мама|мам[іу]|папа|брат|сестр|день рожд|день народ|номер|телефон|адрес|заметк|нотатк|встреч|зустріч|карточк|картк")
+
+    /** Фразы, которые основной разбор не осилил или осилил криво: «найди на ютубе X и включи», «плейлист понравившихся на максимум», вопрос в интернет. */
+    private fun rescue(original: String, r: NoaIntent): NoaIntent? {
+        val s = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
+        val weak = r is NoaIntent.Unknown || (r is NoaIntent.Sequence && r.steps.any { it is NoaIntent.Unknown || it is NoaIntent.Find }) ||
+            (r is NoaIntent.LaunchApp && r.name.trim().split(" ").size > 1 && YT_WORD.containsMatchIn(r.name.lowercase()))
+        val playVerb = has(s, "включ", "увімк", "ввімк", "запуст", "откр", "відкр", "постав", "выбери", "обери", "вибери")
+        // «включи YouTube Music, выбери плейлист понравившийся, в случайном порядке, на максимальной громкости»
+        if (LIKED.containsMatchIn(s) && playVerb && has(s, "плейлист", "плейліст", "музык", "музик", "песн", "пісн", "треки", "ютуб", "youtube", "music")) {
+            val app = when {
+                Regex("(?:ютуб|ютюб|youtube)\\s*(?:music|мьюзик|мюзик|музик|мьюзік)|музык|музик").containsMatchIn(s) -> "youtube music"
+                YT_WORD.containsMatchIn(s) -> "youtube"
+                else -> null
+            }
+            val shuffle = has(s, "случайн", "випадков", "перемеш", "перемішай", "shuffle", "рандом")
+            val play = NoaIntent.Play(NoaMedia.LIKED_QUERY, app, true, false, shuffle, false, "")
+            return if (has(s, "на максимум", "максимальн", "на полную громк", "на повну гучн", "на всю громк")) NoaIntent.Sequence(listOf(NoaIntent.Media(NoaMedia.Control.LOUDEST), play)) else play
+        }
+        // «подтверждение Илья Рыкову насчёт записи на завтра, отправь» — сообщение-подтверждение записи
+        if ((r is NoaIntent.Unknown || r is NoaIntent.Agenda) && has(s, "отправ", "надішл", "скинь", "пошли", "send") && has(s, "подтвержд", "підтвердж", "confirm")) {
+            val who = extractPerson(s.replace(Regex("отправ\\S*|надішл\\S*|скинь|пошли|подтвержден\\S*|підтвердженн\\S*|насчёт|насчет|щодо|его|її|його|записи|запису|на завтра|на украинском языке|на русском языке"), " "))
+            if (who.isNotBlank()) return NoaIntent.Message(who, NoaIntent.Channel.WHATSAPP, null, true)
+        }
+        if (!weak) return null
+        // «найди на YouTube аудиоспектакль и включи», «включи YouTube и открой сериал Ольга 1 сезон», «открой YouTube серіал …»
+        if (YT_WORD.containsMatchIn(s) && has(s, *RESCUE_VERBS) && !has(s, "канал", "channel", "плейлист", "плейліст", "музык", "музик", "закрой", "закрий")) {
+            val q = s.trim().split(" ").filter { it.isNotBlank() && it !in RESCUE_STOP && it !in FILLER_WORDS && it !in IT_WORDS }.joinToString(" ")
+            if (q.isNotBlank()) return NoaIntent.Play(q, "youtube", false, false, false, true, "")
+        }
+        // Вопрос о мире («какой курс доллара в Украине») — в поиск, а не «не поняла»
+        if (r is NoaIntent.Unknown && QUESTION_START.containsMatchIn(s.trim() + " ") && !PERSONAL_Q.containsMatchIn(s) && WORLD_Q.containsMatchIn(s) && s.trim().split(" ").size >= 3)
+            return NoaIntent.WebSearch(original.trim())
+        return null
+    }
+
+    private fun parseCore(inputRaw: String, now: LocalDateTime, names: Collection<String>): NoaIntent {
         val input = prepare(inputRaw, names)
         // Кавычки сохраняем как есть (в них текст), остальное — без знаков препинания.
         val parts = input.split(CHAIN).map { it.trim() }.filter { it.isNotBlank() }
@@ -639,7 +686,7 @@ object NoaParser {
             return NoaIntent.Timer(sec)
         }
         if (has(s, "фонарик", "фонарь", "ліхтарик", "ліхтар", "flashlight", "torch", "вспышк", "спалах")) {
-            return NoaIntent.Flashlight(!has(s, "выключ", "вимкн", "погаси", "отключ", "off", "turn off"))
+            return NoaIntent.Flashlight(!has(s, "выключ", "виключ", "вимкн", "погаси", "отключ", "відключ", "off", "turn off"))
         }
         play(s)?.let { return it }
         // «настройки батареи / звука / уведомлений / экрана» — раздел настроек телефона, а не самого приложения
@@ -727,6 +774,7 @@ object NoaParser {
             words <= 2 && has(s, "дальше", "далі", "далее") -> NoaMedia.Control.NEXT
             has(s, "предыдущ", "попередн", "previous", "прошл трек", "верни трек", "предыдущую") && (words <= 4 || music) -> NoaMedia.Control.PREV
             has(s, "продолжи", "продолж", "продовж", "возобнови", "сними с паузы", "зніми з паузи", "resume", "включи воспроизвед", "увімкни відтвор", "відтвори") && (words <= 5 || music) -> NoaMedia.Control.RESUME
+            has(s, "на максимум", "максимальн", "на полную громк", "на повну гучн", "на всю громк") && has(s, "громк", "громч", "гучн", "звук") -> NoaMedia.Control.LOUDEST
             has(s, "громче", "гучніше", "louder", "volume up", "погромче", "прибавь звук", "додай звук") -> NoaMedia.Control.LOUDER
             has(s, "тише", "тихіше", "quieter", "volume down", "потише", "убавь звук", "зменш звук") -> NoaMedia.Control.QUIETER
             else -> null

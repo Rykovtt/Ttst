@@ -91,6 +91,7 @@ object NoaDescribe {
         NoaMedia.Control.SHUFFLE_OFF -> t("не перемешивать")
         NoaMedia.Control.REPEAT -> t("повтор")
         NoaMedia.Control.STOP -> t("стоп")
+        NoaMedia.Control.LOUDEST -> t("громкость на максимум")
         NoaMedia.Control.LOUDER -> t("громче")
         NoaMedia.Control.QUIETER -> t("тише")
         NoaMedia.Control.WHAT -> t("что сейчас играет")
