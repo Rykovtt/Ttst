@@ -34,6 +34,9 @@ object NoaExamples {
     /** [k] самых похожих на [phrase] примеров из общей библиотеки; [names] — имена людей из книжки (их слова не учитываются). */
     fun pick(phrase: String, k: Int = 3, names: List<String> = emptyList()): List<Ex> = default.pick(phrase, k, names)
 
+    /** Самый похожий пример и его оценка 0..1 ([exclude] — фраза, которую не брать: для проверки без подсказки ответа). */
+    fun best(phrase: String, names: List<String> = emptyList(), exclude: String? = null): Pair<Ex, Double>? = default.best(phrase, names, exclude)
+
     private fun readLines(): List<String> = FILES.flatMap { readFile(it) }
 
     private fun readFile(name: String): List<String> {
@@ -149,6 +152,16 @@ object NoaExamples {
             val raw = 0.65 * cos + 0.35 * jac + verb
             // Короткие «уточнение/болтовня» («добавь заметку» → «К кому?») не должны перебивать полные команды с содержанием.
             return if ((e.cls == "ask" || e.cls == "chat") && qs.size > e.stems.size + 1) raw * 0.6 else raw
+        }
+
+        fun best(phrase: String, names: List<String> = emptyList(), exclude: String? = null): Pair<Ex, Double>? {
+            if (items.isEmpty()) return null
+            val own = names.flatMap { it.replace(Regex("\\([^)]*\\)"), " ").split(Regex("[^\\p{L}]+")) }.filter { it.length >= 2 }.map { stem(it.lowercase()) }.toSet()
+            val (ws, caps) = words(phrase)
+            val keep = ws.filter { w -> stem(w).let { it !in STOP_STEMS && it !in nameStems && it !in own && it !in caps } }
+            val qs = weighted(keep); val qt = trigrams(keep); val qFirst = keep.firstOrNull()?.let { stem(it) }
+            return items.asSequence().filter { exclude == null || !it.phrase.equals(exclude, ignoreCase = true) }
+                .map { it to score(qs, qt, qFirst, it) }.maxByOrNull { it.second }
         }
 
         /** [k] ближайших примеров; не больше двух одного класса, если фраза не «явно этого класса» (тогда все три из него). */

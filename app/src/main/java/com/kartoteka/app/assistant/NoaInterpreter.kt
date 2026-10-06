@@ -26,7 +26,7 @@ data class Clarify(
  * Результат понимания фразы мозгом: действие (или null = свободный разговор), реплика голосом
  * и, если не хватило данных, уточняющий вопрос [ask] (тогда ничего не выполняем, пока человек не ответит).
  */
-data class Interpreted(val intent: NoaIntent?, val reply: String?, val ask: Clarify? = null)
+data class Interpreted(val intent: NoaIntent?, val reply: String?, val ask: Clarify? = null, val rescued: Boolean = false)
 
 /**
  * Превращает свободную речь в команду через небольшую модель на телефоне. Промпт просит модель вернуть
@@ -59,10 +59,45 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             raw = askOverride?.invoke(p) ?: brain?.ask(p)
             if (raw != null || brain?.lastError?.startsWith("too_long") != true) break
         }
-        val text = raw ?: return null
-        lastRaw = text
         val phrase = if (pending != null) pending.phrase + " " + userText else userText
-        return fromJson(text, phrase, now, names, hasLast, context, (pending?.round ?: 0) + 1)
+        raw?.let { lastRaw = it }
+        val parsed = raw?.let { fromJson(it, phrase, now, names, hasLast, context, (pending?.round ?: 0) + 1) }
+        val useful = parsed != null && (parsed.intent != null || parsed.ask != null || parsed.reply != null)
+        // Модель промолчала, вернула пустоту или лишний вопрос — пробуем по ближайшему примеру из библиотеки.
+        if (!useful && pending == null) rescue(phrase, now, names, hasLast, context)?.let { return it }
+        return parsed
+    }
+
+    /**
+     * Запасной разбор: берём класс (действие) самого похожего примера из библиотеки, а данные (человек, приложение, запрос) —
+     * только из самой фразы; всё равно проходит обычную починку и проверку. Только для простых команд: сообщения, заметки,
+     * записи и всё, где нужен свободный текст, сюда не попадают.
+     */
+    internal fun rescue(phrase: String, now: LocalDateTime, names: List<String>, hasLast: Boolean, data: String, exclude: String? = null): Interpreted? {
+        val (ex, score) = NoaExamples.best(phrase, names, exclude) ?: return null
+        if (score < rescueMin) return null
+        val act = ex.cls
+        if (act !in RESCUE_KEEP) return null
+        val src = (Lenient.extract(ex.json) as? Map<*, *>)?.let { m -> (m["actions"] as? List<*>)?.firstOrNull() as? Map<*, *> } ?: return null
+        val ctx = Ctx(phrase, now, NoaMatch.refs(names), data, hasLast)
+        val args = LinkedHashMap<String, Any?>()
+        args["action"] = act
+        for (k in RESCUE_KEEP.getValue(act)) src[k]?.let { args[k] = it }
+        when (act) {
+            "call", "open_person", "favorite", "person_info" -> {
+                // Имя — из книжки или слово фразы, но не сам глагол команды («позвони» без имени — это не человек «позвони»).
+                val verb = lw(phrase).firstOrNull().orEmpty()
+                val who = NoaMatch.fromPhrase(phrase, ctx.people)?.display ?: personGuess(ctx).takeIf { it != verb && !it.startsWith(verb.take(5)) }.orEmpty()
+                if (who.isBlank()) return null
+                args["person"] = who
+            }
+            "read_messages" -> NoaMatch.fromPhrase(phrase, ctx.people)?.display?.let { args["person"] = it }
+            "launch_app", "close_app" -> args["app"] = appGuess(ctx).ifBlank { return null }
+            "find" -> args["query"] = lw(phrase).drop(1).filter { it !in RESCUE_NOISE }.joinToString(" ").ifBlank { return null }
+        }
+        fun q(v: Any?): String = if (v is Boolean || v is Number) v.toString() else "\"" + v.toString().replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        val json = "{\"actions\":[{" + args.entries.joinToString(",") { "\"${it.key}\":${q(it.value)}" } + "}]}"
+        return fromJson(json, phrase, now, names, hasLast, data)?.takeIf { it.intent != null }?.copy(reply = null, rescued = true)
     }
 
     /**
@@ -95,6 +130,17 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         var repaired = false
     }
 
+    /** Вопросы модели «про кого речь / есть ли такой контакт» — когда человек уже назван. */
+    private val PERSON_ASK = Regex("кого|кому|хто |имеете в виду|маєте на увазі|мається на увазі|who |whom|name of|в книзі|в книге|в книжке|контакт|є олег|у вас є")
+    internal var rescueMin = 0.7
+    private val RESCUE_NOISE = setOf("пожалуйста", "будь", "ласка", "мне", "мені", "ну", "а", "и", "та", "і", "ноа", "санта")
+    /** Простые действия и какие ключи примера переносим как есть (всё остальное берём из фразы). */
+    private val RESCUE_KEEP: Map<String, List<String>> = mapOf(
+        "call" to emptyList(), "open_person" to emptyList(), "favorite" to listOf("on"), "read_messages" to emptyList(),
+        "person_info" to listOf("topic"), "agenda" to emptyList(), "launch_app" to emptyList(), "close_app" to emptyList(),
+        "go_home" to emptyList(), "lock" to emptyList(), "flashlight" to listOf("on"), "media" to listOf("control"), "find" to emptyList(),
+    )
+
     private fun parse(raw: String, ctx: Ctx, round: Int): Interpreted? {
         val root = Lenient.extract(raw) ?: return null
         val obj = root as? Map<*, *>
@@ -121,7 +167,10 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         val acted = out is Out.Ready && out.intents.isNotEmpty()
         val cleanReply = if (acted && ctx.repaired) null else cleanReply(reply, ctx, acted)
         val askAct = list.firstOrNull { nameOf(it) in setOf("ask", "clarify", "question") }?.let { m -> listOf("text", "question", "message").firstNotNullOfOrNull { k -> (m[k] as? String)?.trim()?.ifBlank { null } } }
-        val ask = (askRaw ?: askAct)?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) && saneText(it, ctx) }
+        // Человек назван во фразе и в книжке он один — переспрашивать «кого вы имеете в виду» нечего: вопрос модели отбрасываем.
+        val named = if (out is Out.Ready && out.intents.isEmpty() && !ctx.answering) NoaMatch.fromPhrase(ctx.phrase, ctx.people) else null
+        fun aboutPerson(q: String): Boolean = named != null && (PERSON_ASK.containsMatchIn(q.lowercase()) || q.lowercase().contains(named.display.lowercase().take(4)))
+        val ask = (askRaw ?: askAct)?.takeIf { !aboutPerson(it) }?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) && saneText(it, ctx) }
         return finish(out, cleanReply, ctx, ask, chat, raw0.isNotEmpty() || failedNamed)
     }
 

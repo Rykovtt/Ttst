@@ -6,10 +6,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 
 /**
- * Проверка ИИ на самом телефоне. Два набора фраз:
- *  • «эталон по правилам» — фразы, которые быстрый разбор понимает (проверено тестами); модель должна дать то же самое;
- *  • «свободные формулировки» — как люди говорят на самом деле; быстрые правила их не понимают, и модель нужна именно тут
- *    (правильный ответ размечен вручную).
+ * Проверка на самом телефоне. Два набора фраз:
+ *  • «весь конвейер» — как люди говорят на самом деле (assets/golden_free.tsv, ответ размечен вручную): сначала правила, и только
+ *    что они не поняли — модель, а если и она промолчала — запасной разбор по библиотеке примеров. Это то, что видит человек;
+ *  • «эталон по правилам» (диагностика модели, только в полной проверке) — фразы, которые правила понимают; модель должна дать то же самое.
  * Команды, которые решают только правила (время, калькулятор, переводы единиц, вопросы о записях), в проверку модели не входят:
  * в работе она их не увидит. Результат — отчёт, который можно скопировать.
  */
@@ -41,15 +41,14 @@ object NoaBenchmark {
     /** Свободные формулировки: assets/golden_free.tsv — «фраза<TAB>ожидаемое» (подпись разбора), размечено вручную. */
     internal fun freeSet(app: KartotekaApp): List<Item> =
         lines(app, "golden_free.tsv").mapNotNull { l ->
-            val p = l.split('\t'); if (p.size < 2 || p[0].isBlank()) null else Item(p[0].trim(), p[1].trim(), "free")
+            val p = l.split('\t'); if (p.size < 2 || p[0].isBlank()) null else Item(p[0].trim(), p[1].trim(), "pipe")
         }
 
-    /** Короткая проверка берёт поровну из обоих наборов, полная — всё. */
+    /** Короткая проверка — [count] фраз «всего конвейера» (равномерно по набору); полная — весь набор и ещё эталон по правилам для модели. */
     fun items(app: KartotekaApp, count: Int, now: LocalDateTime): List<Item> {
-        val a = rulesSet(app, now); val b = freeSet(app)
-        if (count <= 0) return a + b
-        if (b.isEmpty()) return pick(a, count)
-        return pick(a, count / 2) + pick(b, count - count / 2)
+        val pipe = freeSet(app)
+        if (pipe.isEmpty()) return pick(rulesSet(app, now), if (count <= 0) 0 else count)
+        return if (count <= 0) pipe + rulesSet(app, now) else pick(pipe, count)
     }
 
     internal fun <T> pick(all: List<T>, count: Int): List<T> {
@@ -57,7 +56,8 @@ object NoaBenchmark {
         return List(count) { all[(it.toLong() * all.size / count).toInt()] }
     }
 
-    data class Row(val item: Item, val got: String, val millis: Long, val raw: String, val personOk: Boolean?) {
+    /** [via] — кто ответил: «rules» (правила), «ai» (модель), «lib» (запасной разбор по примерам), пусто — никто. */
+    data class Row(val item: Item, val got: String, val millis: Long, val raw: String, val personOk: Boolean?, val via: String = "") {
         val phrase get() = item.phrase; val expected get() = item.expected
     }
 
@@ -73,6 +73,14 @@ object NoaBenchmark {
                 append(t("Команда верная целиком: %1\$s из %2\$s (%3\$s%%)", exact, list.size, pct(exact, list.size))).append('\n')
                 append(t("Первое действие верное: %1\$s из %2\$s (%3\$s%%)", first, list.size, pct(first, list.size))).append('\n')
                 if (people.isNotEmpty()) append(t("Имя понято верно: %1\$s из %2\$s", people.count { it }, people.size)).append('\n')
+                // «Уверенно неверно» — самое вредное: помощник сделал не то, не переспросив.
+                val unsure = setOf("—", "ask", "chat", "Unknown")
+                val wrong = list.count { it.got !in unsure && it.got != it.expected }
+                append(t("Уверенно неверно: %1\$s из %2\$s (%3\$s%%)", wrong, list.size, pct(wrong, list.size))).append('\n')
+                val byVia = list.groupBy { it.via }.filterKeys { it.isNotEmpty() }
+                if (byVia.isNotEmpty()) append(t("Кто отвечал")).append(": ").append(listOf("rules" to t("правила"), "ai" to t("модель"), "lib" to t("библиотека")).mapNotNull { (k, label) ->
+                    byVia[k]?.let { "$label ${it.size} (${t("верно")} ${it.count { r -> r.got == r.expected }})" }
+                }.joinToString(", ")).append('\n')
             }
         }
 
@@ -84,15 +92,15 @@ object NoaBenchmark {
             append(t("Фраз: %1\$s", rows.size)).append('\n')
             if (tokens.isNotEmpty()) append(t("Размер запроса: в среднем %1\$s токенов (окно модели — 1280)", tokens.average().toInt())).append('\n')
             if (rows.count { it.got != "—" } == 0 && lastError != null) append(t("Причина: %1\$s", explain(lastError))).append('\n')
-            val rules = rows.filter { it.item.group == "rules" }; val free = rows.filter { it.item.group == "free" }
-            if (rules.isNotEmpty()) append('\n').append(t("Эталон по правилам")).append(": ").append(rules.size).append('\n').append(stats(rules))
-            if (free.isNotEmpty()) append('\n').append(t("Свободные формулировки")).append(": ").append(free.size).append('\n').append(stats(free))
+            val rules = rows.filter { it.item.group == "rules" }; val pipe = rows.filter { it.item.group == "pipe" }
+            if (pipe.isNotEmpty()) append('\n').append(t("Весь конвейер (правила → модель → библиотека)")).append(": ").append(pipe.size).append('\n').append(stats(pipe))
+            if (rules.isNotEmpty()) append('\n').append(t("Диагностика модели (эталон по правилам)")).append(": ").append(rules.size).append('\n').append(stats(rules))
             append('\n').append(t("Время ответа: в среднем %1\$s с, 95%% — до %2\$s с", "%.1f".format(ms.average() / 1000), "%.1f".format(ms[(ms.size * 95 / 100).coerceAtMost(ms.size - 1)] / 1000.0))).append('\n')
             val bad = rows.filter { it.got != it.expected }
             if (bad.isNotEmpty()) {
                 append('\n').append(t("Ошибки (первые %1\$s):", minOf(bad.size, 25))).append('\n')
                 bad.take(25).forEachIndexed { n, r ->
-                    append("${n + 1}. [${if (r.item.group == "free") "св" else "эт"}] «${r.phrase}» → ${r.got} (${t("ожидалось")} ${r.expected})")
+                    append("${n + 1}. [${if (r.item.group == "pipe") "кв" else "эт"}${if (r.via.isNotEmpty()) "/" + r.via else ""}] «${r.phrase}» → ${r.got} (${t("ожидалось")} ${r.expected})")
                     if (r.raw.isNotBlank()) append("\n   ").append(r.raw.replace('\n', ' ').take(110))
                     append('\n')
                 }
@@ -134,7 +142,10 @@ object NoaBenchmark {
             if (cancelled()) break
             onProgress(n, list.size)
             val t0 = System.nanoTime()
-            val r = runCatching { withTimeoutOrNull(90_000) { interpreter.interpret(item.phrase, now, names = names) } }.getOrNull()
+            // Конвейер: правила первыми; модель — только если правила не поняли; библиотека — если не ответила и модель.
+            val ruled = if (item.group == "pipe") NoaParser.parse(item.phrase, now).takeIf { it !is NoaIntent.Unknown } else null
+            val r = if (ruled != null) Interpreted(ruled, null)
+                else runCatching { withTimeoutOrNull(90_000) { interpreter.interpret(item.phrase, now, names = names) } }.getOrNull()
             val ms = (System.nanoTime() - t0) / 1_000_000
             val got = when {
                 r == null -> "—"
@@ -142,13 +153,14 @@ object NoaBenchmark {
                 r.intent != null -> signature(r.intent)
                 else -> "chat"
             }
+            val via = when { ruled != null -> "rules"; r?.rescued == true -> "lib"; r?.intent != null || r?.ask != null -> "ai"; else -> "" }
             val wantPerson = personOfExpected(item, now)
             val gotPerson = r?.intent?.let { NoaParser.personOf(if (it is NoaIntent.Sequence) it.steps.first() else it) }?.trim().orEmpty()
             val personOk = wantPerson.takeIf { it.isNotBlank() }?.let { samePerson(it, gotPerson) }
-            val err = app.brain.lastError
-            if (app.brain.lastTokens > 0) tokens += app.brain.lastTokens
+            val err = if (ruled != null) null else app.brain.lastError
+            if (ruled == null && app.brain.lastTokens > 0) tokens += app.brain.lastTokens
             if (err != null) lastErr = err
-            rows += Row(item, got, ms, if (got == "—" && err != null) "${t("ошибка")}: ${explain(err)}" else interpreter.lastRaw.orEmpty(), personOk)
+            rows += Row(item, got, ms, if (ruled != null) "" else if (got == "—" && err != null) "${t("ошибка")}: ${explain(err)}" else interpreter.lastRaw.orEmpty(), personOk, via)
         }
         onProgress(list.size, list.size)
         return Report(title, app.brain.backend.uppercase(), rows, tokens = tokens, lastError = lastErr)

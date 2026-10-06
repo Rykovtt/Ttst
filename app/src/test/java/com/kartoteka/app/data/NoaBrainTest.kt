@@ -365,10 +365,14 @@ class NoaBrainTest {
     }
 
     @Test fun silentOrBrokenBrainGivesNull() {
+        // Простая команда при молчащей модели берётся по ближайшему примеру библиотеки (и помечается — исполнится только после «да»).
         ip.askOverride = { null }
-        assertNull(runBlocking { ip.interpret("позвони Ане", now, names) })
+        runBlocking { ip.interpret("позвони Ане", now, names) }!!.let { assertTrue(it.rescued); assertEquals("Call(Анна Иванова)", show(it.intent!!)) }
         ip.askOverride = { "бла-бла" }
-        assertNull(runBlocking { ip.interpret("позвони Ане", now, names) })
+        assertTrue(runBlocking { ip.interpret("позвони Ане", now, names) }!!.rescued)
+        // Нечего спасать — модель молчит и фраза ни на что не похожа.
+        ip.askOverride = { null }
+        assertNull(runBlocking { ip.interpret("ыыы ъъъ", now, names) })
         assertNull(NoaInterpreter(null).let { runBlocking { it.interpret("позвони", now) } })
     }
 

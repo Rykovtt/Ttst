@@ -259,6 +259,16 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         val doubtful = brainReady && doubtfulSteps
                         // Ответ на уточняющий вопрос — короткая фраза без команды («Ане», «в пять»): правила её не разбирают.
                         val answering = asked != null && rules is NoaIntent.Unknown
+                        // Запасной разбор по ближайшему примеру библиотеки: простая команда, которую правила и модель не осилили, — только после «да».
+                        suspend fun rescueByLibrary(phrase: String, r: NoaIntent): Boolean {
+                            val got = runCatching {
+                                NoaInterpreter(null).rescue(phrase, java.time.LocalDateTime.now(), noa.knownNames(200), noa.lastPerson != null, "")
+                            }.getOrNull()?.intent ?: return false
+                            pendingModel = ModelPending(phrase, NoaBenchmark.signature(r), NoaBenchmark.signature(got), "")
+                            lastExchange = Exchange(phrase, NoaBenchmark.signature(r), NoaBenchmark.signature(got), "")
+                            apply(Noa.Reply.Confirm(NoaDescribe.confirmQuestion(got)) { run(got, null); Noa.Reply.Say("") })
+                            return true
+                        }
                         if (rules !is NoaIntent.Unknown && !doubtful) { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                         else if (answering || brainReady) {
                             // Модель думает на фоновом потоке; если долго — показываем, что не зависли (без голоса, чтобы не мешать микрофону).
@@ -280,7 +290,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                                 smart?.intent != null -> {
                                     lastExchange = Exchange(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(smart.intent), smart.reply.orEmpty())
                                     val intent = smart.intent
-                                    if (NoaTrust.needsConfirm(intent)) {
+                                    if (smart.rescued || NoaTrust.needsConfirm(intent)) {
                                         // Модель ненадёжна: всё, что пишет, звонит, меняет данные или лезет в другие приложения, — только после «да».
                                         pendingModel = ModelPending(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(intent), smart.reply.orEmpty())
                                         apply(Noa.Reply.Confirm(NoaDescribe.confirmQuestion(intent)) { run(intent, smart.reply); Noa.Reply.Say("") })
@@ -288,10 +298,11 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                                 }
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
                                 // Модель промолчала или вернула мусор: подсказка по теме фразы вместо общего «не поняла».
+                                rules is NoaIntent.Unknown && !answering && rescueByLibrary(text, rules) -> Unit
                                 rules is NoaIntent.Unknown -> { log("unknown", text, rules, reply = app.brain.lastError.orEmpty()); say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text)) }
                                 else -> { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                             }
-                        } else if (rules is NoaIntent.Unknown) { log("unknown", text, rules); say(NoaFallback.message(text)) }
+                        } else if (rules is NoaIntent.Unknown) { if (!rescueByLibrary(text, rules)) { log("unknown", text, rules); say(NoaFallback.message(text)) } }
                         else { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                     }
                 }

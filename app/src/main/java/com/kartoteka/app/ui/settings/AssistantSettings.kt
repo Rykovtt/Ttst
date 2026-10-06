@@ -422,8 +422,8 @@ private fun QualityRows() {
         AlertDialog(
             onDismissRequest = { chooser = false },
             title = { Text(t("Проверка ИИ")) },
-            text = { Text(t("Короткая — 30 фраз, несколько минут. Полная — все эталонные фразы, может занять до получаса. Не закрывайте приложение и не блокируйте экран.")) },
-            confirmButton = { TextButton(onClick = { chooser = false; start(app, 30, scope, { progress = it }, { cancel }, { cancel = false }) { report = it.text(version()) } }) { Text(t("Короткая")) } },
+            text = { Text(t("Короткая — 100 свободных фраз через весь конвейер (правила → модель → библиотека), около 15 минут. Полная — все 289 фраз и ещё диагностика модели, может занять больше часа. Не закрывайте приложение и не блокируйте экран.")) },
+            confirmButton = { TextButton(onClick = { chooser = false; start(app, 100, scope, { progress = it }, { cancel }, { cancel = false }) { report = it.text(version()) } }) { Text(t("Короткая")) } },
             dismissButton = { TextButton(onClick = { chooser = false; start(app, 0, scope, { progress = it }, { cancel }, { cancel = false }) { report = it.text(version()) } }) { Text(t("Полная")) } },
         )
     }
