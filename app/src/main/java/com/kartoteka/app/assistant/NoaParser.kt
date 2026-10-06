@@ -60,12 +60,31 @@ sealed interface NoaIntent {
     data class PhoneSettings(val what: String?) : NoaIntent
     data object Lock : NoaIntent
     data object Backup : NoaIntent
+    /** Напоминание: [text] — о чём, [dateTime] — когда (null — время не названо); [hadTime] — названо ли точное время. */
+    data class Remind(val text: String, val dateTime: LocalDateTime?, val hadTime: Boolean = true) : NoaIntent
+    /** Время / число / день недели — отвечаем сами, без сети. [date] — о каком дне речь (null — сегодня). */
+    data class Tool(val kind: ToolKind, val date: java.time.LocalDate? = null) : NoaIntent
+    /** Калькулятор: [expression] — арифметическое выражение («2400*15/100», «sqrt(144)»), считает исполнитель. */
+    data class Calc(val expression: String) : NoaIntent
+    /** Перевод единиц: [from]/[to] — ключи (km, mi, kg, lb, c, f, l, gal, m, cm, ft, in, g, oz; валюты usd, eur, uah, rub, pln, gbp). */
+    data class Convert(val value: Double, val from: String, val to: String) : NoaIntent
+    /** Вопрос по картотеке: ближайшая запись, сколько записей, свободные окна, кто записан на время, последний контакт, дни рождения. */
+    data class Crm(val kind: CrmKind, val personQuery: String = "", val date: java.time.LocalDate? = null,
+                   val time: java.time.LocalTime? = null, val period: CrmPeriod = CrmPeriod.DAY) : NoaIntent
+    /** «Отмена», «забудь», «не надо» — бросить ожидающий вопрос/подтверждение. */
+    data object Dismiss : NoaIntent
+    /** «Повтори», «ещё раз», «что ты сказала» — повторить последний ответ или действие. */
+    data object Repeat : NoaIntent
     data class Unknown(val heard: String) : NoaIntent
 
     enum class Channel { WHATSAPP, SMS, TELEGRAM }
     enum class Data { NOTES, PHONE, ADDRESS, EMAIL, BIRTHDAY, CARD }
     enum class Topic { BIRTHDAY, PHONE, ADDRESS, SUMMARY }
     enum class Section { PEOPLE, CALENDAR, MAP, BROADCAST, SETTINGS, SERVICES }
+    enum class ToolKind { TIME, DATE, WEEKDAY }
+    enum class CrmKind { NEXT, COUNT, FREE, WHO_AT, LAST_CONTACT, BIRTHDAYS }
+    /** Период вопроса: день ([Crm.date]), неделя (date — её понедельник), месяц (date — первое число; null — ближайшие 30 дней). */
+    enum class CrmPeriod { DAY, WEEK, MONTH }
 }
 
 /**
@@ -80,12 +99,110 @@ object NoaParser {
     private val CHAIN = Regex(
         "\\s*(?:,\\s*)?(?:\\s(?:и|і|й|та|а|потом|потім|затем|после|then|and)\\s+)+" +
             "(?:(?:потом|потім|затем|then|также|тоже|сразу|ещё|еще|також|теж|одразу|відразу|заодно|also|ну)\\s+)*" +
-            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|пролож|построй|прокласти|маршрут|удал|видал|отмен|скасу|перенес|расскаж|розкаж|включ|увімкн|запуст|постав|play|закр|сверн|згорн|ответь|відповід|прочит|дождис|дочекай|пауз|громч|гучн|тише|тихіш|перемеш|перемі|скопир|скопію|перенес|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|add|call|write|send|open|show|route)\\S*)",
+            "(?=(?:добав|додай|додати|запиш|позвон|подзвон|набер|напиш|отправ|відправ|надішл|скинь|відкрий|открой|покажи|проклад|пролож|построй|прокласти|маршрут|удал|видал|отмен|скасу|перенес|расскаж|розкаж|включ|увімкн|запуст|постав|play|закр|сверн|згорн|ответь|відповід|прочит|дождис|дочекай|пауз|громч|гучн|тише|тихіш|перемеш|перемі|скопир|скопію|перенес|найди|знайди|нажми|натисн|зайди|перейди|напомн|нагадай|посчит|подсчит|порахуй|обчисл|вычисл|add|call|write|send|open|show|route)\\S*)",
         RegexOption.IGNORE_CASE,
     )
     val PRONOUNS = setOf("ей", "ему", "её", "ее", "его", "неё", "нее", "него", "ним", "ней", "їй", "йому", "її", "його", "нього", "неї", "ним", "нею", "нему", "ньому", "him", "her", "them")
 
-    fun parse(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
+    /**
+     * Имена, на которые откликается ассистент (строчные): по умолчанию Ноа / Санта / Noa. Экран задаёт своё через [setAssistantName] —
+     * имя в начале фразы («Санта, запиши Аню…») отбрасывается перед разбором.
+     */
+    private val DEFAULT_NAMES = setOf("ноа", "noa", "санта")
+    @Volatile var assistantNames: Set<String> = DEFAULT_NAMES
+        private set
+
+    /** Имя, которое выбрал пользователь, добавляется к стандартным (слова имени — по отдельности). */
+    fun setAssistantName(name: String?) {
+        val own = name.orEmpty().lowercase().split(Regex("[^\\p{L}0-9]+")).filter { it.length >= 2 }
+        assistantNames = DEFAULT_NAMES + own
+    }
+
+    /** Слова-обращения и «вода» в начале фразы: «слушай», «ну», «пожалуйста», «короче»… */
+    private val LEAD_FILLERS = setOf("слушай", "послушай", "слушайте", "послушайте", "слухай", "послухай", "слухайте", "послухайте", "эй", "гей", "хей", "hey", "hi", "hello", "okay",
+        "привет", "привіт", "здравствуй", "вітаю", "пожалуйста", "пожалуста", "будь", "ласка", "пліз", "плиз", "please", "ну", "короче", "значит", "вот", "ладно", "окей", "ок", "ok",
+        "слышь", "типа", "блин", "эм", "эээ", "ээ", "ммм", "мм", "хм", "так", "давай", "а", "и", "і", "й", "тож", "то", "тоді", "добре", "ясно", "хорошо", "итак", "отже", "таким", "образом", "слушай-ка", "слухай-но")
+    private val TAIL_FILLERS = setOf("пожалуйста", "пожалуста", "будь", "ласка", "пліз", "плиз", "please", "спасибо", "дякую", "благодарю")
+
+    private fun lev(a: String, b: String): Int {
+        val dp = IntArray(b.length + 1) { it }
+        for (i in 1..a.length) {
+            var prev = dp[0]; dp[0] = i
+            for (j in 1..b.length) {
+                val tmp = dp[j]
+                dp[j] = minOf(dp[j] + 1, dp[j - 1] + 1, prev + if (a[i - 1] == b[j - 1]) 0 else 1)
+                prev = tmp
+            }
+        }
+        return dp[b.length]
+    }
+
+    private fun bare(t: String) = t.trim(',', '.', '!', '?', ':', ';', '-', '—', '…', '«', '»', '"').lowercase()
+
+    /** Обращение к ассистенту и слова-паразиты в начале и конце фразы отбрасываем: «Санта, ну позвони маме пожалуйста» → «позвони маме». */
+    fun stripAddress(input: String, names: Collection<String> = assistantNames): String {
+        val toks = input.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.toMutableList()
+        fun isName(w: String) = names.any { n -> w == n || (n.length >= 4 && w.length >= 4 && lev(w, n) <= 1) }
+        var changed = true
+        while (changed && toks.size > 1) {
+            changed = false
+            val f = bare(toks[0])
+            // «будь добр(а)» — вежливость в два слова
+            if (f == "будь" && toks.size > 2 && bare(toks[1]).startsWith("добр")) { toks.removeAt(0); toks.removeAt(0); changed = true; continue }
+            if (f.isEmpty() || isName(f) || f in LEAD_FILLERS) { toks.removeAt(0); changed = true }
+        }
+        // «пожалуйста», «спасибо» в конце — не слова команды
+        while (toks.size > 1 && bare(toks.last()) in TAIL_FILLERS) toks.removeAt(toks.lastIndex)
+        return toks.joinToString(" ")
+    }
+
+    /** Подготовка фразы: обращение и паразиты, слипшиеся слова («впятницу»), повторы подряд («запиши запиши Аню»). */
+    fun prepare(input: String, names: Collection<String> = assistantNames): String {
+        var s = stripAddress(input, names)
+        s = NoaDateTime.fixMerged(s)
+        // Повторы подряд — заикание распознавания. В кавычках (текст сообщения) и числа словами не трогаем.
+        if (!Regex("[«\"']").containsMatchIn(s)) {
+            // Текст сообщения/заметки/напоминания диктуется как есть: «очень очень скучаю» не трогаем — чистим только начало фразы.
+            val first = bare(s.substringBefore(' '))
+            val freeText = first in MESSAGE_VERBS || first in REMIND_VERBS || first in setOf("ответь", "відповідай", "reply") ||
+                Regex("заметк|нотатк|хроник|хронік").containsMatchIn(s.lowercase())
+            val out = ArrayList<String>()
+            for ((i, t) in s.split(" ").withIndex()) {
+                val b = bare(t)
+                if (!(freeText && i > 2) && out.isNotEmpty() && b.length >= 2 && b == bare(out.last()) && b.any { it.isLetter() } && !NoaDateTime.isDateWord(b)) continue
+                out += t
+            }
+            s = out.joinToString(" ")
+        }
+        return s
+    }
+
+    /** Глаголы команд — для исправления ошибок распознавания в первом слове (запеши → запиши): сравниваем «скелеты» без гласных-близнецов. */
+    private val KNOWN_VERBS = listOf("запиши", "позвони", "подзвони", "напиши", "отправь", "открой", "найди", "перенеси", "отмени", "включи", "поставь", "добавь", "покажи",
+        "напомни", "посчитай", "прочитай", "проложи", "удали", "закрой", "запусти", "скажи", "передай", "ответь", "возьми", "выбери", "сыграй", "проиграй", "разбуди", "загугли",
+        "відкрий", "знайди", "додай", "нагадай", "порахуй", "скасуй", "видали", "увімкни", "постав", "надішли", "зателефонуй", "запишіть", "розкажи", "проклади", "відправ", "обери", "вибери",
+        "расскажи", "заблокируй", "сверни", "включить", "покажите", "переключи", "пропусти", "останови", "сними", "поищи")
+
+    private fun skeleton(w: String): String = buildString {
+        for (c in w.lowercase()) when (c) {
+            'о' -> append('а'); 'е', 'ё', 'э', 'є' -> append('и'); 'ы', 'і', 'ї' -> append('и'); 'ь', 'ъ', '\'', 'ʼ', '’' -> {}
+            else -> if (isEmpty() || last() != c) append(c)
+        }
+    }
+
+    private val VERB_SKELETONS: Map<String, String> by lazy { KNOWN_VERBS.associateBy { skeleton(it) } }
+
+    /** Первое слово — команда с «неправильной» гласной («запеши», «позвана», «открай») → верная форма. */
+    private fun canonFirst(text: String): String {
+        val i = text.indexOf(' ')
+        val first = if (i < 0) text else text.substring(0, i)
+        if (first.length < 5 || first.lowercase() in KNOWN_VERBS) return text
+        val fixed = VERB_SKELETONS[skeleton(first)] ?: return text
+        return fixed + (if (i < 0) "" else text.substring(i))
+    }
+
+    fun parse(inputRaw: String, now: LocalDateTime = LocalDateTime.now(), names: Collection<String> = assistantNames): NoaIntent {
+        val input = prepare(inputRaw, names)
         // Кавычки сохраняем как есть (в них текст), остальное — без знаков препинания.
         val parts = input.split(CHAIN).map { it.trim() }.filter { it.isNotBlank() }
         if (parts.size < 2) return parseOne(input, now)
@@ -168,12 +285,14 @@ object NoaParser {
      * кроме двоеточия/точки во времени (12:00, 12.30) и кавычек (в них — текст заметки/сообщения).
      */
     fun normalize(input: String): String = input
+        .replace(Regex("(?<=\\d),(?=\\d)"), "\u0001")   // «2,5» и «15,30» — запятая внутри числа остаётся
         .replace(Regex("[,!?;…]+"), " ")
         .replace(Regex("\\.(?!\\d)|(?<!\\d)\\."), " ")
+        .replace("\u0001", ",")
         .replace(Regex("\\s+"), " ").trim()
 
     fun parseOne(input: String, now: LocalDateTime = LocalDateTime.now()): NoaIntent {
-        val original = normalize(input)
+        val original = canonFirst(normalize(prepare(input)))
         val s = " " + original.lowercase().replace(Regex("\\s+"), " ") + " "
         if (original.isBlank()) return NoaIntent.Unknown(original)
         // «Напиши Илье, что запись переносится / поставил на паузу» — слова в тексте сообщения не команды.
@@ -185,6 +304,12 @@ object NoaParser {
             if (head != null && !has(head, "заметк", "нотатк", "хроник", "хронік", "note") &&
                 (addressee || verb !in setOf("скажи", "передай", "скажіть", "передайте"))) return message(s, original)
         }
+
+        // диалог («повтори», «отмена»), локальные инструменты, напоминания и вопросы по картотеке — раньше остальных правил
+        dialogue(s)?.let { return it }
+        tool(s, original, now)?.let { return it }
+        remind(original, s, now)?.let { return it }
+        crm(s, original, now)?.let { return it }
 
         // блокировка / копия — без человека
         if (has(s, "заблокируй", "заблокуй", "закрой сейф", "закрий сейф", "lock")) return NoaIntent.Lock
@@ -215,7 +340,7 @@ object NoaParser {
         // план на день: «что у меня сегодня», «які записи на завтра»
         if (has(s, "что у меня", "что сегодня", "что завтра", "що в мене", "що у мене", "що сьогодні", "що завтра",
                 "какие планы", "які плани", "план на", "расписан", "розклад", "кто записан", "хто записан", "кто сегодня", "хто сьогодні",
-                "какие записи", "які записи", "записи на", "agenda", "my schedule", "what do i have")) {
+                "какие записи", "які записи", "записи на", "кто у меня", "хто в мене", "хто у мене", "agenda", "my schedule", "what do i have")) {
             val d = NoaDateTime.parse(original, now)?.dateTime?.toLocalDate() ?: now.toLocalDate()
             return NoaIntent.Agenda(d)
         }
@@ -260,13 +385,15 @@ object NoaParser {
         if (has(s, "перенес", "перенест", "перенос", "передвин", "пересун", "зсунь", "посунь", "reschedule", "move")) {
             // «с пятницы на субботу» — новое время только то, что после «на»
             val to = Regex("\\s(?:с|со|з|із|from)\\s.+?\\s(?:на|to)\\s(.+)$").find(" " + original.lowercase())?.groupValues?.get(1)
-            val dt = to?.let { NoaDateTime.parse(it, now) } ?: NoaDateTime.parse(original, now)
+            val dt = to?.let { NoaDateTime.parse(it, now, workHours = true) } ?: NoaDateTime.parse(original, now, workHours = true)
             return NoaIntent.MoveAppointment(extractPerson(s), dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
         }
         val cancelWord = has(s, "отмени", "отменить", "скасуй", "скасувати", "відміни", "cancel", "call off")
         val deleteWord = has(s, "удали", "удалить", "видали", "видалити", "сотри", "зітри", "delete", "remove") ||
             (apptWord && has(s, "убери", "прибери"))
-        if ((apptWord && (cancelWord || deleteWord)) || (cancelWord && !has(s, "избранн", "обран"))) {
+        // «отмена записи Ани» — существительное: тоже отмена записи
+        val cancelNoun = has(s, "отмена", "отмену", "скасування", "відміна", "відміну")
+        if ((apptWord && (cancelWord || deleteWord || cancelNoun)) || (cancelWord && !has(s, "избранн", "обран"))) {
             val dt = NoaDateTime.parse(original, now)
             return NoaIntent.CancelAppointment(extractPerson(s), dt?.takeIf { it.hadDate }?.dateTime?.toLocalDate(), delete = deleteWord && !cancelWord)
         }
@@ -275,7 +402,7 @@ object NoaParser {
         if (has(s, "запиши", "запиш", "запис", "записать", "назнач", "book", "appointment", "schedule")) {
             val service = extractService(s)
             val person = extractPerson(s, afterCreate = true)
-            val dt = NoaDateTime.parse(original, now)
+            val dt = NoaDateTime.parse(original, now, workHours = true)
             return NoaIntent.CreateAppointment(person, dt?.dateTime, dt?.hadTime ?: false, service, confirm = false)
         }
         // позвонить
@@ -356,10 +483,14 @@ object NoaParser {
     /** Будильник, таймер, фонарик, настройки, поиск в Google, запуск приложения. */
     private fun phoneAction(s: String, original: String, now: LocalDateTime): NoaIntent? {
         if (has(s, "будильник", "разбуди", "розбуди", "alarm", "wake me")) {
-            val dt = NoaDateTime.parse(original, now)?.takeIf { it.hadTime } ?: return NoaIntent.LaunchApp("будильник")
+            // «будильник на 7», «на семь тридцать» — «на N» здесь час
+            val dt = (NoaDateTime.parse(original, now)?.takeIf { it.hadTime }
+                ?: NoaDateTime.parse(Regex(" на (?=\\d)").replace(" $original", " в "), now)?.takeIf { it.hadTime }) ?: return NoaIntent.LaunchApp("будильник")
             return NoaIntent.Alarm(dt.dateTime.hour, dt.dateTime.minute)
         }
         if (has(s, "таймер", "засеки", "засічи", "timer")) {
+            // «на пять минут», «на полчаса», «на час двадцать», «на полтора часа» — длительность словами
+            NoaDateTime.durationSeconds(original)?.takeIf { it in 1..(24 * 3600L) }?.let { return NoaIntent.Timer(it.toInt()) }
             val n = Regex("(\\d+)").find(s)?.groupValues?.get(1)?.toIntOrNull() ?: return NoaIntent.LaunchApp("часы")
             val sec = when {
                 has(s, "сек", "sec") -> n
@@ -536,6 +667,203 @@ object NoaParser {
         return NoaIntent.ShareData(extractPerson(s), data, target)
     }
 
+    // ---- диалог: «отмена», «повтори», «да/нет» ----
+
+    private val DISMISS = setOf("отмена", "отбой", "забудь", "забудьте", "забей", "неважно", "не важно", "не надо", "не нужно", "ничего", "ничего не надо", "ничего не нужно",
+        "не надо ничего", "не нужно ничего", "забудь это", "забудь про это", "забудь пожалуйста", "отмена команды", "отмени команду", "отмена отмена", "відміна", "відбій", "нічого",
+        "не треба", "нічого не треба", "не потрібно", "не важливо", "забудь це", "забудь про це", "залиш", "залиште", "відміни команду", "скасуй команду", "cancel", "never mind", "forget it", "forget that")
+
+    private val REPEAT = setOf("повтори", "повторите", "повторить", "повтори пожалуйста", "повтори еще раз", "еще раз", "ще раз", "повтори ще раз", "повтори ще", "скажи еще раз", "скажи ще раз",
+        "что ты сказала", "что ты сказал", "що ти сказала", "що ти сказав", "что ты сейчас сказала", "що ти зараз сказала", "что что", "что-что", "що що", "що-що", "повтори последнее",
+        "повтори останнє", "повтори ответ", "повтори відповідь", "повтори команду", "повтори последнюю команду", "повтори останню команду", "сделай еще раз", "зроби ще раз", "еще раз пожалуйста",
+        "что", "що", "шо", "чего", "say that again", "say again", "repeat that", "one more time", "once more", "again", "come again", "pardon", "повтори это", "повтори це", "повторяй еще раз",
+        "ну еще раз", "давай еще раз", "давай ще раз", "а ну повтори", "повтори-ка", "повтори ка", "скажи это еще раз", "скажи ще раз це")
+    private val REPEAT_RE = Regex("(?:скажи|повтори|повторите)(?: (?:мне|еще|ще|раз|это|то|же|последнее|последнюю|команду|ответ|останнє|останню|відповідь|будь|ласка))+" +
+        "|(?:повтори(?:те)? )?(?:что|що) (?:ты|ти)(?: (?:сейчас|зараз))? (?:сказал[аи]?|казал[аи]?)")
+    private val NEGATIVE_RE = Regex("^(?:не (?:надо|нужно|треба|потрібно|звони|пиши|записывай|записуй|делай|роби|ищи|открывай|відкривай|включай|вмикай|отправляй|надсилай|телефонуй|дзвони)|давай не будем|давай не будемо|не будем|не будемо|не буду)(?: |$)")
+
+    private fun dialogue(s: String): NoaIntent? {
+        val t = s.trim().replace('ё', 'е')
+        if (t in DISMISS) return NoaIntent.Dismiss
+        // «не надо записывать», «не звони», «давай не будем» — запрет: ничего не делаем
+        if (NEGATIVE_RE.containsMatchIn(t)) return NoaIntent.Dismiss
+        if (t in REPEAT || REPEAT_RE.matches(t)) return NoaIntent.Repeat
+        return null
+    }
+
+    private val YES_WORDS = setOf("да", "ага", "угу", "давай", "давайте", "конечно", "разумеется", "ладно", "хорошо", "окей", "ок", "оке", "ok", "okay", "yes", "yeah", "yep", "yup", "sure",
+        "подтверждаю", "подтверди", "подтвердить", "верно", "правильно", "точно", "именно", "так", "звичайно", "авжеж", "гаразд", "добре", "підтверджую", "підтверди", "согласна", "согласен",
+        "делай", "записывай", "оформляй", "go", "confirm", "естественно", "безусловно", "угу-угу", "да-да", "так-так", "ага-ага", "звісно", "обязательно", "обовязково")
+    private val NO_WORDS = setOf("нет", "не", "неа", "не-а", "ни", "ні", "нее", "no", "nope", "nah", "отмена", "отмени", "отмените", "отменить", "cancel", "стоп", "stop", "скасуй", "скасувати",
+        "відміна", "забудь", "відбій", "отбой", "хватит", "досить", "ненужно", "никак", "нехай", "нет-нет", "ні-ні", "no-no")
+
+    /**
+     * «Да»/«нет» в разных формулировках: true — согласие, false — отказ или поправка («нет, на пятницу», «не в три а в четыре»), null — ни то ни другое.
+     * Решает первое смысловое слово (после обращения и «ну/так»); «не …» всегда отказ.
+     */
+    fun yesNo(text: String): Boolean? {
+        val toks = normalize(stripAddress(text)).lowercase().replace('ё', 'е').split(" ").filter { it.isNotBlank() }
+        if (toks.isEmpty()) return null
+        // «ну да», «ой нет» — служебное слово перед ответом
+        val first = toks.take(3).firstOrNull { it !in setOf("ну", "а", "ой", "эм", "ммм") } ?: toks[0]
+        return when {
+            first in NO_WORDS -> false
+            first in YES_WORDS -> true
+            first.startsWith("подтвер") || first.startsWith("підтвер") || first.startsWith("конечн") || first.startsWith("давай") -> true
+            first.startsWith("отмен") || first.startsWith("скасу") -> false
+            else -> null
+        }
+    }
+
+    // ---- инструменты: время, дата, калькулятор, единицы ----
+
+    private val TIME_Q = Regex("(?:котор\\S* (?:сейчас )?час|сколько (?:сейчас )?времени|сколько время|сколько (?:сейчас )?часов|скільки (?:зараз )?часу|скільки часу|котра (?:зараз )?година|яка (?:зараз )?година|який (?:зараз )?час|what time is it|what's the time|what is the time|current time|время сейчас|час сейчас|час зараз|time now)(?= |$)")
+    private val DATE_Q = Regex("(?:какое|яке) (?:сегодня |сьогодні |завтра )?число|(?:какая|яка) (?:сегодня |сьогодні |завтра )?дата|what(?:'s| is) (?:the |today's )*date|today's date|сегодняшн\\S* (?:дата|число)|скажи дату|назови дату")
+    private val WEEKDAY_Q = Regex("(?:какой|який) (?:сегодня |сьогодні |завтра |послезавтра )?день(?: недели| тижня| буде| будет)?(?= |$)|(?:какой|який) день недели|что за день|що за день|what day(?: of the week)?(?: is it| is)?")
+    private val MATH_PATTERN = Regex("процент\\S*\\s+(?:от|від|з)|відсот\\S*\\s+(?:від|з)|корен\\S*\\s+(?:квадратн\\S*\\s+)?из|корін\\S*\\s+(?:квадратн\\S*\\s+)?(?:з|із)|квадратный корень|квадратний корінь|в квадрате|у квадраті|\\d\\s*(?:плюс|минус|мінус|умножить на|помножити на|разделить на|поділити на|\\+|\\*|×|÷)\\s*\\d")
+
+    private fun tool(s: String, original: String, now: LocalDateTime): NoaIntent? {
+        val calcTrig = has(s, "посчитай", "подсчитай", "сосчитай", "вычисли", "порахуй", "пораху", "обчисли", "calculate", "compute", "сколько будет", "скільки буде",
+            "сколько получится", "скільки вийде", "сколько это", "скільки це", "чему равно", "чому дорівнює", "реши", "how much is", "what is", "what's")
+        if (calcTrig || MATH_PATTERN.containsMatchIn(s)) NoaTools.toExpression(original)?.let { return NoaIntent.Calc(it) }
+        NoaTools.parseConversion(original)?.let { return NoaIntent.Convert(it.value, it.from, it.to) }
+        val bday = has(s, "рожд", "народж", "birth")
+        val day = { NoaDateTime.parse(original, now)?.takeIf { it.hadDate }?.dateTime?.toLocalDate() }
+        if (TIME_Q.containsMatchIn(s)) return NoaIntent.Tool(NoaIntent.ToolKind.TIME)
+        if (DATE_Q.containsMatchIn(s)) return NoaIntent.Tool(NoaIntent.ToolKind.DATE, day())
+        if (!bday && WEEKDAY_Q.containsMatchIn(s)) return NoaIntent.Tool(NoaIntent.ToolKind.WEEKDAY, day())
+        return null
+    }
+
+    // ---- напоминания ----
+
+    private val REMIND_VERBS = setOf("напомни", "напомнить", "напомните", "нагадай", "нагадайте", "нагадати", "remind")
+    private val SET_VERBS = setOf("поставь", "создай", "сделай", "добавь", "запиши", "постав", "створи", "зроби", "додай", "set", "create", "make", "add", "поставить", "создать")
+    private val REMIND_LEAD_FILL = setOf("мне", "мені", "мене", "me", "что", "що", "щоб", "чтобы", "чтоб", "про", "о", "об", "том", "that", "to", "about")
+
+    /** «Напомни завтра в 10 позвонить Ане», «нагадай через годину купити хліб», «поставь напоминание на пятницу: оплатить аренду». */
+    private fun remind(original: String, s: String, now: LocalDateTime): NoaIntent.Remind? {
+        val toks = original.split(" ").filter { it.isNotBlank() }
+        if (toks.isEmpty()) return null
+        val first = bare(toks[0])
+        val start = when {
+            first in REMIND_VERBS -> 1
+            first in SET_VERBS -> {
+                val i = toks.indexOfFirst { val b = bare(it); b.startsWith("напоминан") || b.startsWith("нагадуван") || b.startsWith("reminder") }
+                if (i < 0) return null else i + 1
+            }
+            else -> return null
+        }
+        var rest = toks.drop(start)
+        if (rest.firstOrNull()?.lowercase() == "me") rest = rest.drop(1)
+        val (text, dateStr) = splitReminder(rest)
+        val dt = if (dateStr.isBlank()) null else NoaDateTime.parse(dateStr, now, workHours = true)
+        return NoaIntent.Remind(text.replaceFirstChar { it.uppercase() }, dt?.dateTime, hadTime = dt?.hadTime ?: false)
+    }
+
+    /** Токены → (о чём, когда): время срезается с начала и с конца, середина — текст напоминания. */
+    private fun splitReminder(tokens: List<String>): Pair<String, String> {
+        var lo = 0; var hi = tokens.size
+        val dateParts = mutableListOf<String>()
+        fun dateAt(k: Int): Boolean { var j = k; while (j < hi && NoaDateTime.isDatePrep(tokens[j])) j++; return j < hi && NoaDateTime.isDateToken(tokens[j]) }
+        fun bareNumbers(range: List<String>) = range.isNotEmpty() && range.all { Regex("\\d+").matches(it.trim(',', '.')) }
+        var progress = true
+        while (progress && lo < hi) {
+            progress = false
+            while (lo + 1 < hi && bare(tokens[lo]) in REMIND_LEAD_FILL) { lo++; progress = true }
+            var j = lo; var took = false
+            while (j < hi) {
+                val t = tokens[j]
+                if (NoaDateTime.isDateToken(t)) { j++; took = true }
+                else if (NoaDateTime.isDatePrep(t) && dateAt(j + 1)) j++
+                else break
+            }
+            if (took && j > lo && !bareNumbers(tokens.subList(lo, j))) { dateParts += tokens.subList(lo, j); lo = j; progress = true }
+        }
+        var k = hi; var tail = false
+        while (k > lo) {
+            val t = tokens[k - 1]
+            if (NoaDateTime.isDateToken(t)) { k--; tail = true }
+            else if (tail && NoaDateTime.isDatePrep(t)) k--
+            else break
+        }
+        if (tail && !bareNumbers(tokens.subList(k, hi))) { dateParts += tokens.subList(k, hi); hi = k }
+        return tokens.subList(lo, hi).joinToString(" ").trim() to dateParts.joinToString(" ")
+    }
+
+    // ---- вопросы по картотеке ----
+
+    private val CRM_STOP = setOf("следующий", "следующая", "следующую", "следующее", "следующего", "наступний", "наступна", "наступну", "наступного", "ближайший", "ближайшая", "ближайшую", "ближайшие",
+        "найближчий", "найближча", "найближчу", "последний", "последнего", "последнее", "останній", "останнього", "раз", "разу", "говорил", "говорила", "говорили", "разговаривал", "разговаривала",
+        "звонил", "звонила", "писал", "писала", "общался", "общалась", "виделись", "виделся", "виделась", "видел", "видела", "встречались", "связывался", "связывалась", "говорив", "спілкувався",
+        "спілкувалася", "дзвонив", "дзвонила", "писав", "бачились", "бачив", "зустрічались", "востаннє", "мы", "ми", "меня", "мене", "со", "окно", "окна", "окошко", "вікно", "вікна", "свободен",
+        "свободна", "свободно", "свободное", "вільно", "вільний", "вільне", "время", "времени", "записей", "запись", "записи", "записан", "записаны", "записано", "записані", "запис", "клиент",
+        "клиенты", "клиентов", "клієнт", "клієнти", "клієнтів", "сколько", "скільки", "есть", "є", "ли", "скоро", "кого", "кто", "хто", "дни", "дні", "рождения", "народження", "др", "дальше", "далі",
+        "недели", "неделе", "тижні", "тижня", "месяце", "місяці", "месяца", "місяця", "этой", "цьому", "этом", "цієї", "покажи", "скажи", "назови", "назви", "list", "who", "next", "last", "time",
+        "when", "what", "how", "many", "free", "slot", "appointments", "appointment", "client", "clients", "did", "do", "talk", "talked", "spoke", "speak", "call", "called", "with", "my", "is",
+        "does", "have", "has", "i", "you", "me", "когда", "коли", "давно", "день", "дня", "какие", "які", "upcoming", "soon", "именинник", "іменинник", "именинники", "іменинники", "встреча", "зустріч",
+        "встречи", "зустрічі", "занят", "зайнят", "будет", "буде", "что", "що", "сегодня", "завтра", "ближайших", "найближчих", "ближайшем", "какая", "какое", "яке", "после", "після", "перед", "обеда", "обіду", "днем", "днём", "вечером", "утром", "человек", "люди", "людей", "людини", "чоловік", "народився", "родился", "родилась", "народилась")
+    private val APPT_WORDS = arrayOf("запис", "клиент", "клієнт", "встреч", "зустріч", "приём", "прием", "прийом", "пациент", "пацієнт", "appointment", "client", "booking", "сеанс")
+
+    private fun weekOf(dt: NoaDateTime.Parsed?, now: LocalDateTime) = NoaDateTime.weekStart((dt?.takeIf { it.hadDate }?.dateTime ?: now).toLocalDate())
+
+    /** Вопросы по картотеке: ближайшая запись, сколько записей, окна, кто записан на время, последний контакт, дни рождения. */
+    private fun crm(s: String, original: String, now: LocalDateTime): NoaIntent.Crm? {
+        if (has(s, "перенес", "перенос", "передвин", "пересун", "зсунь", "посунь", "отмен", "скасу", "відмін", "удал", "видал", "сотри", "зітри", "запиши", "запишіть", "запишите",
+                "записать", "назнач", "создай", "book", "reschedule", "cancel", "delete", "закрой", "закрий", "сверни")) return null
+        val person by lazy { extractPerson(s, extraStop = CRM_STOP) }
+        val dt by lazy { NoaDateTime.parse(original, now, workHours = true) }
+        val today = now.toLocalDate()
+        // последний раз говорили: «когда я последний раз говорил с Аней»
+        val lastWord = Regex("последн\\S*\\s+раз|останн\\S*\\s+раз|в последний|востаннє|last time|давно ли").containsMatchIn(s)
+        val contactVerb = has(s, "говорил", "разговарив", "звонил", "писал", "общал", "виделс", "виделис", "видел", "встречал", "связыв", "контакт", "спілкув", "говорив", "дзвонив",
+            "писав", "бачил", "зустрічал", "talked", "spoke", "called", "wrote", "saw", "met", "contacted", "созванивал", "переписывал")
+        if ((lastWord || has(s, "когда мы", "коли ми", "когда я", "коли я", "when did i", "when did we")) && contactVerb)
+            return NoaIntent.Crm(NoaIntent.CrmKind.LAST_CONTACT, person)
+        // дни рождения вообще (без имени): «у кого скоро день рождения»
+        if (has(s, "день рожд", "день народж", "дни рожд", "дні народж", "др ", "birthday", "именинник", "іменинник") && person.isBlank() &&
+            (has(s, "кого", "кто", "хто", "who", "скоро", "ближайш", "найближч", "какие", "які", "upcoming", "soon", "список", "покажи", "когда", "коли", "есть", "є"))) {
+            val month = has(s, "месяц", "місяц", "month")
+            val week = has(s, "недел", "тижн", "тижд", "week")
+            val nextWord = has(s, "следующ", "наступн", "next")
+            return when {
+                week -> NoaIntent.Crm(NoaIntent.CrmKind.BIRTHDAYS, period = NoaIntent.CrmPeriod.WEEK, date = weekOf(dt, now))
+                month -> NoaIntent.Crm(NoaIntent.CrmKind.BIRTHDAYS, period = NoaIntent.CrmPeriod.MONTH,
+                    date = if (nextWord) today.plusMonths(1).withDayOfMonth(1) else if (has(s, "этом", "цьому", "this")) today.withDayOfMonth(1) else null)
+                dt?.hadDate == true -> NoaIntent.Crm(NoaIntent.CrmKind.BIRTHDAYS, date = dt!!.dateTime.toLocalDate())
+                else -> NoaIntent.Crm(NoaIntent.CrmKind.BIRTHDAYS, period = NoaIntent.CrmPeriod.MONTH)
+            }
+        }
+        // кто записан на конкретное время: «кто записан на 15:00», «что у меня в пятницу в три», «занято ли завтра в 12»
+        val whoCue = has(s, "кто", "хто", "who", "что у", "що в", "що у", "что на", "що на", "что в", "занят", "зайнят", "свободно ли", "вільно чи", "free at", "busy")
+        val d = dt
+        if (whoCue && d != null && d.exactTime && !has(s, "окно", "окна", "вікно", "вікна")) {
+            // «в три» без пометки — днём: записи не бывают в 3 часа ночи
+            var time = d.dateTime.toLocalTime()
+            if (time.minute == 0 && time.hour in 1..7 && !Regex("утр|ночи|ночью|ранк|ночі|\\bam\\b").containsMatchIn(s)) time = time.plusHours(12)
+            return NoaIntent.Crm(NoaIntent.CrmKind.WHO_AT, person, date = if (d.hadDate) d.dateTime.toLocalDate() else today, time = time)
+        }
+        val apptWord = has(s, *APPT_WORDS)
+        // сколько записей
+        if (has(s, "сколько", "скільки", "how many") && apptWord && !has(s, "времени", "часу")) {
+            return when {
+                has(s, "недел", "тижн", "тижд", "week") -> NoaIntent.Crm(NoaIntent.CrmKind.COUNT, person, date = weekOf(dt, now), period = NoaIntent.CrmPeriod.WEEK)
+                has(s, "месяц", "місяц", "month") -> NoaIntent.Crm(NoaIntent.CrmKind.COUNT, person,
+                    date = (if (has(s, "следующ", "наступн", "next")) today.plusMonths(1) else today).withDayOfMonth(1), period = NoaIntent.CrmPeriod.MONTH)
+                else -> NoaIntent.Crm(NoaIntent.CrmKind.COUNT, person, date = dt?.takeIf { it.hadDate }?.dateTime?.toLocalDate() ?: today)
+            }
+        }
+        // свободные окна: «когда у меня окно завтра», «есть свободное время в пятницу»
+        val freeWord = has(s, "окно", "окна", "окошк", "вікно", "вікна", "свободн", "вільн", "free slot", "free time", "available", "window", "free on", "when am i free")
+        if (freeWord && has(s, "когда", "коли", "есть", "є", "покажи", "скажи", "when", "any", "дай", "назови", "назви", "найди", "знайди", "ли", "free"))
+            return NoaIntent.Crm(NoaIntent.CrmKind.FREE, date = dt?.takeIf { it.hadDate }?.dateTime?.toLocalDate() ?: today)
+        // ближайшая запись: «кто следующий», «когда следующая запись», «ближайший клиент»
+        val nextWord = has(s, "следующ", "наступн", "ближайш", "найближч", "next", "дальше", "далі")
+        if (nextWord && (apptWord || has(s, "кто", "хто", "who")))
+            return NoaIntent.Crm(NoaIntent.CrmKind.NEXT, person)
+        return null
+    }
+
     // ---- извлечение человека ----
 
     /** Слова-команды и служебные, которые не являются именем. */
@@ -580,6 +908,8 @@ object NoaParser {
         "мапи","мапах","карты","карти","картам","из","від","для","прочитай","прочитати","прочти","сообщения","сообщений","повідомлень","новые","новых","нові",
         "есть","є","пишет","пише","написал","написала","написав","написали","ответ","ответа","відповідь","відповіді","дождись","дочекайся",
         "read","my","messages","pm","am","скажи","скажіть","передайте",
+        // шум распознавания и слова времени: «уже», «за два дня», «на два часа позже»
+        "уже","вже","за","позже","пізніше","раньше","раніше","пол","след","отмена","отмену","скасування","відміна","відміну",
     )
 
     /** «Открой/зайди/покажи …» раздел приложения. */
@@ -599,13 +929,13 @@ object NoaParser {
         "січн","лют","берез","квітн","травн","черв","лип","серп","вересн","жовтн","листопад","грудн",
         "janu","febr","march","april","june","july","august","septemb","octob","novemb","decemb")
 
-    private fun extractPerson(sRaw: String, afterCreate: Boolean = false): String {
+    private fun extractPerson(sRaw: String, afterCreate: Boolean = false, extraStop: Set<String> = emptySet()): String {
         // Текст в кавычках (заметка/сообщение) — не имя.
         val s = sRaw.replace(Regex("[«\"'][^«»\"']*[»\"']"), " ")
         val tokens = s.trim().split(" ").filter { it.isNotBlank() }
         val words = tokens.filter { w ->
             val c = w.trim('-', '«', '»', '"').lowercase()
-            c.isNotEmpty() && c !in STOP && !c.all { ch -> ch.isDigit() } &&
+            c.isNotEmpty() && c !in STOP && c !in extraStop && !c.all { ch -> ch.isDigit() } &&
                 !Regex("\\d").containsMatchIn(c) && MONTH_WORDS.none { c.startsWith(it) } &&
                 !isWeekdayWord(c) && !NoaDateTime.isHourWord(c) && c.length > 1
         }
