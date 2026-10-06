@@ -94,6 +94,8 @@ fun AssistantSettings() {
         }
     }
 
+    if (on) QualityRows()
+
     // Журнал последнего сбоя: можно посмотреть, скопировать и прислать разработчику.
     var crash by remember { mutableStateOf(com.kartoteka.app.assistant.CrashLog.read(context)) }
     var showCrash by remember { mutableStateOf(false) }
@@ -359,5 +361,108 @@ private fun WakeRow() {
             t("Включено: на зов сфера появляется и над экраном блокировки — без PIN, ею сможет пользоваться любой, кто рядом. Выключено: при блокировке работают только «%1\$s, пауза / дальше / громче…», а на зов ассистент попросит разблокировать телефон.", name),
             locked, s.assistantWakeLocked::set,
         )
+    }
+}
+
+/** Качество ИИ: проверка модели на эталонных фразах и журнал непонятых фраз (для улучшения ассистента). */
+@Composable
+private fun QualityRows() {
+    val context = LocalContext.current
+    val app = app()
+    val s = app.settings
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val brainOn by s.assistantBrain.value.collectAsState()
+    val logOn by s.assistantLog.value.collectAsState()
+    var chooser by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var cancel by remember { mutableStateOf(false) }
+    var report by remember { mutableStateOf<String?>(null) }
+
+    fun copy(label: String, text: String) {
+        context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+        android.widget.Toast.makeText(context, t("Скопировано"), android.widget.Toast.LENGTH_SHORT).show()
+    }
+    fun version() = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
+
+    if (brainOn && app.brain.hasModel()) {
+        ActionRow(
+            Icons.Default.AutoAwesome, t("Проверка ИИ"),
+            progress?.let { t("Проверяю… %1\$s из %2\$s (нажмите, чтобы остановить)", it.first, it.second) }
+                ?: t("Прогнать эталонные фразы через модель: точность, скорость, GPU. Отчёт можно переслать разработчику."),
+        ) { if (progress == null) chooser = true else cancel = true }
+    }
+    if (chooser) {
+        AlertDialog(
+            onDismissRequest = { chooser = false },
+            title = { Text(t("Проверка ИИ")) },
+            text = { Text(t("Короткая — 30 фраз, несколько минут. Полная — все эталонные фразы, может занять до получаса. Не закрывайте приложение и не блокируйте экран.")) },
+            confirmButton = { TextButton(onClick = { chooser = false; start(app, 30, scope, { progress = it }, { cancel }, { cancel = false }) { report = it.text(version()) } }) { Text(t("Короткая")) } },
+            dismissButton = { TextButton(onClick = { chooser = false; start(app, 0, scope, { progress = it }, { cancel }, { cancel = false }) { report = it.text(version()) } }) { Text(t("Полная")) } },
+        )
+    }
+    report?.let { text ->
+        AlertDialog(
+            onDismissRequest = { report = null },
+            title = { Text(t("Отчёт проверки ИИ")) },
+            text = { androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(text, style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.heightIn(max = 380.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) } },
+            confirmButton = { TextButton(onClick = { copy("report", text); report = null }) { Text(t("Скопировать")) } },
+            dismissButton = { TextButton(onClick = { report = null }) { Text(t("Закрыть")) } },
+        )
+    }
+
+    // ---- журнал непонятых фраз ----
+    ToggleRow(
+        Icons.Default.RecordVoiceOver, t("Журнал непонятых фраз"),
+        t("Копит на телефоне фразы, которые ассистент не понял или понял неверно («это не то»). Само ничего не отправляется — вы сами копируете журнал и пересылаете."),
+        logOn, s.assistantLog::set,
+    )
+    var showLog by remember { mutableStateOf(false) }
+    var logState by remember { mutableStateOf(com.kartoteka.app.assistant.NoaFeedbackLog.entries(context)) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(logOn) {
+        logState = com.kartoteka.app.assistant.NoaFeedbackLog.entries(context)
+        onPauseOrDispose { }
+    }
+    if (logOn || logState.isNotEmpty()) {
+        ActionRow(Icons.Default.Apps, t("Показать журнал"), t("Записей: %1\$s", logState.size)) {
+            logState = com.kartoteka.app.assistant.NoaFeedbackLog.entries(context); showLog = true
+        }
+    }
+    if (showLog) {
+        var names by remember { mutableStateOf(emptyList<String>()) }
+        LaunchedEffect(Unit) {
+            names = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching { app.repository.getAll().flatMap { listOf(it.person.displayName, it.person.firstName, it.person.lastName, it.person.nickname, it.person.middleName) } }.getOrDefault(emptyList())
+            }
+        }
+        val hidden = com.kartoteka.app.assistant.NoaFeedbackLog.export(logState, names, hideNames = true)
+        AlertDialog(
+            onDismissRequest = { showLog = false },
+            title = { Text(t("Журнал непонятых фраз")) },
+            text = { Column {
+                Text(if (logState.isEmpty()) t("Пока пусто.") else hidden, style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.heightIn(max = 300.dp).verticalScroll(androidx.compose.foundation.rememberScrollState()))
+                if (logState.isNotEmpty()) TextButton(onClick = { copy("log", com.kartoteka.app.assistant.NoaFeedbackLog.export(logState, names, hideNames = false)) }) { Text(t("Скопировать с именами")) }
+            } },
+            confirmButton = { TextButton(onClick = { copy("log", hidden); showLog = false }, enabled = logState.isNotEmpty()) { Text(t("Скопировать (имена скрыты)")) } },
+            dismissButton = { TextButton(onClick = { com.kartoteka.app.assistant.NoaFeedbackLog.clear(context); logState = emptyList(); showLog = false }) { Text(t("Очистить")) } },
+        )
+    }
+}
+
+private fun start(
+    app: com.kartoteka.app.KartotekaApp, count: Int, scope: kotlinx.coroutines.CoroutineScope,
+    progress: (Pair<Int, Int>?) -> Unit, cancelled: () -> Boolean, reset: () -> Unit,
+    done: (com.kartoteka.app.assistant.NoaBenchmark.Report) -> Unit,
+) {
+    reset()
+    scope.launch {
+        progress(0 to 1)
+        val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.kartoteka.app.assistant.NoaBenchmark.run(app, count, { a, b -> progress(a to b) }, cancelled)
+        }
+        progress(null)
+        done(r)
     }
 }

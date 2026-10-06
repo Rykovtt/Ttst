@@ -84,6 +84,13 @@ class NoaListener(private val context: Context) {
             .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
             .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
             .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L)
+        // Имена людей, услуги и группы из книжки: распознаватель (Android 13+) чаще узнаёт их в речи.
+        if (android.os.Build.VERSION.SDK_INT >= 33 && NoaHints.list.isNotEmpty()) {
+            runCatching {
+                intent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(NoaHints.list))
+                intent.putExtra(RecognizerIntent.EXTRA_ENABLE_BIASING_DEVICE_CONTEXT, true)
+            }
+        }
         runCatching { r.startListening(intent) }.onFailure { finish { safe { cb.onError(null) } } }
     }
 

@@ -55,6 +55,8 @@ sealed interface NoaIntent {
     data class ReadMessages(val personQuery: String, val wait: Boolean = false) : NoaIntent
     /** На главный экран («закрой приложение», «сверни»). */
     data object GoHome : NoaIntent
+    /** «Это не то», «ты неправильно поняла» — человек говорит, что прошлая команда понята неверно. */
+    data object Wrong : NoaIntent
     /** «Закрой вейз»: свернуть и остановить приложение телефона по названию. */
     data class CloseApp(val name: String) : NoaIntent
     data class PhoneSettings(val what: String?) : NoaIntent
@@ -321,6 +323,9 @@ object NoaParser {
         if (has(s, "закрой приложение", "закрий застосунок", "закрий додаток", "закрой его", "закрий його", "сверни", "згорни", "на главный экран",
                 "на головний екран", "домой экран", "выйди", "вийди", "go home", "close app", "закрой вотсап", "закрой телеграм", "закрий") ||
             s.trim() == "закрой") return NoaIntent.GoHome
+        // «это не то», «ты не так поняла», «неправильно» — отметить прошлую команду как ошибочную
+        if (has(s, "это не то", "це не те", "не то ты", "ты не так", "ти не так", "ты неправильно", "ти неправильно", "ты ошиб", "ти помил", "неправильно поняла", "неправильно зрозуміла",
+                "не так поняла", "не так зрозуміла", "that's wrong", "wrong command") || s.trim() in setOf("неправильно", "не то", "не те", "ошибка", "помилка")) return NoaIntent.Wrong
         media(s)?.let { return it }
         messages(s, original)?.let { return it }
         if (has(s, "резервную копию", "бэкап", "бекап", "backup", "копію", "копию")) return NoaIntent.Backup

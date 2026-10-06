@@ -78,6 +78,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
 
     /** Начать слушать (разрешение уже есть). */
     fun startListening() {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) { NoaHints.refresh(app) }
         NoaVoice.stop(); speaking = false; live = ""
         session.start(events)
     }
@@ -173,6 +174,21 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         deferredNav?.invoke(); deferredNav = null
     }
 
+    /** Что было с последней фразой: для «это не то» и журнала. */
+    private data class Exchange(val phrase: String, val rules: String, val model: String, val reply: String)
+    private var lastExchange: Exchange? = null
+
+    private fun log(kind: String, phrase: String, rules: NoaIntent?, model: NoaIntent? = null, reply: String = "") =
+        logSig(kind, phrase, NoaBenchmark.signature(rules), if (model != null) NoaBenchmark.signature(model) else "", reply)
+
+    private fun logSig(kind: String, phrase: String, rules: String, model: String, reply: String) {
+        if (!app.settings.assistantLog.value.value) return
+        NoaFeedbackLog.add(context, kind, phrase, rules, model, reply)
+    }
+
+    /** После «это не то» следующая фраза — как надо было; записываем её рядом с ошибочной. */
+    private var fixFor: String? = null
+
     /** Последний обмен (моя реплика и фраза человека до текущей) — короткая память для модели. */
     private fun recentDialogue(): String =
         bubbles.dropLast(1).takeLast(2).joinToString("\n") { (if (it.mine) "User" else "Noa") + ": " + it.text }
@@ -191,6 +207,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         NoaParser.setAssistantName(app.settings.assistantName.value.value)
         scope.launch {
             thinking = true; syncWake()
+            fixFor?.let { logSig("fix", text, "", "", "к фразе: $it"); fixFor = null }
             runCatching {
                 // Поправка к ожидающей записи («нет, на пятницу», «отмена», «повтори») — раньше, чем обычное «нет».
                 val yn = NoaParser.yesNo(text)
@@ -204,6 +221,12 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         // Правила — точные и мгновенные: если поняли команду (в т.ч. цепочку), выполняем их разбор.
                         // Модель — только для того, что правила не поняли: свободная речь и разговор.
                         val rules = NoaParser.parse(text)
+                        if (rules is NoaIntent.Wrong) {
+                            // «Это не то»: отмечаем прошлую команду в журнале (если он включён) и просим сказать, как надо.
+                            lastExchange?.let { logSig("wrong", it.phrase, it.rules, it.model, it.reply); fixFor = it.phrase }
+                            say(t("Поняла, что ошиблась. Скажите, что нужно было сделать, — я запишу."), expectAnswer = true)
+                            return@runCatching
+                        }
                         // Правила поняли команду, но человека с таким именем нет («запись ильи рыкова») —
                         // скорее всего, фраза разобрана неверно: пусть её прочитает модель.
                         val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)
@@ -223,7 +246,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         val doubtful = brainReady && doubtfulSteps
                         // Ответ на уточняющий вопрос — короткая фраза без команды («Ане», «в пять»): правила её не разбирают.
                         val answering = asked != null && rules is NoaIntent.Unknown
-                        if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
+                        if (rules !is NoaIntent.Unknown && !doubtful) { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                         else if (answering || brainReady) {
                             // Модель думает на фоновом потоке; если долго — показываем, что не зависли (без голоса, чтобы не мешать микрофону).
                             val slow = scope.launch { delay(7000); if (thinking && answer.isBlank()) answer = t("Думаю…") }
@@ -241,18 +264,18 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                             when {
                                 // Не хватило данных — спрашиваем и ждём ответ (микрофон остаётся открытым).
                                 smart?.ask != null -> { pendingAsk = smart.ask; say(smart.ask.question, expectAnswer = true) }
-                                smart?.intent != null -> run(smart.intent, smart.reply)
+                                smart?.intent != null -> { log("model", text, rules, smart.intent); lastExchange = Exchange(text, NoaBenchmark.signature(rules), NoaBenchmark.signature(smart.intent), smart.reply.orEmpty()); run(smart.intent, smart.reply) }
                                 !smart?.reply.isNullOrBlank() -> say(smart!!.reply!!)
                                 // Модель промолчала или вернула мусор: подсказка по теме фразы вместо общего «не поняла».
-                                rules is NoaIntent.Unknown -> say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text))
-                                else -> run(rules)
+                                rules is NoaIntent.Unknown -> { log("unknown", text, rules); say(NoaFallback.message(if (answering) asked!!.phrase + " " + text else text)) }
+                                else -> { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                             }
-                        } else if (rules is NoaIntent.Unknown) say(NoaFallback.message(text))
-                        else run(rules)
+                        } else if (rules is NoaIntent.Unknown) { log("unknown", text, rules); say(NoaFallback.message(text)) }
+                        else { lastExchange = Exchange(text, NoaBenchmark.signature(rules), "", ""); run(rules) }
                     }
                 }
             }.onSuccess { flash = OrbState.SUCCESS }
-                .onFailure { flash = OrbState.ERROR; say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
+                .onFailure { flash = OrbState.ERROR; log("error", text, null, null, it.message.orEmpty()); say(t("Что-то пошло не так. Попробуйте ещё раз.")) }
             thinking = false; syncWake()
             delay(700); flash = null
         }

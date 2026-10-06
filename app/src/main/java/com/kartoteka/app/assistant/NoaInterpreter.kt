@@ -38,13 +38,18 @@ data class Interpreted(val intent: NoaIntent?, val reply: String?, val ask: Clar
 class NoaInterpreter(private val brain: LlmBrain?) {
     /** Подмена вызова модели (тесты). */
     internal var askOverride: (suspend (String) -> String?)? = null
+    /** Последний «сырой» ответ модели — для проверки ИИ и журнала. */
+    @Volatile var lastRaw: String? = null
+        private set
 
     suspend fun interpret(
         userText: String, now: LocalDateTime = LocalDateTime.now(), names: List<String> = emptyList(), context: String = "",
         history: String = "", hasLast: Boolean = false, pending: Clarify? = null,
     ): Interpreted? {
         val p = prompt(userText, now, names, context, history, pending)
+        lastRaw = null
         val raw = askOverride?.invoke(p) ?: brain?.ask(p) ?: return null
+        lastRaw = raw
         val phrase = if (pending != null) pending.phrase + " " + userText else userText
         return fromJson(raw, phrase, now, names, hasLast, context, (pending?.round ?: 0) + 1)
     }

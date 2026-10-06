@@ -179,6 +179,7 @@ class Noa(private val app: KartotekaApp) {
                 if (a == null) Reply.Say(t("Не нашла на телефоне приложение «%1\$s».", intent.name))
                 else Reply.Do(t("Закрываю %1\$s.", a.label)) { ctx -> PhoneActions.close(ctx, a) }
             }
+            is NoaIntent.Wrong -> Reply.Say(t("Поняла, что ошиблась. Скажите, что нужно было сделать, — я запишу."))
             is NoaIntent.GoHome -> {
                 if (System.currentTimeMillis() - chatOpenedAt < 15_000) Reply.Say(t("Чат открыт — нажмите «Отправить», потом закрою по команде."))
                 else Reply.Do(t("Готово.")) { ctx ->
