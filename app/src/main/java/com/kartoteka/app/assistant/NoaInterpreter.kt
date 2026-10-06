@@ -896,7 +896,10 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     internal fun prompt(user: String, now: LocalDateTime, names: List<String>, context: String, history: String, pending: Clarify?): String {
         val phrase = user.replace("\"", "'").replace(Regex("\\s+"), " ").trim().take(NoaContext.COMMAND_MAX)
         val date = "%04d-%02d-%02d %s".format(now.year, now.monthValue, now.dayOfMonth, now.dayOfWeek.name.lowercase())
-        val stat = staticPrompt(langFor(if (pending != null) pending.phrase + " " + user else user))
+        val said0 = if (pending != null) pending.phrase + " " + user else user
+        // Три самых похожих проверенных примера вместо статичных: модель повторяет форму ответа (поля, действие, краткость).
+        val examples = NoaExamples.pick(said0, EXAMPLES_K, names).map { it.line }.filter { it.length <= EXAMPLE_MAX }
+        val stat = staticPrompt(langFor(said0)) + if (examples.isEmpty()) "" else "\nExamples:\n" + examples.joinToString("\n")
         val tail = "\nToday: $date\nCommand: \"$phrase\"\nJSON:"
         val room = NoaContext.TOTAL_CHARS - stat.length - tail.length - 1
         // Названные во фразе люди — первыми: если список режется, их имена останутся.
@@ -934,28 +937,20 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             }.getOrDefault("Russian")
         }
 
+        /** Сколько похожих примеров кладём в промпт и сколько символов максимум в одном. */
+        internal const val EXAMPLES_K = 3
+        internal const val EXAMPLE_MAX = 170
+
         /**
-         * Неизменная часть промпта (без списка людей, данных и самой фразы). Окно у модели маленькое,
-         * поэтому правила — по-английски и коротко (так дешевле в токенах), примеры — на русском и украинском;
-         * порядок: схема, правила, примеры (последними — их малая модель повторяет лучше всего).
+         * Неизменная часть промпта (без примеров, списка людей, данных и самой фразы). Окно у модели маленькое, поэтому
+         * правила — по-английски и очень коротко; примеры добавляет [prompt] из библиотеки по сходству с командой.
+         * Модель просим отвечать только компактным JSON: чем короче ответ, тем быстрее он на процессоре.
          */
         internal fun staticPrompt(lang: String = "Russian"): String = """
-JSON only: {"actions":[...],"reply":"...","ask":"..."}
-Actions: call(person) message(person,channel:whatsapp|telegram|sms,text) reply(person,text) read_messages(person,wait)
-create_appointment(person,service) cancel_appointment(person) delete_appointment(person) move_appointment(person)
-add_note(person,text) open_person(person) select(person) favorite(person,on) find(query) person_info(person,topic)
-open_contact(person,contact) share_data(person,data,to) route(person|place,kind:home|work,app:waze|google|yandex|organic) agenda(day)
-play_music(query,app,playlist,artist,shuffle,video,channel) media(control:pause|resume|next|prev|shuffle_on|shuffle_off|repeat|stop|louder|quieter|what)
-launch_app(app) web_search(query) remind(text) alarm(time) timer(minutes) flashlight(on) phone_settings(what) open_screen(section) go_home lock
-Rules: person as spelled in People. Several commands → actions in order. Message text = words to send, not to you. About people or appointments answer ONLY from Data; not in Data → say it is not in the book; never invent names, phones, dates. Person or time unclear → actions [] and ask one short question. Chat or general knowledge → actions [] + short friendly reply. reply, ask: $lang, max 2 sentences.
-напиши Ане что опоздаю и сверни → {"actions":[{"action":"message","person":"Аня","text":"опоздаю"},{"action":"go_home"}],"reply":"Пишу"}
-увімкни плейлист для бігу вперемішку → {"actions":[{"action":"play_music","query":"для бігу","playlist":true,"shuffle":true}],"reply":"Вмикаю"}
-позвони → {"actions":[],"ask":"Кому позвонить?"}
-відповідай Олегу буду о сьомій → {"actions":[{"action":"reply","person":"Олег","text":"буду о сьомій"}],"reply":"Відповідаю"}
-когда Аня была у меня? → {"actions":[],"reply":"<from Data>"}
-який у Тараса телефон? (нет в Data) → {"actions":[],"reply":"Тараса немає в записах."}
-сколько будет 15% от 80? → {"actions":[],"reply":"12."}
-как дела? → {"actions":[],"reply":"Отлично! Чем помочь?"}
+JSON only, compact: {"actions":[{"action":"…"}]}. Add "reply" only for chat/answers, "ask" only to clarify.
+Actions: call message(channel,text) reply read_messages create_appointment(service) cancel_appointment delete_appointment move_appointment add_note open_person select favorite find(query) person_info open_contact share_data route agenda play_music(query) media(control) launch_app(app) close_app(app) web_search(query) remind alarm timer flashlight phone_settings open_screen(section) go_home lock backup
+open_screen=section of this app; launch_app=phone app; close_app=named app; go_home=close, no name; lock=lock this app. find=search the book; person_info=question about a person. move_appointment is ONE action. Time, math, apps are not web_search.
+Rules: person only if the user said a name or pronoun; never copy names from People. Date/time are read from the command. Several commands → actions in order. About people or appointments answer ONLY from Data; not in Data → say it is not in the book; never invent. Unclear → actions [] + ask. Chat → actions [] + reply. reply, ask: $lang, max 2 sentences.
 """.trim()
     }
 }

@@ -34,6 +34,8 @@ open class KartotekaApp : Application(), coil.ImageLoaderFactory {
         com.kartoteka.app.assistant.CrashLog.install(this)
         // Процесс языковой модели («:brain») — только модель, без напоминаний, карт и фоновой работы приложения.
         if (isBrainProcess()) return
+        // Библиотека примеров для промпта модели лежит в assets (examples.tsv); читается лениво при первом запросе.
+        com.kartoteka.app.assistant.NoaExamples.assets = assets
         com.kartoteka.app.i18n.I18n.init(this, com.kartoteka.app.i18n.UiLang.of(settings.uiLang.value.value))
         // Карта OpenStreetMap: кэш плиток во внутренней памяти приложения.
         Configuration.getInstance().apply {
