@@ -394,13 +394,12 @@ class NoaBrainTest {
     @Test fun staticPromptSizeAndShape() {
         val p = NoaInterpreter.staticPrompt("Ukrainian")
         println("static prompt = ${p.length} chars")
-        assertTrue("${p.length}", p.length < 2000)
+        assertTrue("${p.length}", p.length < 1250)
         assertTrue(p.contains("Ukrainian"))
-        // порядок: схема → правила → примеры (последними)
-        assertTrue(p.indexOf("JSON only") < p.indexOf("Rules:") && p.indexOf("Rules:") < p.indexOf("→ {\"actions\""))
+        // порядок: схема → правила; примеры статикой не лежат — их подбирает prompt() по сходству с командой
+        assertTrue(p.indexOf("JSON only") < p.indexOf("Rules:"))
         for (w in listOf("not in the book", "never invent", "ask")) assertTrue(w, p.contains(w))
-        assertTrue("8–10 примеров", p.lines().count { it.contains(" → {") } in 8..10)
-        assertTrue(p.lines().count { it.contains(" → {") && Regex("[іїє]").containsMatchIn(it.substringBefore(" → ")) } >= 2)
+        assertEquals("статичных примеров нет", 0, p.lines().count { it.contains(" → {") })
     }
 
     @Test fun promptStaysInsideBudgetEvenWithHugeInputs() {

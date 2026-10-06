@@ -1,0 +1,816 @@
+открой настройки	{"actions":[{"action":"open_screen","section":"settings"}]}
+таймер на 25 хвилин	{"actions":[{"action":"timer","minutes":25}]}
+закрой телеграм пожалуйста	{"actions":[{"action":"close_app","app":"телеграм"}]}
+скопіюй адресу Івана	{"actions":[{"action":"share_data","person":"Іван","data":"address","to":"clipboard"}]}
+привет	{"actions":[],"reply":"Привет! Чем помочь?"}
+расскажи про Максима	{"actions":[{"action":"person_info","person":"Максим"}]}
+какой номер у Анны	{"actions":[{"action":"person_info","person":"Анна","topic":"phone"}]}
+відповідай Тарасу вже їду	{"actions":[{"action":"reply","person":"Тарас","text":"вже їду"}]}
+продовжуй	{"actions":[{"action":"media","control":"resume"}]}
+перенеси запис Олега на післязавтра о 10	{"actions":[{"action":"move_appointment","person":"Олег"}]}
+запусти приложение калькулятор	{"actions":[{"action":"launch_app","app":"калькулятор"}]}
+открой фейсбук Бабушки	{"actions":[{"action":"open_contact","person":"Бабушка","contact":"facebook"}]}
+додай Андрію нотатку просила знижку	{"actions":[{"action":"add_note","person":"Андрій","text":"просила знижку"}]}
+відкрий Марію	{"actions":[{"action":"open_person","person":"Марія"}]}
+перенеси Івана на інший час	{"actions":[{"action":"move_appointment","person":"Іван"}]}
+запиши Івана на післязавтра на 18:30	{"actions":[{"action":"create_appointment","person":"Іван"}]}
+що пише Назар	{"actions":[{"action":"read_messages","person":"Назар"}]}
+поставь Океан Эльзы	{"actions":[{"action":"play_music","query":"океан эльзы","artist":true}]}
+перенеси Сашу с пятницы на субботу	{"actions":[{"action":"move_appointment","person":"Саша"}]}
+возьми контакт Лену	{"actions":[{"action":"select","person":"Лена"}]}
+выключи вайфай	{"actions":[{"action":"phone_settings","what":"wifi"}]}
+найди всех клиентов на букву А	{"actions":[{"action":"find","query":"всех клиентов букву"}]}
+Ноа, слухай, зателефонуй Олегу	{"actions":[{"action":"call","person":"Олег"}]}
+перенеси ближайшую запись Ани на пятницу	{"actions":[{"action":"move_appointment","person":"Аня"}]}
+позвони Ане на мобильный	{"actions":[{"action":"call","person":"Аня"}]}
+який телефон у Каті	{"actions":[{"action":"person_info","person":"Катя","topic":"phone"}]}
+поставь будильник	{"actions":[],"ask":"На какое время поставить будильник?"}
+напомни что завтра в 10 встреча с Олегом	{"actions":[{"action":"remind","text":"Встреча с Олегом"}]}
+що в мене сьогодні	{"actions":[{"action":"agenda"}]}
+набери Тараса	{"actions":[{"action":"call","person":"Тарас"}]}
+скопируй номер Димы	{"actions":[{"action":"share_data","person":"Дима","data":"phone","to":"clipboard"}]}
+покажи календарь	{"actions":[{"action":"open_screen","section":"calendar"}]}
+сыграй Время и Стекло	{"actions":[{"action":"play_music","query":"время стекло","artist":true}]}
+перенеси Марию на понедельник	{"actions":[{"action":"move_appointment","person":"Мария"}]}
+где живёт Саша	{"actions":[{"action":"person_info","person":"Саша","topic":"address"}]}
+закрий застосунок будь ласка	{"actions":[{"action":"go_home"}]}
+открой фейсбук Наташи	{"actions":[{"action":"open_contact","person":"Наташа","contact":"facebook"}]}
+запишите Катю послезавтра на 18:30	{"actions":[{"action":"create_appointment","person":"Катя"}]}
+напомни завтра утром позвонить в банк	{"actions":[{"action":"remind","text":"Позвонить в банк"}]}
+заблокируй экран	{"actions":[{"action":"lock"}]}
+lock the app	{"actions":[{"action":"lock"}]}
+так запиши Свету на завтра в 12	{"actions":[{"action":"create_appointment","person":"Света"}]}
+напиши Илье что запись переносится на завтра	{"actions":[{"action":"message","person":"Илья","text":"Запись переносится на завтра"}]}
+пошукай Ірину	{"actions":[{"action":"find","query":"Ірина"}]}
+lock	{"actions":[{"action":"lock"}]}
+відкрий профіль Ганни	{"actions":[{"action":"open_person","person":"Ганна"}]}
+пошукай Івана	{"actions":[{"action":"find","query":"Іван"}]}
+напомни мне через 20 минут проверить духовку	{"actions":[{"action":"remind","text":"Проверить духовку"}]}
+отмени запись Лены и напиши ему что буду через 10 минут	{"actions":[{"action":"cancel_appointment","person":"Лена"},{"action":"message","person":"Лена","text":"Буду через 10 минут"}]}
+відповідай Ірині запізнююсь	{"actions":[{"action":"reply","person":"Ірина","text":"запізнююсь"}]}
+как дела	{"actions":[],"reply":"Отлично! Чем помочь?"}
+заблокируй приложение	{"actions":[{"action":"lock"}]}
+напиши Папе что уже еду и сверни	{"actions":[{"action":"message","person":"Папа","text":"Уже еду"},{"action":"go_home"}]}
+запусти gmail пожалуйста	{"actions":[{"action":"launch_app","app":"gmail"}]}
+flashlight off	{"actions":[{"action":"flashlight","on":false}]}
+запиши Аню на завтра о пів на третю	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+поїхали додому	{"actions":[{"action":"route","kind":"home"}]}
+message Anna on telegram that see you tomorrow	{"actions":[{"action":"message","person":"Anna","channel":"telegram","text":"See you tomorrow"}]}
+call Sam please	{"actions":[{"action":"call","person":"Sam"}]}
+скопируй заметки Димы в блокнот	{"actions":[{"action":"share_data","person":"Дима","data":"notes","to":"notes"}]}
+коли день народження у Андрія	{"actions":[{"action":"person_info","person":"Андрій","topic":"birthday"}]}
+прибери Івана з обраного	{"actions":[{"action":"favorite","person":"Іван","on":false}]}
+розкажи про Соломію	{"actions":[{"action":"person_info","person":"Соломія"}]}
+найди в гугле погода в Киеве	{"actions":[{"action":"web_search","query":"погода в киеве"}]}
+які записи у п'ятницю	{"actions":[{"action":"agenda"}]}
+найди клиентов киева	{"actions":[{"action":"find","query":"клиентов киева"}]}
+що пише Оля	{"actions":[{"action":"read_messages","person":"Оля"}]}
+фонарик	{"actions":[{"action":"flashlight"}]}
+отмени встречу с Лены на понедельник	{"actions":[{"action":"cancel_appointment","person":"Лена"}]}
+напомни в субботу в 12 дня встретиться с Олей	{"actions":[{"action":"remind","text":"Встретиться с Олей"}]}
+напиши Сергею что спасибо большое и поставь будильник на 7	{"actions":[{"action":"message","person":"Сергей","text":"Спасибо большое"},{"action":"alarm","time":"07:00"}]}
+открой Лену и добавь заметку просила скидку	{"actions":[{"action":"open_person","person":"Лена"},{"action":"add_note","person":"Лена","text":"просила скидку"}]}
+read messages from Mike	{"actions":[{"action":"read_messages","person":"Mike"}]}
+что написала Папа	{"actions":[{"action":"read_messages","person":"Папа"}]}
+столица Франции	{"actions":[],"reply":"Париж."}
+открой почту Димы	{"actions":[{"action":"open_contact","person":"Дима","contact":"email"}]}
+найди клиента Наташу	{"actions":[{"action":"find","query":"Наташа"}]}
+нагадай мені зателефонувати лікарю	{"actions":[{"action":"remind","text":"Зателефонувати лікарю"}]}
+постав таймер на десять хвилин	{"actions":[{"action":"timer","minutes":10}]}
+включи альбом Океан Ельзи	{"actions":[{"action":"play_music","query":"океан ельзи","playlist":true}]}
+убери Лену из избранного	{"actions":[{"action":"favorite","person":"Лена","on":false}]}
+включи не беспокоить на час	{"actions":[{"action":"play_music","query":"не беспокоить час","artist":true}]}
+перенеси Олега на среду и напиши ей что купи хлеб	{"actions":[{"action":"move_appointment","person":"Олег"},{"action":"message","person":"Олег","text":"Купи хлеб"}]}
+нагадай завтра о 10 зателефонувати лікарю	{"actions":[{"action":"remind","text":"Зателефонувати лікарю"}]}
+який телефон у Богдана	{"actions":[{"action":"person_info","person":"Богдан","topic":"phone"}]}
+додай Тата в обране	{"actions":[{"action":"favorite","person":"Тато"}]}
+как тебя зовут	{"actions":[],"reply":"Я Ноа, ваш помощник."}
+потуши фонарик	{"actions":[{"action":"flashlight"}]}
+открой gmail	{"actions":[{"action":"launch_app","app":"gmail"}]}
+book Mike for a haircut tomorrow at 3pm	{"actions":[{"action":"create_appointment","person":"Mike","service":"стрижк"}]}
+ответь Саше купи хлеб	{"actions":[{"action":"reply","person":"Саша","text":"купи хлеб"}]}
+close waze	{"actions":[{"action":"close_app","app":"waze"}]}
+позвони Илье Рыкову	{"actions":[{"action":"call","person":"Илья"}]}
+проложи маршрут к Володе и позвони	{"actions":[{"action":"route","person":"Володя"},{"action":"call","person":"Володя"}]}
+запиши Диму на завтра	{"actions":[{"action":"create_appointment","person":"Дима"}]}
+покажи розклад завтра	{"actions":[{"action":"agenda"}]}
+wake me up at 6:30	{"actions":[{"action":"alarm","time":"06:30"}]}
+открой список клиентов	{"actions":[{"action":"open_screen","section":"people"}]}
+удали запись Тани на субботу	{"actions":[{"action":"delete_appointment","person":"Таня"}]}
+напомни в 18:00 забрать детей	{"actions":[{"action":"remind","text":"Забрать детей"}]}
+напиши Наташе в телеграм	{"actions":[{"action":"message","person":"Наташа","channel":"telegram"}]}
+таймер на час двадцать минут	{"actions":[{"action":"timer","hours":1,"minutes":20}]}
+пошукай в інтернеті расписание поездов	{"actions":[{"action":"web_search","query":"расписание поездов"}]}
+открой инстаграм Тани	{"actions":[{"action":"open_contact","person":"Таня","contact":"instagram"}]}
+як справи	{"actions":[],"reply":"Чудово! Чим допомогти?"}
+открой карточку Андрея	{"actions":[{"action":"open_person","person":"Андрей"}]}
+відкрий Соломію і додай нотатку повернув борг	{"actions":[{"action":"open_person","person":"Соломія"},{"action":"add_note","person":"Соломія","text":"повернув борг"}]}
+возьми контакт Аню	{"actions":[{"action":"select","person":"Аня"}]}
+перенеси запись Саши в пятницу в 12:30	{"actions":[{"action":"move_appointment","person":"Саша"}]}
+сколько лет Тане	{"actions":[{"action":"person_info","person":"Таня","topic":"birthday"}]}
+запеши Аню на завтра	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+добавь заметку	{"actions":[],"ask":"К кому добавить заметку?"}
+открой контакт Сергея	{"actions":[{"action":"open_person","person":"Сергей"}]}
+скопируй номер Ольги	{"actions":[{"action":"share_data","person":"Ольга","data":"phone","to":"clipboard"}]}
+отмени запись Ани на следующий вторник	{"actions":[{"action":"cancel_appointment","person":"Аня"}]}
+добавь заметку Ане: любит латте	{"actions":[{"action":"add_note","person":"Аня","text":"любит латте"}]}
+найди песню Despacito	{"actions":[{"action":"play_music","query":"despacito"}]}
+открой сайт Ани	{"actions":[{"action":"open_contact","person":"Аня","contact":"website"}]}
+добавь заметку Максиму: новый номер телефона	{"actions":[{"action":"add_note","person":"Максим","text":"новый номер телефона"}]}
+go home	{"actions":[{"action":"go_home"}]}
+запиши Дашу на массаж завтра в 10	{"actions":[{"action":"create_appointment","person":"Даша"}]}
+какие записи на завтра	{"actions":[{"action":"agenda"}]}
+включи не беспокоить	{"actions":[{"action":"play_music","query":"не беспокоить","artist":true}]}
+создай напоминание позвонить в банк на 12 октября	{"actions":[{"action":"remind","text":"Позвонить в банк"}]}
+Ну а открой контакт Илья Рыков	{"actions":[{"action":"open_person","person":"Илья"}]}
+скасуй найближчий запис Тата	{"actions":[{"action":"cancel_appointment","person":"Тато"}]}
+включи свет на телефоне	{"actions":[{"action":"play_music","query":"свет телефоне","artist":true}]}
+what do i have next tuesday	{"actions":[{"action":"agenda"}]}
+Открой контакт Илья рыков	{"actions":[{"action":"open_person","person":"Илья"}]}
+поставь на паузу и позвони Илье	{"actions":[{"action":"media","control":"pause"},{"action":"call","person":"Илья"}]}
+скажи Илье что я опаздываю	{"actions":[{"action":"message","person":"Илья","text":"Я опаздываю"}]}
+Ноа ну напиши Илье что опаздываю	{"actions":[{"action":"message","person":"Илья","text":"Опаздываю"}]}
+загугли кто такой Илон Маск	{"actions":[{"action":"web_search","query":"кто такой илон маск"}]}
+скажи Назару що передзвоню пізніше	{"actions":[{"action":"message","person":"Назар","text":"Передзвоню пізніше"}]}
+перенеси заметки Ильи Рыкова в блокнот	{"actions":[{"action":"share_data","person":"Илья","data":"notes","to":"notes"}]}
+выбери Петю	{"actions":[{"action":"select","person":"Петя"}]}
+открой сайт Маши	{"actions":[{"action":"open_contact","person":"Маша","contact":"website"}]}
+таймер на 15 минут	{"actions":[{"action":"timer","minutes":15}]}
+закрой приложение браузер	{"actions":[{"action":"close_app","app":"браузер"}]}
+позвони Папе и напиши ей что перезвоню позже	{"actions":[{"action":"call","person":"Папа"},{"action":"message","person":"Папа","text":"Перезвоню позже"}]}
+наступного вівторка о 17:00	{"actions":[{"action":"media","control":"next"}]}
+напиши Пете в вотсап «буду через час»	{"actions":[{"action":"message","person":"Петя","text":"буду через час"}]}
+будильник в 15:00	{"actions":[{"action":"alarm","time":"15:00"}]}
+які записи на суботу	{"actions":[{"action":"agenda"}]}
+таймер на полчаса	{"actions":[{"action":"timer","minutes":30}]}
+launch spotify	{"actions":[{"action":"launch_app","app":"spotify"}]}
+додай запис Богдана на тату завтра на 18:30	{"actions":[{"action":"create_appointment","person":"Богдан","service":"тату"}]}
+позвони	{"actions":[],"ask":"Кому позвонить?"}
+будильник в 10	{"actions":[{"action":"alarm","time":"10:00"}]}
+проклади маршрут через вейз на роботу	{"actions":[{"action":"route","kind":"work","app":"waze"}]}
+закрий поточний застосунок	{"actions":[{"action":"close_app","app":"поточний застосунок"}]}
+увімкни музику в спотіфай	{"actions":[{"action":"play_music","query":"","app":"спотіфай"}]}
+прочитай повідомлення від Богдана	{"actions":[{"action":"read_messages","person":"Богдан"}]}
+відкрий інстаграм Олі	{"actions":[{"action":"open_contact","person":"Оля","contact":"instagram"}]}
+open the calendar	{"actions":[{"action":"open_screen","section":"calendar"}]}
+видали запис Олени завтра	{"actions":[{"action":"delete_appointment","person":"Олена"}]}
+загугли курс доллара	{"actions":[{"action":"web_search","query":"курс доллара"}]}
+напомни мне в полдень позвонить	{"actions":[{"action":"remind","text":"Позвонить"}]}
+выбери клиента Володю	{"actions":[{"action":"select","person":"Володя"}]}
+заведи будильник на 6:30	{"actions":[{"action":"alarm","time":"06:30"}]}
+открой мне калькулятор	{"actions":[{"action":"launch_app","app":"калькулятор"}]}
+перенеси Олега на следующую пятницу	{"actions":[{"action":"move_appointment","person":"Олег"}]}
+покажи календар	{"actions":[{"action":"open_screen","section":"calendar"}]}
+надішли Олі повідомлення що буду за десять хвилин	{"actions":[{"action":"message","person":"Оля","text":"Буду за десять хвилин"}]}
+открой вайбер Юли	{"actions":[{"action":"open_contact","person":"Юля","contact":"viber"}]}
+добавь Петю в избранное	{"actions":[{"action":"favorite","person":"Петя"}]}
+таймер на пять минут	{"actions":[{"action":"timer","minutes":5}]}
+отмени запись Лены и напиши ему что уже еду	{"actions":[{"action":"cancel_appointment","person":"Лена"},{"action":"message","person":"Лена","text":"Уже еду"}]}
+погугли расписание поездов	{"actions":[{"action":"web_search","query":"расписание поездов"}]}
+запиши Диму на послезавтра в 10 и отправь ей подтверждение	{"actions":[{"action":"create_appointment","person":"Дима"},{"action":"message","person":"Дима","about_appointment":true}]}
+найди клиента Игоря	{"actions":[{"action":"find","query":"Игорь"}]}
+де живе Іван	{"actions":[{"action":"person_info","person":"Іван","topic":"address"}]}
+сделай потише	{"actions":[{"action":"media","control":"quieter"}]}
+розкажи анекдот	{"actions":[],"reply":"Приходить програміст до лікаря..."}
+відкрий розсилки	{"actions":[{"action":"open_screen","section":"broadcast"}]}
+відкрий застосунок spotify	{"actions":[{"action":"launch_app","app":"spotify"}]}
+отмени запись на воскресенье для Папы	{"actions":[{"action":"cancel_appointment","person":"Папа"}]}
+отмени встречу с Даши послезавтра	{"actions":[{"action":"cancel_appointment","person":"Даша"}]}
+поставь на паузу и закрой ватсап	{"actions":[{"action":"media","control":"pause"},{"action":"close_app","app":"ватсап"}]}
+открой настройки батареи	{"actions":[{"action":"open_screen","section":"settings"}]}
+включи Imagine Dragons в спотифай	{"actions":[{"action":"play_music","query":"imagine dragons","app":"спотифай"}]}
+book Kate tomorrow at 3pm	{"actions":[{"action":"create_appointment","person":"Kate"}]}
+едем к Саше	{"actions":[{"action":"route","person":"Саша"}]}
+поставь таймер на пять минут	{"actions":[{"action":"timer","minutes":5}]}
+набери Машу	{"actions":[{"action":"call","person":"Маша"}]}
+скасуй запис Ольги	{"actions":[{"action":"cancel_appointment","person":"Ольга"}]}
+разбуди меня завтра в 8	{"actions":[{"action":"alarm","time":"08:00"}]}
+напиши Олегу що куплю хліб та подзвоню ввечері	{"actions":[{"action":"message","person":"Олег","text":"Куплю хліб та подзвоню ввечері"}]}
+додай Тараса в обране	{"actions":[{"action":"favorite","person":"Тарас"}]}
+напиши Андрію що купи хліб і постав таймер на 5 хвилин	{"actions":[{"action":"message","person":"Андрій","text":"Купи хліб"},{"action":"timer","minutes":5}]}
+Санта напомни мне завтра в 7 вечера купить подарок	{"actions":[{"action":"remind","text":"Купить подарок"}]}
+поїхали додому через вейз	{"actions":[{"action":"route","kind":"home","app":"waze"}]}
+таймер на час	{"actions":[{"action":"timer","hours":1}]}
+закрий це	{"actions":[{"action":"go_home"}]}
+google weather in London	{"actions":[{"action":"web_search","query":"weather in london"}]}
+read my messages	{"actions":[{"action":"read_messages"}]}
+Запиши, Илья Рыков, на завтра на 12:00.	{"actions":[{"action":"create_appointment","person":"Илья"}]}
+що написала Марія	{"actions":[{"action":"read_messages","person":"Марія"}]}
+запиши пожалуйста Свету Петрову на маникюр в субботу в 12	{"actions":[{"action":"create_appointment","person":"Света","service":"маникюр"}]}
+таймер на две минуты	{"actions":[{"action":"timer","minutes":2}]}
+закрой приложение вейз	{"actions":[{"action":"close_app","app":"вейз"}]}
+знайди Тараса	{"actions":[{"action":"find","query":"Тарас"}]}
+поищи в интернете как приготовить пасту	{"actions":[{"action":"web_search","query":"как приготовить пасту"}]}
+открой ютуб мьюзик	{"actions":[{"action":"launch_app","app":"ютуб мьюзик"}]}
+увімкни ліхтарик	{"actions":[{"action":"flashlight"}]}
+навигатор на работу	{"actions":[{"action":"route","kind":"work"}]}
+згорни	{"actions":[{"action":"go_home"}]}
+їдемо до Тараса	{"actions":[{"action":"route","person":"Тарас"}]}
+заблокуй	{"actions":[{"action":"lock"}]}
+найди в интернете новости спорта	{"actions":[{"action":"web_search","query":"новости спорта"}]}
+перенеси Наташу с пятницы на субботу	{"actions":[{"action":"move_appointment","person":"Наташа"}]}
+зайди в карточку Олега	{"actions":[{"action":"open_person","person":"Олег"}]}
+Скопируй номер Анны и вставь его в гугл	{"actions":[{"action":"share_data","person":"Анна","data":"phone","to":"google"}]}
+выйди на главную	{"actions":[{"action":"go_home"}]}
+постав таймер на 25 хвилин	{"actions":[{"action":"timer","minutes":25}]}
+таймер на полтора часа	{"actions":[{"action":"timer","hours":1,"minutes":30}]}
+скопіюй номер Лізи	{"actions":[{"action":"share_data","person":"Ліза","data":"phone","to":"clipboard"}]}
+запиши Свету Петрову на двадцатое в пятнадцать ноль ноль	{"actions":[{"action":"create_appointment","person":"Света"}]}
+зроби бекап	{"actions":[{"action":"backup"}]}
+відкрий пошту Олени	{"actions":[{"action":"open_contact","person":"Олена","contact":"email"}]}
+добавь Ольге заметку просила скидку	{"actions":[{"action":"add_note","person":"Ольга","text":"просила скидку"}]}
+закрой приложение инстаграм	{"actions":[{"action":"close_app","app":"инстаграм"}]}
+переключи трек	{"actions":[{"action":"media","control":"next"}]}
+закрой waze пожалуйста	{"actions":[{"action":"close_app","app":"waze"}]}
+подзвони Олені Петренко	{"actions":[{"action":"call","person":"Олена"}]}
+закрий застосунок youtube	{"actions":[{"action":"close_app","app":"youtube"}]}
+добавь Наташу в избранное	{"actions":[{"action":"favorite","person":"Наташа"}]}
+найди Бабушку	{"actions":[{"action":"find","query":"Бабушка"}]}
+будильник на 6:45	{"actions":[{"action":"alarm","time":"06:45"}]}
+їдемо до Олега на роботу	{"actions":[{"action":"route","person":"Олег","kind":"work"}]}
+поставь таймер на полчаса	{"actions":[{"action":"timer","minutes":30}]}
+добавь Таню в избранное	{"actions":[{"action":"favorite","person":"Таня"}]}
+скажи Сергею что перезвоню позже	{"actions":[{"action":"message","person":"Сергей","text":"Перезвоню позже"}]}
+что пишет Наташа	{"actions":[{"action":"read_messages","person":"Наташа"}]}
+знайди в інтернеті новости спорта	{"actions":[{"action":"web_search","query":"новости спорта"}]}
+додай нотатку Мамі: алергія на цитрусові	{"actions":[{"action":"add_note","person":"Мама","text":"алергія на цитрусові"}]}
+постав будильник на 18:30	{"actions":[{"action":"alarm","time":"18:30"}]}
+хто в мене записаний на понеділок	{"actions":[{"action":"agenda"}]}
+включи плейлист вперемешку	{"actions":[{"action":"media","control":"shuffle_on"}]}
+какой телефон у Бабушки	{"actions":[{"action":"person_info","person":"Бабушка","topic":"phone"}]}
+таймер на півгодини	{"actions":[{"action":"timer","minutes":30}]}
+закрой гугл карты	{"actions":[{"action":"close_app","app":"гугл карты"}]}
+запиши Игоря на среду в 10 и добавь заметку аллергия на цитрусы	{"actions":[{"action":"create_appointment","person":"Игорь"},{"action":"add_note","person":"Игорь","text":"аллергия на цитрусы"}]}
+зайди в профиль Ани и добавь заметку купила новый телефон	{"actions":[{"action":"open_person","person":"Аня"},{"action":"add_note","person":"Аня","text":"купила новый телефон"}]}
+що в мене завтра	{"actions":[{"action":"agenda"}]}
+включи мой плейлист для бега	{"actions":[{"action":"play_music","query":"для бега","playlist":true}]}
+remind me to buy flowers	{"actions":[{"action":"remind","text":"Buy flowers"}]}
+включи на ютубе клип Шакиры	{"actions":[{"action":"play_music","query":"ютубе шакиры","video":true}]}
+проклади маршрут до Назара і подзвони	{"actions":[{"action":"route","person":"Назар"},{"action":"call","person":"Назар"}]}
+сохрани резервную копию	{"actions":[{"action":"backup"}]}
+открой настройки wi-fi	{"actions":[{"action":"phone_settings","what":"wifi"}]}
+когда день рождения у Марии	{"actions":[{"action":"person_info","person":"Мария","topic":"birthday"}]}
+добавь заметку Илье: аллергия на цитрусы	{"actions":[{"action":"add_note","person":"Илья","text":"аллергия на цитрусы"}]}
+скасуй запис Богдана	{"actions":[{"action":"cancel_appointment","person":"Богдан"}]}
+скажи Коле что перезвоню позже	{"actions":[{"action":"message","person":"Коля","text":"Перезвоню позже"}]}
+open spotify	{"actions":[{"action":"launch_app","app":"spotify"}]}
+запиши Аню на пятницу в 12 и напиши ей что жду её	{"actions":[{"action":"create_appointment","person":"Аня"},{"action":"message","person":"Аня","text":"Жду её"}]}
+запиши маму на тату 12 октября в 18:00	{"actions":[{"action":"create_appointment","person":"Мама","service":"тату"}]}
+відкрий карту	{"actions":[{"action":"open_screen","section":"map"}]}
+проложи путь к Анне	{"actions":[{"action":"route","person":"Анна"}]}
+постав будильник на 6:30	{"actions":[{"action":"alarm","time":"06:30"}]}
+открой вайбер Ольги	{"actions":[{"action":"open_contact","person":"Ольга","contact":"viber"}]}
+відкрий інстаграм Тараса	{"actions":[{"action":"open_contact","person":"Тарас","contact":"instagram"}]}
+постав будильник о 15:00	{"actions":[{"action":"alarm","time":"15:00"}]}
+открой илья рыков	{"actions":[{"action":"open_person","person":"Илья"}]}
+прибавь звук	{"actions":[{"action":"media","control":"louder"}]}
+скасуй запис Соломії	{"actions":[{"action":"cancel_appointment","person":"Соломія"}]}
+включи музыку в случайном порядке	{"actions":[{"action":"play_music","query":"","shuffle":true}]}
+открой почту Маши	{"actions":[{"action":"open_contact","person":"Маша","contact":"email"}]}
+покажи карточку Даши	{"actions":[{"action":"open_person","person":"Даша"}]}
+постав Монатик	{"actions":[{"action":"play_music","query":"монатик","artist":true}]}
+открой настройки блютуз	{"actions":[{"action":"phone_settings","what":"bluetooth"}]}
+напомни	{"actions":[],"ask":"О чём напомнить?"}
+Ноа давай дальше	{"actions":[{"action":"media","control":"next"}]}
+подзвони Олені будь ласка	{"actions":[{"action":"call","person":"Олена"}]}
+открой	{"actions":[],"ask":"Что открыть?"}
+скопіюй номер Соломії	{"actions":[{"action":"share_data","person":"Соломія","data":"phone","to":"clipboard"}]}
+скасуй найближчий запис Каті	{"actions":[{"action":"cancel_appointment","person":"Катя"}]}
+расскажи шутку	{"actions":[],"reply":"Почему программисты любят темноту? Потому что свет привлекает баги."}
+Открой профиль Илья рыков и проложи мне на карте через Waze к нему маршрут	{"actions":[{"action":"open_person","person":"Илья"},{"action":"route","person":"Илья","app":"waze"}]}
+продолжи	{"actions":[{"action":"media","control":"resume"}]}
+выключи блютуз	{"actions":[{"action":"phone_settings","what":"bluetooth"}]}
+відповідай Ірині вже їду	{"actions":[{"action":"reply","person":"Ірина","text":"вже їду"}]}
+нагадай зателефонувати лікарю	{"actions":[{"action":"remind","text":"Зателефонувати лікарю"}]}
+найди адрес Мамы в гугле	{"actions":[{"action":"find","query":"Мама"}]}
+знайди в інтернеті как приготовить пасту	{"actions":[{"action":"web_search","query":"как приготовить пасту"}]}
+нагадай мені завтра зранку полити квіти	{"actions":[{"action":"remind","text":"Полити квіти"}]}
+включи любую песню Bohemian Rhapsody	{"actions":[{"action":"play_music","query":"bohemian rhapsody","artist":true}]}
+ответь Коле что жду тебя у входа	{"actions":[{"action":"reply","person":"Коля","text":"жду тебя у входа"}]}
+едем к Наташе	{"actions":[{"action":"route","person":"Наташа"}]}
+отмени ближайшую запись Ани	{"actions":[{"action":"cancel_appointment","person":"Аня"}]}
+открой приложение spotify	{"actions":[{"action":"launch_app","app":"spotify"}]}
+book Anna for tomorrow at 3 pm	{"actions":[{"action":"create_appointment","person":"Anna"}]}
+отмена записи Ани на завтра	{"actions":[{"action":"cancel_appointment","person":"Аня"}]}
+зайди на ютуб и включи любое видео с канала ределион	{"actions":[{"action":"play_music","query":"","app":"ютуб","video":true,"channel":"ределион"}]}
+запиши Илья Рыков на завтра на 12	{"actions":[{"action":"create_appointment","person":"Илья"}]}
+а возьми контакт Илья рыков и запиши его на завтра на 12:00 и также сразу Отправь ему об этом в вотсап	{"actions":[{"action":"select","person":"Илья"},{"action":"create_appointment","person":"Илья"},{"action":"message","person":"Илья","about_appointment":true}]}
+вернись на главный экран	{"actions":[{"action":"go_home"}]}
+проклади маршрут додому	{"actions":[{"action":"route","kind":"home"}]}
+відкрий Назара і додай нотатку повернув борг	{"actions":[{"action":"open_person","person":"Назар"},{"action":"add_note","person":"Назар","text":"повернув борг"}]}
+відповідай Богдану буду за десять хвилин	{"actions":[{"action":"reply","person":"Богдан","text":"буду за десять хвилин"}]}
+перенеси встречу Анны в пятницу	{"actions":[{"action":"move_appointment","person":"Анна"}]}
+проложи маршрут к Бабушке через вейз	{"actions":[{"action":"route","person":"Бабушка","app":"waze"}]}
+включи фонарь	{"actions":[{"action":"flashlight"}]}
+закрой вейз пожалуйста	{"actions":[{"action":"close_app","app":"вейз"}]}
+сколько будет 15% от 80	{"actions":[],"reply":"12."}
+скопируй адрес Сергея в буфер	{"actions":[{"action":"share_data","person":"Сергей","data":"address","to":"clipboard"}]}
+добавь Бабушке заметку вернул долг	{"actions":[{"action":"add_note","person":"Бабушка","text":"вернул долг"}]}
+скопіюй адресу Назара	{"actions":[{"action":"share_data","person":"Назар","data":"address","to":"clipboard"}]}
+проклади маршрут до Каті	{"actions":[{"action":"route","person":"Катя"}]}
+запишите Аню на понедельник в 11:15	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+напиши в вотсап Ане что я на месте	{"actions":[{"action":"message","person":"Аня","text":"Я на месте"}]}
+поставь блокировку	{"actions":[{"action":"play_music","query":"блокировку","artist":true}]}
+перенеси Наташу на среду в 15:00	{"actions":[{"action":"move_appointment","person":"Наташа"}]}
+запиши Ольгу на приём завтра	{"actions":[{"action":"create_appointment","person":"Ольга"}]}
+відповідай Каті що запізнююсь	{"actions":[{"action":"reply","person":"Катя","text":"запізнююсь"}]}
+открой профиль Тани	{"actions":[{"action":"open_person","person":"Таня"}]}
+найди в интернете курс доллара	{"actions":[{"action":"web_search","query":"курс доллара"}]}
+что пишет Дима	{"actions":[{"action":"read_messages","person":"Дима"}]}
+открой раздел настройки	{"actions":[{"action":"open_screen","section":"settings"}]}
+добавь заметку Ане «переехала во Львов»	{"actions":[{"action":"add_note","person":"Аня","text":"переехала во Львов"}]}
+dial John	{"actions":[{"action":"call","person":"John"}]}
+запусти ватсап пожалуйста	{"actions":[{"action":"launch_app","app":"ватсап"}]}
+найди в картотеке Диму	{"actions":[{"action":"find","query":"картотеке диму"}]}
+увімкни Монатик і проклади маршрут додому	{"actions":[{"action":"play_music","query":"монатик","artist":true},{"action":"route","kind":"home"}]}
+выбери Ольгу	{"actions":[{"action":"select","person":"Ольга"}]}
+следующая песня	{"actions":[{"action":"media","control":"next"}]}
+предыдущий трек	{"actions":[{"action":"media","control":"prev"}]}
+открой профиль Ани и позвони ей	{"actions":[{"action":"open_person","person":"Аня"},{"action":"call","person":"Аня"}]}
+сделай тише	{"actions":[{"action":"media","control":"quieter"}]}
+створи резервну копію	{"actions":[{"action":"backup"}]}
+набери номер Ольги	{"actions":[{"action":"call","person":"Ольга"}]}
+поехали на работу	{"actions":[{"action":"route","kind":"work"}]}
+открой карточку Максима и позвони	{"actions":[{"action":"open_person","person":"Максим"},{"action":"call","person":"Максим"}]}
+set a timer for 30 minutes	{"actions":[{"action":"timer","minutes":30}]}
+открой Юлю и построй маршрут	{"actions":[{"action":"open_person","person":"Юля"},{"action":"route","person":"Юля"}]}
+открой YouTube Music и включи любую песню Rammstein	{"actions":[{"action":"play_music","query":"rammstein","app":"youtube music","artist":true}]}
+добавь заметку Ане: скопировать фото	{"actions":[{"action":"add_note","person":"Аня","text":"скопировать фото"}]}
+прибери Олену з обраного	{"actions":[{"action":"favorite","person":"Олена","on":false}]}
+позвони Юле и сверни	{"actions":[{"action":"call","person":"Юля"},{"action":"go_home"}]}
+подзвони Тарасу	{"actions":[{"action":"call","person":"Тарас"}]}
+сделай заметку про Папу: аллергия на цитрусы	{"actions":[{"action":"add_note","person":"Папа","text":"аллергия на цитрусы"}]}
+що ти вмієш	{"actions":[],"reply":"Дзвоню, пишу, записую клієнтів, веду маршрут."}
+скопируй заметки Сергея в блокнот	{"actions":[{"action":"share_data","person":"Сергей","data":"notes","to":"notes"}]}
+запиши Анну на завтра в 12:00	{"actions":[{"action":"create_appointment","person":"Анна"}]}
+який номер у Андрія	{"actions":[{"action":"person_info","person":"Андрій","topic":"phone"}]}
+скасуй запис Тараса на 12 жовтня	{"actions":[{"action":"cancel_appointment","person":"Тарас"}]}
+добавь заметку Ане: ха ха ха смешной	{"actions":[{"action":"add_note","person":"Аня","text":"ха ха ха смешной"}]}
+открой календарь пожалуйста	{"actions":[{"action":"open_screen","section":"calendar"}]}
+поищи в гугле новости спорта	{"actions":[{"action":"web_search","query":"новости спорта"}]}
+прочитай повідомлення від Олі	{"actions":[{"action":"read_messages","person":"Оля"}]}
+скопируй адрес Игоря в буфер	{"actions":[{"action":"share_data","person":"Игорь","data":"address","to":"clipboard"}]}
+пересунь запис Марії на четвер	{"actions":[{"action":"move_appointment","person":"Марія"}]}
+напиши Папе в вайбер что уже еду и закрой приложение	{"actions":[{"action":"message","person":"Папа","text":"Уже еду"},{"action":"go_home"}]}
+открой вайбер Анны	{"actions":[{"action":"open_contact","person":"Анна","contact":"viber"}]}
+напиши Сергею что буду через 10 минут и включи музыку	{"actions":[{"action":"message","person":"Сергей","text":"Буду через 10 минут"},{"action":"play_music","query":""}]}
+поставь будильник в 9 утра	{"actions":[{"action":"alarm","time":"09:00"}]}
+закрий spotify	{"actions":[{"action":"close_app","app":"spotify"}]}
+відкрий waze	{"actions":[{"action":"launch_app","app":"waze"}]}
+відкрий мій календар	{"actions":[{"action":"open_screen","section":"calendar"}]}
+відкрий пошту Ганни	{"actions":[{"action":"open_contact","person":"Ганна","contact":"email"}]}
+найди Ольгу	{"actions":[{"action":"find","query":"Ольга"}]}
+какой адрес у Ильи	{"actions":[{"action":"person_info","person":"Илья","topic":"address"}]}
+play Мумий Тролль	{"actions":[{"action":"play_music","query":"мумий тролль","artist":true}]}
+заблокуй екран	{"actions":[{"action":"lock"}]}
+создай резервную копию	{"actions":[{"action":"backup"}]}
+знайди клієнта Ганну	{"actions":[{"action":"find","query":"Ганна"}]}
+включи видео Джамала на ютубе	{"actions":[{"action":"play_music","query":"джамала","app":"ютубе","video":true}]}
+закрий застосунок viber	{"actions":[{"action":"close_app","app":"viber"}]}
+розклад на завтра	{"actions":[{"action":"agenda"}]}
+напомни через пятнадцать минут выключить плиту	{"actions":[{"action":"remind","text":"Выключить плиту"}]}
+открой страницу Кати в инстаграм	{"actions":[{"action":"open_contact","person":"Катя","contact":"instagram"}]}
+закрий застосунок вейз	{"actions":[{"action":"close_app","app":"вейз"}]}
+атмени запись Ани	{"actions":[{"action":"cancel_appointment","person":"Аня"}]}
+увімкни відео з каналу Вар'ят	{"actions":[{"action":"play_music","query":"","video":true,"channel":"вар'ят"}]}
+наступного вівторка	{"actions":[{"action":"media","control":"next"}]}
+додай нотатку Лізі: любить каву	{"actions":[{"action":"add_note","person":"Ліза","text":"любить каву"}]}
+запиши Тараса на суботу о 10 і надішли їй підтвердження	{"actions":[{"action":"create_appointment","person":"Тарас"},{"action":"message","person":"Тарас","about_appointment":true}]}
+відкрий календар будь ласка	{"actions":[{"action":"open_screen","section":"calendar"}]}
+иди на главный экран	{"actions":[{"action":"go_home"}]}
+открой мой календарь	{"actions":[{"action":"open_screen","section":"calendar"}]}
+напиши Маше в вотсап что уже еду и закрой приложение	{"actions":[{"action":"message","person":"Маша","text":"Уже еду"},{"action":"go_home"}]}
+открой страницу Бабушки в инстаграм	{"actions":[{"action":"open_contact","person":"Бабушка","contact":"instagram"}]}
+прочитай сообщения от Анны	{"actions":[{"action":"read_messages","person":"Анна"}]}
+включи песню Мумий Тролль	{"actions":[{"action":"play_music","query":"мумий тролль"}]}
+позвони Даше и сверни	{"actions":[{"action":"call","person":"Даша"},{"action":"go_home"}]}
+открой Бабушку и добавь заметку вернул долг	{"actions":[{"action":"open_person","person":"Бабушка"},{"action":"add_note","person":"Бабушка","text":"вернул долг"}]}
+включи Монатик и построй маршрут домой	{"actions":[{"action":"play_music","query":"монатик","artist":true},{"action":"route","kind":"home"}]}
+візьми контакт Тараса	{"actions":[{"action":"select","person":"Тарас"}]}
+разбуди меня в 14	{"actions":[{"action":"alarm","time":"14:00"}]}
+проложи маршрут до Ани и позвони ей	{"actions":[{"action":"route","person":"Аня"},{"action":"call","person":"Аня"}]}
+кто у меня записан на 12 октября	{"actions":[{"action":"agenda"}]}
+возьми Машу	{"actions":[{"action":"select","person":"Маша"}]}
+проложи маршрут к Маше и позвони	{"actions":[{"action":"route","person":"Маша"},{"action":"call","person":"Маша"}]}
+закрой всё на пин	{"actions":[{"action":"close_app","app":"всё на пин"}]}
+напомни мне завтра в 10:30 утра позвонить врачу	{"actions":[{"action":"remind","text":"Позвонить врачу"}]}
+їдемо до Мами	{"actions":[{"action":"route","person":"Мама"}]}
+перенеси запис Марії на середу о 10	{"actions":[{"action":"move_appointment","person":"Марія"}]}
+turn off the flashlight	{"actions":[{"action":"flashlight","on":false}]}
+когда день рождения у Димы	{"actions":[{"action":"person_info","person":"Дима","topic":"birthday"}]}
+напиши Папе в вотсап что завтра не смогу	{"actions":[{"action":"message","person":"Папа","text":"Завтра не смогу"}]}
+відкрий Тата	{"actions":[{"action":"open_person","person":"Тато"}]}
+какой день рождения у Ани	{"actions":[{"action":"person_info","person":"Аня","topic":"birthday"}]}
+проложи маршрут к Олегу на работу через waze	{"actions":[{"action":"route","person":"Олег","kind":"work","app":"waze"}]}
+запиши Аню на завтра завтра в 12	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+открой Машу и построй маршрут	{"actions":[{"action":"open_person","person":"Маша"},{"action":"route","person":"Маша"}]}
+найди в картотеке Наташу	{"actions":[{"action":"find","query":"картотеке наташу"}]}
+Санта позвони маме	{"actions":[{"action":"call","person":"Мама"}]}
+открой ютуб мьюзик и включи Rammstein в случайном порядке	{"actions":[{"action":"play_music","query":"rammstein","app":"ютуб мьюзик","artist":true,"shuffle":true}]}
+15-го следующего месяца	{"actions":[{"action":"media","control":"next"}]}
+напиши Івану що буду за десять хвилин	{"actions":[{"action":"message","person":"Іван","text":"Буду за десять хвилин"}]}
+що зараз грає	{"actions":[{"action":"media","control":"what"}]}
+поставь на паузу и закрой youtube	{"actions":[{"action":"media","control":"pause"},{"action":"close_app","app":"youtube"}]}
+перенеси Бабушку на другое время	{"actions":[{"action":"move_appointment","person":"Бабушка"}]}
+гучніше	{"actions":[{"action":"media","control":"louder"}]}
+отмени ближайшую запись Марии	{"actions":[{"action":"cancel_appointment","person":"Мария"}]}
+покажи расписание на среду	{"actions":[{"action":"agenda"}]}
+включи песню Coldplay вперемешку	{"actions":[{"action":"play_music","query":"coldplay","shuffle":true}]}
+знайди Олю	{"actions":[{"action":"find","query":"Оля"}]}
+відкрий застосунок телеграм	{"actions":[{"action":"launch_app","app":"телеграм"}]}
+открой настройки телефона	{"actions":[{"action":"phone_settings"}]}
+засеки 15 минут	{"actions":[{"action":"timer","minutes":15}]}
+включи waze	{"actions":[{"action":"play_music","query":"waze","artist":true}]}
+send John a message that see you tomorrow	{"actions":[{"action":"message","person":"John","text":"See you tomorrow"}]}
+перенеси Юлю на другое время	{"actions":[{"action":"move_appointment","person":"Юля"}]}
+закрий гугл карты	{"actions":[{"action":"close_app","app":"гугл карты"}]}
+поставь таймер	{"actions":[],"ask":"На сколько поставить таймер?"}
+кто у меня сегодня после обеда	{"actions":[{"action":"agenda"}]}
+заблокуй застосунок	{"actions":[{"action":"lock"}]}
+прибери Олега з обраного	{"actions":[{"action":"favorite","person":"Олег","on":false}]}
+как дела у тебя	{"actions":[],"reply":"Всё хорошо, спасибо!"}
+удали запись Юли	{"actions":[{"action":"delete_appointment","person":"Юля"}]}
+наступна пісня	{"actions":[{"action":"media","control":"next"}]}
+remind me tomorrow at 10 to pick up the package	{"actions":[{"action":"remind","text":"Pick up the package"}]}
+вибери клієнта Івана	{"actions":[{"action":"select","person":"Іван"}]}
+таймер на 1 час 30 минут	{"actions":[{"action":"timer","hours":1,"minutes":30}]}
+що я знаю про Анну	{"actions":[{"action":"person_info","person":"Анна"}]}
+таймер на годину	{"actions":[{"action":"timer","hours":1}]}
+убери Дашу из избранного	{"actions":[{"action":"favorite","person":"Даша","on":false}]}
+увімкни Океан Ельзи	{"actions":[{"action":"play_music","query":"океан ельзи","artist":true}]}
+напиши Володе что буду через 10 минут и сверни	{"actions":[{"action":"message","person":"Володя","text":"Буду через 10 минут"},{"action":"go_home"}]}
+відкрий налаштування wi-fi	{"actions":[{"action":"phone_settings","what":"wifi"}]}
+что написала Ольга	{"actions":[{"action":"read_messages","person":"Ольга"}]}
+поставь будильник на 5:45	{"actions":[{"action":"alarm","time":"05:45"}]}
+будильник на 7 ранку	{"actions":[{"action":"alarm","time":"07:00"}]}
+позвони маме и включи музыку	{"actions":[{"action":"call","person":"Мама"},{"action":"play_music","query":""}]}
+кто у меня записан завтра	{"actions":[{"action":"agenda"}]}
+открой страницу Оли в инстаграм	{"actions":[{"action":"open_contact","person":"Оля","contact":"instagram"}]}
+найди клиентов с аллергией	{"actions":[{"action":"find","query":"клиентов аллергией"}]}
+ответь Максиму что купи хлеб	{"actions":[{"action":"reply","person":"Максим","text":"купи хлеб"}]}
+проложи маршрут к маме домой	{"actions":[{"action":"route","person":"Мама","kind":"home"}]}
+открой профиль Игоря	{"actions":[{"action":"open_person","person":"Игорь"}]}
+какой адрес у Светы	{"actions":[{"action":"person_info","person":"Света","topic":"address"}]}
+відповідай Марії що буду за десять хвилин	{"actions":[{"action":"reply","person":"Марія","text":"буду за десять хвилин"}]}
+отмени запись Папы	{"actions":[{"action":"cancel_appointment","person":"Папа"}]}
+скопіюй адресу Лізи	{"actions":[{"action":"share_data","person":"Ліза","data":"address","to":"clipboard"}]}
+закрой текущее приложение	{"actions":[{"action":"close_app","app":"текущее приложение"}]}
+запусти приложение телеграм	{"actions":[{"action":"launch_app","app":"телеграм"}]}
+прибери Катю з обраного	{"actions":[{"action":"favorite","person":"Катя","on":false}]}
+позвони Свете и напиши ей что опаздываю	{"actions":[{"action":"call","person":"Света"},{"action":"message","person":"Света","text":"Опаздываю"}]}
+расскажи про клиента Олю	{"actions":[{"action":"person_info","person":"Оля"}]}
+обери Маму	{"actions":[{"action":"select","person":"Мама"}]}
+найди контакт Колю	{"actions":[{"action":"find","query":"Коля"}]}
+погугли как приготовить пасту	{"actions":[{"action":"web_search","query":"как приготовить пасту"}]}
+напомни мне сегодня вечером принять таблетки	{"actions":[{"action":"remind","text":"Принять таблетки"}]}
+запиши Марию Фролову на завтра в 15:00	{"actions":[{"action":"create_appointment","person":"Мария"}]}
+додай нотатку Тарасу: алергія на цитрусові	{"actions":[{"action":"add_note","person":"Тарас","text":"алергія на цитрусові"}]}
+подзвони Лізі і згорни	{"actions":[{"action":"call","person":"Ліза"},{"action":"go_home"}]}
+заблокируй сейф	{"actions":[{"action":"lock"}]}
+відкрий профіль Олега та додай нотатку повернув борг	{"actions":[{"action":"open_person","person":"Олег"},{"action":"add_note","person":"Олег","text":"повернув борг"}]}
+напиши Ане что я поставил машину на паузу	{"actions":[{"action":"message","person":"Аня","text":"Я поставил машину на паузу"}]}
+запиши в хронику Олега что вернул долг	{"actions":[{"action":"add_note","person":"Олег","text":"вернул долг"}]}
+відправ Лізі у вайбер що буду за десять хвилин	{"actions":[{"action":"message","person":"Ліза","text":"Буду за десять хвилин"}]}
+перенеси Илью Рыкова на 15:00	{"actions":[{"action":"move_appointment","person":"Илья"}]}
+разбуди меня в 12:30	{"actions":[{"action":"alarm","time":"12:30"}]}
+слушай позвони Диме	{"actions":[{"action":"call","person":"Дима"}]}
+что у меня в пятницу	{"actions":[{"action":"agenda"}]}
+пошукай Олега	{"actions":[{"action":"find","query":"Олег"}]}
+запиши Диму на понедельник в 12:30 и отправь ей подтверждение	{"actions":[{"action":"create_appointment","person":"Дима"},{"action":"message","person":"Дима","about_appointment":true}]}
+будильник на 7	{"actions":[{"action":"alarm","time":"07:00"}]}
+напиши Оле что жду тебя у входа	{"actions":[{"action":"message","person":"Оля","text":"Жду тебя у входа"}]}
+какой телефон у Маши	{"actions":[{"action":"person_info","person":"Маша","topic":"phone"}]}
+додай Олега в обране	{"actions":[{"action":"favorite","person":"Олег"}]}
+set a timer for 5 minutes	{"actions":[{"action":"timer","minutes":5}]}
+напомни завтра в 10 забрать посылку	{"actions":[{"action":"remind","text":"Забрать посылку"}]}
+открой карточку Сергея	{"actions":[{"action":"open_person","person":"Сергей"}]}
+що в мене у п'ятницю	{"actions":[{"action":"agenda"}]}
+відповідай Олі буду за десять хвилин	{"actions":[{"action":"reply","person":"Оля","text":"буду за десять хвилин"}]}
+открой почту Тани	{"actions":[{"action":"open_contact","person":"Таня","contact":"email"}]}
+напиши Олі що запізнююсь і згорни	{"actions":[{"action":"message","person":"Оля","text":"Запізнююсь"},{"action":"go_home"}]}
+скопіюй номер Івана	{"actions":[{"action":"share_data","person":"Іван","data":"phone","to":"clipboard"}]}
+що я знаю про Олену	{"actions":[{"action":"person_info","person":"Олена"}]}
+скопируй номер Игоря	{"actions":[{"action":"share_data","person":"Игорь","data":"phone","to":"clipboard"}]}
+выбери клиента Лену	{"actions":[{"action":"select","person":"Лена"}]}
+закрий сейф	{"actions":[{"action":"lock"}]}
+відкрий профіль Мами	{"actions":[{"action":"open_person","person":"Мама"}]}
+перенеси Івана на суботу	{"actions":[{"action":"move_appointment","person":"Іван"}]}
+перенеси Петю в пятницу и напиши ей что перезвоню позже	{"actions":[{"action":"move_appointment","person":"Петя"},{"action":"message","person":"Петя","text":"Перезвоню позже"}]}
+поставь будильник в 12:30	{"actions":[{"action":"alarm","time":"12:30"}]}
+Запиши Аню на завтра на пятнадцять тридцять	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+Возьми данные заметок о Илье рыкове и перенеси их в блокнот телефона	{"actions":[{"action":"share_data","person":"Илья","data":"notes","to":"notes"}]}
+show my schedule next tuesday	{"actions":[{"action":"agenda"}]}
+поставь напоминание на завтра в 9 утра: отправить отчёт	{"actions":[{"action":"remind","text":"Отправить отчёт"}]}
+напиши Ане что буду через 10 минут и включи музыку	{"actions":[{"action":"message","person":"Аня","text":"Буду через 10 минут"},{"action":"play_music","query":""}]}
+напиши маме что скоро приеду и включу ей музыку	{"actions":[{"action":"message","person":"Мама","text":"Скоро приеду и включу ей музыку"}]}
+перенеси Олега на два часа позже	{"actions":[{"action":"move_appointment","person":"Олег"}]}
+дождись ответа и прочитай	{"actions":[{"action":"read_messages","wait":true}]}
+додай Марію в обране	{"actions":[{"action":"favorite","person":"Марія"}]}
+постав таймер на пів години	{"actions":[{"action":"timer","minutes":30}]}
+найди в картотеке Анну	{"actions":[{"action":"find","query":"картотеке анну"}]}
+ответь Оле что купи хлеб	{"actions":[{"action":"reply","person":"Оля","text":"купи хлеб"}]}
+у наступну суботу	{"actions":[{"action":"media","control":"next"}]}
+ответь Максиму жду тебя у входа	{"actions":[{"action":"reply","person":"Максим","text":"жду тебя у входа"}]}
+turn on the flashlight	{"actions":[{"action":"flashlight"}]}
+закрой приложение пожалуйста	{"actions":[{"action":"go_home"}]}
+сделай заметку про Максима: новый номер телефона	{"actions":[{"action":"add_note","person":"Максим","text":"новый номер телефона"}]}
+найди клиента Бабушку	{"actions":[{"action":"find","query":"Бабушка"}]}
+расскажи про клиента Олега	{"actions":[{"action":"person_info","person":"Олег"}]}
+будильник на 7 вечера	{"actions":[{"action":"alarm","time":"19:00"}]}
+открой карточку Анны	{"actions":[{"action":"open_person","person":"Анна"}]}
+вимкни вайфай	{"actions":[{"action":"phone_settings","what":"wifi"}]}
+найди Марию	{"actions":[{"action":"find","query":"Мария"}]}
+поставь мой плейлист в случайном порядке	{"actions":[{"action":"play_music","query":"","playlist":true,"shuffle":true}]}
+кто у меня завтра вечером	{"actions":[{"action":"agenda"}]}
+додай запис Соломії на манікюр на суботу о 9 ранку	{"actions":[{"action":"create_appointment","person":"Соломія","service":"маникюр"}]}
+play some jazz	{"actions":[{"action":"play_music","query":"jazz","artist":true}]}
+поищи в гугле ближайшая аптека	{"actions":[{"action":"web_search","query":"ближайшая аптека"}]}
+тихіше	{"actions":[{"action":"media","control":"quieter"}]}
+проклади шлях до мами на роботу	{"actions":[{"action":"route","person":"Мама","kind":"work"}]}
+поставь таймер на 5 минут	{"actions":[{"action":"timer","minutes":5}]}
+перенеси Папу на субботу в 9 утра	{"actions":[{"action":"move_appointment","person":"Папа"}]}
+ліхтарик	{"actions":[{"action":"flashlight"}]}
+закрий инстаграм	{"actions":[{"action":"close_app","app":"инстаграм"}]}
+скопируй номер Ани	{"actions":[{"action":"share_data","person":"Аня","data":"phone","to":"clipboard"}]}
+скопируй номер Светы	{"actions":[{"action":"share_data","person":"Света","data":"phone","to":"clipboard"}]}
+добавь запись Папы на понедельник в 11:15	{"actions":[{"action":"create_appointment","person":"Папа"}]}
+вибери клієнта Катю	{"actions":[{"action":"select","person":"Катя"}]}
+проклади маршрут до Олега	{"actions":[{"action":"route","person":"Олег"}]}
+постав будильник на восьму ноль п'ять	{"actions":[{"action":"alarm","time":"08:05"}]}
+открой Петю	{"actions":[{"action":"open_person","person":"Петя"}]}
+додай Марії нотатку любить каву	{"actions":[{"action":"add_note","person":"Марія","text":"любить каву"}]}
+нагадай через годину забрати посилку	{"actions":[{"action":"remind","text":"Забрати посилку"}]}
+отмени запись Сергея на воскресенье	{"actions":[{"action":"cancel_appointment","person":"Сергей"}]}
+какие записи завтра	{"actions":[{"action":"agenda"}]}
+де живе Назар	{"actions":[{"action":"person_info","person":"Назар","topic":"address"}]}
+открой раздел услуги	{"actions":[{"action":"open_screen","section":"services"}]}
+напиши Илье в телеграм что опаздываю	{"actions":[{"action":"message","person":"Илья","channel":"telegram","text":"Опаздываю"}]}
+коли день народження у Лізи	{"actions":[{"action":"person_info","person":"Ліза","topic":"birthday"}]}
+запиши на завтра	{"actions":[],"ask":"Кого записать?"}
+включи музыку Время и Стекло	{"actions":[{"action":"play_music","query":"время стекло"}]}
+перейди в календар	{"actions":[{"action":"open_screen","section":"calendar"}]}
+поставь будильник на 7:30	{"actions":[{"action":"alarm","time":"07:30"}]}
+розкажи про Тата	{"actions":[{"action":"person_info","person":"Тато"}]}
+запиши Машу в след. пятницу	{"actions":[{"action":"create_appointment","person":"Маша"}]}
+google who is Elon Musk	{"actions":[{"action":"web_search","query":"who is elon musk"}]}
+Noa call Anna	{"actions":[{"action":"call","person":"Anna"}]}
+передай Игорю что перезвоню позже	{"actions":[{"action":"message","person":"Игорь","text":"Перезвоню позже"}]}
+book Mike for manicure tomorrow at 6:30pm	{"actions":[{"action":"create_appointment","person":"Mike","service":"маникюр"}]}
+напиши Марії що передзвоню пізніше і постав таймер на 5 хвилин	{"actions":[{"action":"message","person":"Марія","text":"Передзвоню пізніше"},{"action":"timer","minutes":5}]}
+ответь Диме завтра не смогу	{"actions":[{"action":"reply","person":"Дима","text":"завтра не смогу"}]}
+сверни приложение	{"actions":[{"action":"go_home"}]}
+відкрий послуги	{"actions":[{"action":"open_screen","section":"services"}]}
+разбуди меня в 3	{"actions":[{"action":"alarm","time":"03:00"}]}
+відправ Олегу у вайбер що передзвоню пізніше	{"actions":[{"action":"message","person":"Олег","text":"Передзвоню пізніше"}]}
+book Anna on friday at 6:30pm	{"actions":[{"action":"create_appointment","person":"Anna"}]}
+прочитай сообщения от Маши	{"actions":[{"action":"read_messages","person":"Маша"}]}
+возьми контакт Илья Рыков и запиши его на завтра на 12:00 и сразу отправь ему об этом в вотсап	{"actions":[{"action":"select","person":"Илья"},{"action":"create_appointment","person":"Илья"},{"action":"message","person":"Илья","about_appointment":true}]}
+найди в гугле новости спорта	{"actions":[{"action":"web_search","query":"новости спорта"}]}
+поставь будильник на 7 утра	{"actions":[{"action":"alarm","time":"07:00"}]}
+запиши мне Папу на субботу в 7 вечера	{"actions":[{"action":"create_appointment","person":"Папа"}]}
+закрий браузер	{"actions":[{"action":"close_app","app":"браузер"}]}
+закрой это приложение	{"actions":[{"action":"close_app","app":"это приложение"}]}
+пересунь запис Олі на понеділок	{"actions":[{"action":"move_appointment","person":"Оля"}]}
+schedule Sam tomorrow	{"actions":[{"action":"create_appointment","person":"Sam"}]}
+увімкни плейліст ранок	{"actions":[{"action":"play_music","query":"ранок","playlist":true}]}
+хто в мене записаний на 12 жовтня	{"actions":[{"action":"agenda"}]}
+запиши в хронику Лены что любит кофе	{"actions":[{"action":"add_note","person":"Лена","text":"любит кофе"}]}
+бэкап данных	{"actions":[{"action":"backup"}]}
+подзвони Мамі і згорни	{"actions":[{"action":"call","person":"Мама"},{"action":"go_home"}]}
+remind me in an hour to buy flowers	{"actions":[{"action":"remind","text":"An hour to buy flowers"}]}
+увімкни Coldplay і проклади маршрут додому	{"actions":[{"action":"play_music","query":"coldplay","artist":true},{"action":"route","kind":"home"}]}
+додай нагадування на понеділок: купити квіти	{"actions":[{"action":"remind","text":"Купити квіти"}]}
+Запиши, Аню, на завтра, в три часа дня.	{"actions":[{"action":"create_appointment","person":"Аня"}]}
+включи следующую песню	{"actions":[{"action":"media","control":"next"}]}
+поищи в интернете кто такой Илон Маск	{"actions":[{"action":"web_search","query":"кто такой илон маск"}]}
+напиши Илье что опаздываю в телеграм	{"actions":[{"action":"message","person":"Илья","channel":"telegram","text":"Опаздываю"}]}
+включи Мумий Тролль и построй маршрут домой	{"actions":[{"action":"play_music","query":"мумий тролль","artist":true},{"action":"route","kind":"home"}]}
+знайди Тата	{"actions":[{"action":"find","query":"Тато"}]}
+send Alex a message that call me back	{"actions":[{"action":"message","person":"Alex","text":"Call me back"}]}
+разбуди меня в шесть утра	{"actions":[{"action":"alarm","time":"06:00"}]}
+едем к Илье домой	{"actions":[{"action":"route","person":"Илья","kind":"home"}]}
+отправь Сергею сообщение что завтра не смогу	{"actions":[{"action":"message","person":"Сергей","text":"Завтра не смогу"}]}
+відкрий профіль Каті	{"actions":[{"action":"open_person","person":"Катя"}]}
+какой номер у Марии	{"actions":[{"action":"person_info","person":"Мария","topic":"phone"}]}
+где живёт Света	{"actions":[{"action":"person_info","person":"Света","topic":"address"}]}
+зроби тихіше	{"actions":[{"action":"media","control":"quieter"}]}
+открой приложение ютуб	{"actions":[{"action":"launch_app","app":"ютуб"}]}
+открой массовую рассылку	{"actions":[{"action":"open_screen","section":"broadcast"}]}
+найди адрес Даши в гугле	{"actions":[{"action":"find","query":"Даша"}]}
+слушай Санта ну позвони уже Оле	{"actions":[{"action":"call","person":"Оля"}]}
+set an alarm for 7am	{"actions":[{"action":"launch_app","app":"будильник"}]}
+включи фонарик и поставь таймер на 5 минут	{"actions":[{"action":"flashlight"},{"action":"timer","minutes":5}]}
+открой раздел календарь	{"actions":[{"action":"open_screen","section":"calendar"}]}
+закрой программу	{"actions":[{"action":"close_app","app":"программу"}]}
+что пишет Ольга	{"actions":[{"action":"read_messages","person":"Ольга"}]}
+скопируй адрес Димы в буфер	{"actions":[{"action":"share_data","person":"Дима","data":"address","to":"clipboard"}]}
+відповідай Андрію що буду за десять хвилин	{"actions":[{"action":"reply","person":"Андрій","text":"буду за десять хвилин"}]}
+построй маршрут к Диме	{"actions":[{"action":"route","person":"Дима"}]}
+передай маме что я задержусь	{"actions":[{"action":"message","person":"Мама","text":"Я задержусь"}]}
+передвинь запись Анны на 20 число	{"actions":[{"action":"move_appointment","person":"Анна"}]}
+пропусти этот трек	{"actions":[{"action":"media","control":"next"}]}
+сделай заметку про Марию: аллергия на цитрусы	{"actions":[{"action":"add_note","person":"Мария","text":"аллергия на цитрусы"}]}
+погугли кто такой Илон Маск	{"actions":[{"action":"web_search","query":"кто такой илон маск"}]}
+проложи маршрут в яндекс навигаторе до Ани	{"actions":[{"action":"route","person":"Аня","app":"yandex"}]}
+поставь таймер на 45 секунд	{"actions":[{"action":"timer","seconds":45}]}
+какой телефон у Кати	{"actions":[{"action":"person_info","person":"Катя","topic":"phone"}]}
+dial Sam	{"actions":[{"action":"call","person":"Sam"}]}
+lock the screen	{"actions":[{"action":"lock"}]}
+напомни послезавтра в 8 утра взять документы	{"actions":[{"action":"remind","text":"Взять документы"}]}
+есть новые сообщения	{"actions":[{"action":"read_messages"}]}
+напиши Андрію	{"actions":[{"action":"message","person":"Андрій"}]}
+ответь Наташе завтра не смогу	{"actions":[{"action":"reply","person":"Наташа","text":"завтра не смогу"}]}
+позвони позвони маме	{"actions":[{"action":"call","person":"Мама"}]}
+передвинь запись Юли на субботу	{"actions":[{"action":"move_appointment","person":"Юля"}]}
+найди Олега	{"actions":[{"action":"find","query":"Олег"}]}
+Ноа, пауза	{"actions":[{"action":"media","control":"pause"}]}
+убери Диму из избранного	{"actions":[{"action":"favorite","person":"Дима","on":false}]}
+перенеси запись Анны на среду в 12:30	{"actions":[{"action":"move_appointment","person":"Анна"}]}
+позвони Ане и напомни мне завтра в 10 купить хлеб	{"actions":[{"action":"call","person":"Аня"},{"action":"remind","text":"Купить хлеб"}]}
+зайди в карточку Юли	{"actions":[{"action":"open_person","person":"Юля"}]}
+открой ютуб	{"actions":[{"action":"launch_app","app":"ютуб"}]}
+покажи карточку Пети	{"actions":[{"action":"open_person","person":"Петя"}]}
+поставь таймер на две минуты	{"actions":[{"action":"timer","minutes":2}]}
+закрой spotify	{"actions":[{"action":"close_app","app":"spotify"}]}
+пошукай в інтернеті курс доллара	{"actions":[{"action":"web_search","query":"курс доллара"}]}
+расскажи про Диму	{"actions":[{"action":"person_info","person":"Дима"}]}
+напомни забрать посылку	{"actions":[{"action":"remind","text":"Забрать посылку"}]}
+позвони Саше пожалуйста	{"actions":[{"action":"call","person":"Саша"}]}
+зателефонуй Ірині	{"actions":[{"action":"call","person":"Ірина"}]}
+Ноа, позвони Ане	{"actions":[{"action":"call","person":"Аня"}]}
+show my schedule on friday	{"actions":[{"action":"agenda"}]}
+поставь на паузу пожалуйста	{"actions":[{"action":"media","control":"pause"}]}
+пересунь запис Соломії на п'ятницю	{"actions":[{"action":"move_appointment","person":"Соломія"}]}
+ну короче позвони Диме	{"actions":[{"action":"call","person":"Дима"}]}
+знайди клієнта Андрія	{"actions":[{"action":"find","query":"Андрій"}]}
+напиши Тане что перезвоню позже и поставь будильник на 7	{"actions":[{"action":"message","person":"Таня","text":"Перезвоню позже"},{"action":"alarm","time":"07:00"}]}
+що пише Олена	{"actions":[{"action":"read_messages","person":"Олена"}]}
+открой карточку Лены и позвони	{"actions":[{"action":"open_person","person":"Лена"},{"action":"call","person":"Лена"}]}
+перенеси Ольгу с пятницы на субботу	{"actions":[{"action":"move_appointment","person":"Ольга"}]}
+поїхали на роботу	{"actions":[{"action":"route","kind":"work"}]}
+call Kate	{"actions":[{"action":"call","person":"Kate"}]}
+добавь Маме заметку просила скидку	{"actions":[{"action":"add_note","person":"Мама","text":"просила скидку"}]}
+удали запись ильи рыкова завтра	{"actions":[{"action":"delete_appointment","person":"Илья"}]}
+close spotify	{"actions":[{"action":"close_app","app":"spotify"}]}
+проложи маршрут к Ане	{"actions":[{"action":"route","person":"Аня"}]}
+увімкни Coldplay	{"actions":[{"action":"play_music","query":"coldplay","artist":true}]}
+коли день народження в Олега	{"actions":[{"action":"person_info","person":"Олег","topic":"birthday"}]}
+поехали на работу через вейз	{"actions":[{"action":"route","kind":"work","app":"waze"}]}
+запиши Ірину на 12 жовтня	{"actions":[{"action":"create_appointment","person":"Ірина"}]}
+открой контакт Анну	{"actions":[{"action":"open_person","person":"Анна"}]}
+напомни мне оплатить интернет	{"actions":[{"action":"remind","text":"Оплатить интернет"}]}
+на главный экран	{"actions":[{"action":"go_home"}]}
+закрой сейф на замок	{"actions":[{"action":"lock"}]}
+google pasta recipe	{"actions":[{"action":"web_search","query":"pasta recipe"}]}
+сделай бэкап	{"actions":[{"action":"backup"}]}
+нагадай мені сьогодні о шостій вечора купити молоко	{"actions":[{"action":"remind","text":"Купити молоко"}]}
+відкрий Богдана	{"actions":[{"action":"open_person","person":"Богдан"}]}
+запиши клиента Наташу на 12 октября в 9 утра	{"actions":[{"action":"create_appointment","person":"Наташа"}]}
+покажи карточку Мамы	{"actions":[{"action":"open_person","person":"Мама"}]}
+отмени запись Оли	{"actions":[{"action":"cancel_appointment","person":"Оля"}]}
+скинь адрес Оли в телеграм	{"actions":[{"action":"share_data","person":"Оля","data":"address","to":"телеграм"}]}
+знайди в інтернеті рецепт борща	{"actions":[{"action":"web_search","query":"рецепт борща"}]}
+открой контакт Олега	{"actions":[{"action":"open_person","person":"Олег"}]}
+найди контакт Андрея	{"actions":[{"action":"find","query":"Андрей"}]}
+додай Ірині нотатку просила знижку	{"actions":[{"action":"add_note","person":"Ірина","text":"просила знижку"}]}
+launch youtube	{"actions":[{"action":"launch_app","app":"youtube"}]}
+открой мне ватсап	{"actions":[{"action":"launch_app","app":"ватсап"}]}
+ответь Даше перезвоню позже	{"actions":[{"action":"reply","person":"Даша","text":"перезвоню позже"}]}
+запишіть Марію на понеділок о 9:30	{"actions":[{"action":"create_appointment","person":"Марія"}]}
+вимкни музику	{"actions":[{"action":"media","control":"pause"}]}
+яка адреса у Марії	{"actions":[{"action":"person_info","person":"Марія","topic":"address"}]}
+запиши Тата на консультацію на 12 жовтня	{"actions":[{"action":"create_appointment","person":"Тато","service":"консультац"}]}
+проложи маршрут на работу	{"actions":[{"action":"route","kind":"work"}]}
+message Kate on telegram that see you tomorrow	{"actions":[{"action":"message","person":"Kate","channel":"telegram","text":"See you tomorrow"}]}
+закрий цей застосунок	{"actions":[{"action":"close_app","app":"цей застосунок"}]}
+what do i have on monday	{"actions":[{"action":"agenda"}]}
+перенеси Аню на пятницу в 15:00	{"actions":[{"action":"move_appointment","person":"Аня"}]}
+позвони Андрею	{"actions":[{"action":"call","person":"Андрей"}]}
+таймер на 20 минут	{"actions":[{"action":"timer","minutes":20}]}
+сверни	{"actions":[{"action":"go_home"}]}
+напомни на 18:30 купить цветы	{"actions":[{"action":"remind","text":"Купить цветы"}]}
+видали запис Ірини	{"actions":[{"action":"delete_appointment","person":"Ірина"}]}
+зайди в карточку Саши	{"actions":[{"action":"open_person","person":"Саша"}]}
+сколько лет Игорю	{"actions":[{"action":"person_info","person":"Игорь","topic":"birthday"}]}
+убери Бабушку из избранного	{"actions":[{"action":"favorite","person":"Бабушка","on":false}]}
+поищи в интернете погода в Киеве	{"actions":[{"action":"web_search","query":"погода в киеве"}]}
+засеки двадцать секунд	{"actions":[{"action":"timer","seconds":20}]}
+напиши	{"actions":[],"ask":"Кому написать?"}
+пошукай в інтернеті как приготовить пасту	{"actions":[{"action":"web_search","query":"как приготовить пасту"}]}
+спасибо	{"actions":[],"reply":"Пожалуйста!"}
+открой часы	{"actions":[{"action":"launch_app","app":"часы"}]}
+відкрий налаштування звуку	{"actions":[{"action":"open_screen","section":"settings"}]}
+открой рассылку	{"actions":[{"action":"open_screen","section":"broadcast"}]}
+отвези меня к маме	{"actions":[{"action":"route","person":"Мама"}]}
+open waze	{"actions":[{"action":"launch_app","app":"waze"}]}
+включи режим полёта	{"actions":[{"action":"play_music","query":"режим полёта","artist":true}]}
+зажги фонарик	{"actions":[{"action":"flashlight"}]}
+включи Queen в спотифай	{"actions":[{"action":"play_music","query":"queen","app":"спотифай"}]}
+какие записи на 20 число	{"actions":[{"action":"agenda"}]}
+зайди в календарь	{"actions":[{"action":"open_screen","section":"calendar"}]}
+ответь Диме что спасибо большое	{"actions":[{"action":"reply","person":"Дима","text":"спасибо большое"}]}
+зроби резервну копію	{"actions":[{"action":"backup"}]}
+удали запись Марии	{"actions":[{"action":"delete_appointment","person":"Мария"}]}
+відкрий інстаграм Богдана	{"actions":[{"action":"open_contact","person":"Богдан","contact":"instagram"}]}
+напиши Андрію що буду за десять хвилин	{"actions":[{"action":"message","person":"Андрій","text":"Буду за десять хвилин"}]}
+следующий трек	{"actions":[{"action":"media","control":"next"}]}
+выруби фонарик	{"actions":[{"action":"flashlight"}]}
+что написала Сергей	{"actions":[{"action":"read_messages","person":"Сергей"}]}
+проклади маршрут до Івана і подзвони	{"actions":[{"action":"route","person":"Іван"},{"action":"call","person":"Іван"}]}
+запиши клиента Олега в пятницу в 9 утра	{"actions":[{"action":"create_appointment","person":"Олег"}]}
+що написала Ірина	{"actions":[{"action":"read_messages","person":"Ірина"}]}
+timer for 10 minutes	{"actions":[{"action":"timer","minutes":10}]}
+покажи рассылку	{"actions":[{"action":"open_screen","section":"broadcast"}]}
+скопируй адрес Ани в буфер	{"actions":[{"action":"share_data","person":"Аня","data":"address","to":"clipboard"}]}
+как доехать до Ани	{"actions":[{"action":"route","person":"Аня"}]}
+пазвони маме	{"actions":[{"action":"call","person":"Мама"}]}
+запиши Таню на субботу в 15:00 и добавь заметку новый номер телефона	{"actions":[{"action":"create_appointment","person":"Таня"},{"action":"add_note","person":"Таня","text":"новый номер телефона"}]}
+загугли расписание поездов	{"actions":[{"action":"web_search","query":"расписание поездов"}]}
+включи радио	{"actions":[{"action":"play_music","query":""}]}
+что у меня на неделе	{"actions":[{"action":"agenda"}]}
+поставь на паузу и закрой вейз	{"actions":[{"action":"media","control":"pause"},{"action":"close_app","app":"вейз"}]}
+скопируй заметки Юли в блокнот	{"actions":[{"action":"share_data","person":"Юля","data":"notes","to":"notes"}]}
+напиши Тарасу що буду за десять хвилин і згорни	{"actions":[{"action":"message","person":"Тарас","text":"Буду за десять хвилин"},{"action":"go_home"}]}
+прочитай сообщения	{"actions":[{"action":"read_messages"}]}
+alarm at 8	{"actions":[{"action":"alarm","time":"08:00"}]}
+отмени запись Володи на понедельник	{"actions":[{"action":"cancel_appointment","person":"Володя"}]}
+скажи Івану що запізнююсь	{"actions":[{"action":"message","person":"Іван","text":"Запізнююсь"}]}
+скопіюй адресу Соломії	{"actions":[{"action":"share_data","person":"Соломія","data":"address","to":"clipboard"}]}
+включи что-нибудь Queen	{"actions":[{"action":"play_music","query":"queen","artist":true}]}
+скопіюй номер Марії	{"actions":[{"action":"share_data","person":"Марія","data":"phone","to":"clipboard"}]}
+read messages from Alex	{"actions":[{"action":"read_messages","person":"Alex"}]}
+запиши Диму через две недели в десять	{"actions":[{"action":"create_appointment","person":"Дима"}]}
+напиши Олі у телеграм що купи хліб	{"actions":[{"action":"message","person":"Оля","channel":"telegram","text":"Купи хліб"}]}
+Hey Noa call Anna please	{"actions":[{"action":"call","person":"Anna"}]}
+напиши Илье что скинул файл в телеграм и в почту	{"actions":[{"action":"message","person":"Илья","text":"Скинул файл в телеграм и в почту"}]}
+запиши Марию на завтра в 12	{"actions":[{"action":"create_appointment","person":"Мария"}]}
+напеши Ане что опаздываю	{"actions":[{"action":"message","person":"Аня","text":"Опаздываю"}]}
+напиши Олегу що буду о шостій	{"actions":[{"action":"message","person":"Олег","text":"Буду о шостій"}]}
+прочитай повідомлення від Лізи	{"actions":[{"action":"read_messages","person":"Ліза"}]}
+проклади маршрут до Мами	{"actions":[{"action":"route","person":"Мама"}]}
+зайди в настройки	{"actions":[{"action":"open_screen","section":"settings"}]}
+what's on my schedule next tuesday	{"actions":[{"action":"agenda"}]}
+зателефонуй	{"actions":[],"ask":"Кому зателефонувати?"}
+запиши Анну на завтра в 15:00 и отправь ей подтверждение	{"actions":[{"action":"create_appointment","person":"Анна"},{"action":"message","person":"Анна","about_appointment":true}]}
+перенеси встречу Мамы на воскресенье	{"actions":[{"action":"move_appointment","person":"Мама"}]}
+дочекайся відповіді і прочитай	{"actions":[{"action":"read_messages","wait":true}]}
+отмени запись на субботу для Лены	{"actions":[{"action":"cancel_appointment","person":"Лена"}]}
+запиши в хронику Даши что вернул долг	{"actions":[{"action":"add_note","person":"Даша","text":"вернул долг"}]}
+открой инстаграм Андрея	{"actions":[{"action":"open_contact","person":"Андрей","contact":"instagram"}]}
+перенеси Сашу на другое время	{"actions":[{"action":"move_appointment","person":"Саша"}]}
+яка адреса у Ганни	{"actions":[{"action":"person_info","person":"Ганна","topic":"address"}]}
+запусти spotify	{"actions":[{"action":"launch_app","app":"spotify"}]}
+эй Ноа привет позвони Ане	{"actions":[{"action":"call","person":"Аня"}]}
+добавь заметку Тане: просила скидку	{"actions":[{"action":"add_note","person":"Таня","text":"просила скидку"}]}
+запишіть Олю на понеділок о 7 вечора	{"actions":[{"action":"create_appointment","person":"Оля"}]}
+відкрий калькулятор	{"actions":[{"action":"launch_app","app":"калькулятор"}]}
+на головний екран	{"actions":[{"action":"go_home"}]}
+кто записан завтра	{"actions":[{"action":"agenda"}]}
+close viber	{"actions":[{"action":"close_app","app":"viber"}]}
+запусти часы пожалуйста	{"actions":[{"action":"launch_app","app":"часы"}]}
+напиши маме что позвоню ей из дома	{"actions":[{"action":"message","person":"Мама","text":"Позвоню ей из дома"}]}
+найди в интернете погода в Киеве	{"actions":[{"action":"web_search","query":"погода в киеве"}]}
+перенеси Катю на інший час	{"actions":[{"action":"move_appointment","person":"Катя"}]}
+видали запис Андрія	{"actions":[{"action":"delete_appointment","person":"Андрій"}]}
+розбуди мене о 12:30	{"actions":[{"action":"alarm","time":"12:30"}]}
+що написала Мама	{"actions":[{"action":"read_messages","person":"Мама"}]}
+так значит позвони маме	{"actions":[{"action":"call","person":"Мама"}]}
+напиши Марии что купи хлеб	{"actions":[{"action":"message","person":"Мария","text":"Купи хлеб"}]}
+скопируй заметки Лены в блокнот	{"actions":[{"action":"share_data","person":"Лена","data":"notes","to":"notes"}]}
+send Anna a message that i'm late	{"actions":[{"action":"message","person":"Anna","text":"I'm late"}]}
+увімкни музику Скриптонит	{"actions":[{"action":"play_music","query":"скриптонит"}]}
+напиши Ане что очень очень скучаю	{"actions":[{"action":"message","person":"Аня","text":"Очень очень скучаю"}]}
+видали запис Богдана завтра	{"actions":[{"action":"delete_appointment","person":"Богдан"}]}
+запиши Олену на манікюр у вівторок о 17:00	{"actions":[{"action":"create_appointment","person":"Олена","service":"маникюр"}]}
+відправ Олені у телеграм що я вже їду	{"actions":[{"action":"message","person":"Олена","channel":"telegram","text":"Я вже їду"}]}
+свернись	{"actions":[{"action":"go_home"}]}
+прочитай повідомлення	{"actions":[{"action":"read_messages"}]}
+розбуди мене о 9 ранку	{"actions":[{"action":"alarm","time":"09:00"}]}
+удали запись Ильи в пятницу	{"actions":[{"action":"delete_appointment","person":"Илья"}]}
+напиши Івану у телеграм що вже їду	{"actions":[{"action":"message","person":"Іван","channel":"telegram","text":"Вже їду"}]}
+який номер у Ірини	{"actions":[{"action":"person_info","person":"Ірина","topic":"phone"}]}
+відповідай Соломії що передзвоню пізніше	{"actions":[{"action":"reply","person":"Соломія","text":"передзвоню пізніше"}]}
+відповідай Мамі що буду за десять хвилин	{"actions":[{"action":"reply","person":"Мама","text":"буду за десять хвилин"}]}
+какой номер у Олега	{"actions":[{"action":"person_info","person":"Олег","topic":"phone"}]}
+набери номер Светы	{"actions":[{"action":"call","person":"Света"}]}
+закрой ютуб	{"actions":[{"action":"close_app","app":"ютуб"}]}
+запиши в хронику Даши что аллергия на цитрусы	{"actions":[{"action":"add_note","person":"Даша","text":"аллергия на цитрусы"}]}
+набери Илья рыков	{"actions":[{"action":"call","person":"Илья"}]}
+запиши Юлю на приём на 20 число	{"actions":[{"action":"create_appointment","person":"Юля"}]}
+напомни через час оплатить интернет	{"actions":[{"action":"remind","text":"Оплатить интернет"}]}
+расскажи про Илью	{"actions":[{"action":"person_info","person":"Илья"}]}
+засвіти ліхтарик	{"actions":[{"action":"flashlight"}]}
+launch telegram	{"actions":[{"action":"launch_app","app":"telegram"}]}
+ответь Маше что завтра не смогу	{"actions":[{"action":"reply","person":"Маша","text":"завтра не смогу"}]}
+запусти инстаграм	{"actions":[{"action":"launch_app","app":"инстаграм"}]}
+відкрий налаштування	{"actions":[{"action":"open_screen","section":"settings"}]}
+добавь Катю в избранное	{"actions":[{"action":"favorite","person":"Катя"}]}
+сделай заметку про Аню: вернул долг	{"actions":[{"action":"add_note","person":"Аня","text":"вернул долг"}]}
+включи блютуз	{"actions":[{"action":"phone_settings","what":"bluetooth"}]}
+запиши Катю на післязавтра о 12:30 і надішли їй підтвердження	{"actions":[{"action":"create_appointment","person":"Катя"},{"action":"message","person":"Катя","about_appointment":true}]}
+обери Лізу	{"actions":[{"action":"select","person":"Ліза"}]}
+call Anna please	{"actions":[{"action":"call","person":"Anna"}]}
+открой мою карту	{"actions":[{"action":"open_screen","section":"map"}]}
+открой Дашу	{"actions":[{"action":"open_person","person":"Даша"}]}
+додай нотатку Тарасу: просила знижку	{"actions":[{"action":"add_note","person":"Тарас","text":"просила знижку"}]}
+заблокируй	{"actions":[{"action":"lock"}]}

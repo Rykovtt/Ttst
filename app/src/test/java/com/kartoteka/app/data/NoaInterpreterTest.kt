@@ -136,7 +136,7 @@ class NoaInterpreterTest {
 
     @Test fun staticPromptIsCompactAndComplete() {
         val p = NoaInterpreter.staticPrompt("Russian")
-        assertTrue("промпт ${p.length} символов — слишком длинный для маленького окна", p.length < 2000)
+        assertTrue("промпт ${p.length} символов — слишком длинный для маленького окна", p.length < 1250)
         for (a in listOf("create_appointment", "cancel_appointment", "delete_appointment", "move_appointment", "call", "message", "reply",
             "read_messages", "add_note", "open_person", "find", "open_contact", "route", "agenda", "person_info", "favorite", "select",
             "share_data", "launch_app", "web_search", "alarm", "timer", "flashlight", "phone_settings", "play_music", "media", "go_home",
