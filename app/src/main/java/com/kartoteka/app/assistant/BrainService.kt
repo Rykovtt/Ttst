@@ -63,6 +63,7 @@ class BrainService : Service() {
             MSG_ASK -> {
                 val id = msg.data.getInt(KEY_ID)
                 val prompt = msg.data.getString(KEY_PROMPT).orEmpty()
+                val greedy = msg.data.getBoolean(KEY_GREEDY, true)
                 var text: String? = null
                 var err: String? = null
                 var tokens = -1
@@ -73,12 +74,12 @@ class BrainService : Service() {
                     // Запрос не влезает в окно модели (оно общее для запроса и ответа) — не гоним впустую, пусть сократят.
                     if (tokens > 0 && tokens > loadedMax - OUT_RESERVE) err = "too_long:$tokens"
                     else {
-                        try { text = generate(model, prompt) }
+                        try { text = generate(model, prompt, greedy) }
                         catch (t: Throwable) {
                             err = (t.message ?: t::class.java.simpleName).take(160)
                             // Видеокарта не потянула этот запрос — переходим на процессор и пробуем ещё раз.
                             if (backend == "gpu" && reloadOnCpu()) {
-                                try { text = llm?.let { generate(it, prompt) }; err = null } catch (t2: Throwable) { err = (t2.message ?: t2::class.java.simpleName).take(160) }
+                                try { text = llm?.let { generate(it, prompt, greedy) }; err = null } catch (t2: Throwable) { err = (t2.message ?: t2::class.java.simpleName).take(160) }
                             }
                         }
                     }
@@ -93,31 +94,18 @@ class BrainService : Service() {
 
     /**
      * Ответ модели: «жадная» генерация (без случайности — для разбора команд нужен один и тот же ответ на одну фразу,
-     * а не шум вроде «вамneephone») и остановка, как только JSON закрылся: дальше модель только болтает и тратит время.
+     * а не шум вроде «вамneephone»). Генерацию не обрываем: отмена на лету с немедленным закрытием сессии аварийно
+     * закрывала движок (проверено на телефоне). Модель сама заканчивает ответ, когда JSON готов.
      */
-    private fun generate(model: LlmInference, prompt: String): String? {
+    private fun generate(model: LlmInference, prompt: String, greedy: Boolean = true): String? {
+        // Запасной путь: если сессия валит движок на этом телефоне, приложение просит обычную генерацию.
+        if (!greedy) return model.generateResponse(prompt)
         val options = LlmInferenceSession.LlmInferenceSessionOptions.builder()
             .setTopK(1).setTopP(1f).setTemperature(0.1f).setRandomSeed(1).build()
         val session = LlmInferenceSession.createFromOptions(model, options)
         try {
             session.addQueryChunk(prompt)
-            val acc = StringBuffer()
-            val complete = java.util.concurrent.atomic.AtomicBoolean(false)
-            val future = session.generateResponseAsync { part, _ ->
-                // Порции приходят по кусочкам; на случай «накопительных» ответов не дублируем уже накопленное.
-                val cur = acc.toString()
-                if (cur.isNotEmpty() && part.startsWith(cur)) acc.setLength(0)
-                acc.append(part)
-                if (jsonClosed(acc)) complete.set(true)
-            }
-            val deadline = System.currentTimeMillis() + ASK_LIMIT_MS
-            while (!future.isDone && System.currentTimeMillis() < deadline) {
-                if (complete.get()) { runCatching { session.cancelGenerateResponseAsync() }; break }
-                Thread.sleep(30)
-            }
-            if (!future.isDone && !complete.get()) runCatching { session.cancelGenerateResponseAsync() }
-            val result = runCatching { future.get(3, java.util.concurrent.TimeUnit.SECONDS) }.getOrNull()
-            return acc.toString().ifBlank { result }
+            return session.generateResponse()
         } finally {
             runCatching { session.close() }
         }
@@ -144,20 +132,6 @@ class BrainService : Service() {
     }
 
     companion object {
-        /** Первый верхнеуровневый «{…}» уже закрыт (кавычки и экранирование учтены). */
-        internal fun jsonClosed(text: CharSequence): Boolean {
-            var depth = 0; var started = false; var inStr = false; var esc = false
-            for (c in text) {
-                if (inStr) { if (esc) esc = false else if (c == '\\') esc = true else if (c == '"') inStr = false; continue }
-                when (c) {
-                    '"' -> inStr = true
-                    '{' -> { depth++; started = true }
-                    '}' -> if (started && --depth == 0) return true
-                }
-            }
-            return false
-        }
-
         const val MSG_PREPARE = 1
         const val MSG_STATE = 2
         const val MSG_ASK = 3
@@ -171,11 +145,10 @@ class BrainService : Service() {
         const val KEY_PROMPT = "prompt"
         const val KEY_TEXT = "text"
         const val KEY_ERR = "err"
+        const val KEY_GREEDY = "greedy"
         const val KEY_TOKENS = "tokens"
         /** Сколько токенов окна оставляем под ответ модели. */
         const val OUT_RESERVE = 220
-        /** Предел ожидания ответа на процессоре. */
-        const val ASK_LIMIT_MS = 85_000L
         const val KEY_GPU = "gpu"
         const val KEY_BACKEND = "backend"
     }

@@ -111,6 +111,8 @@ class LlmBrain(context: Context) {
         prefs.edit().remove(KEY_LOADING).apply()
         if (!prefs.getBoolean(KEY_CRASH_RESET, false)) prefs.edit().remove(KEY_CRASHED).putBoolean(KEY_CRASH_RESET, true).apply()
         // 3.4.2: движок падал на видеокарте — прежние пометки о сбое сбрасываем, модель получает чистую попытку на процессоре.
+        // 3.5.1: «ранний стоп» валил движок; пометки о сбое сбрасываем ещё раз.
+        if (!prefs.getBoolean("crash_reset_351", false)) prefs.edit().remove(KEY_CRASHED).remove(KEY_CRASH_DETAIL).putBoolean("crash_reset_351", true).apply()
         if (!prefs.getBoolean("crash_reset_342", false)) prefs.edit().remove(KEY_CRASHED).remove(KEY_CRASH_DETAIL).putBoolean("crash_reset_342", true).apply()
     }
 
@@ -344,16 +346,22 @@ class LlmBrain(context: Context) {
      */
     suspend fun ask(prompt: String): String? {
         askOnce(prompt)?.let { verified = true; return it }
-        if (lastError != "no_reply") return null
-        val kind = currentKind()
-        val onGpu = !prefs.getBoolean(KEY_GPU_BAD + kind, false)
-        if (onGpu) {
-            // Видеокарта: движок падает на ответе. Дальше — только процессор.
-            prefs.edit().putBoolean(KEY_GPU_BAD + kind, true).apply()
-            if (prepare() == State.READY) askOnce(prompt)?.let { verified = true; return it }
-            if (lastError != "no_reply") return null
+        var attempts = 0
+        while (lastError == "no_reply" && attempts < 2) {
+            attempts++
+            val kind = currentKind()
+            when {
+                // Сначала подозреваем «жадную» сессию, затем (только для своей модели Gemma) видеокарту.
+                !prefs.getBoolean(KEY_NO_SESSION + kind, false) -> prefs.edit().putBoolean(KEY_NO_SESSION + kind, true).apply()
+                kind == KIND_GEMMA && !prefs.getBoolean(KEY_GPU_BAD + kind, false) -> prefs.edit().putBoolean(KEY_GPU_BAD + kind, true).apply()
+                else -> break
+            }
+            if (prepare() != State.READY) return null
+            askOnce(prompt)?.let { verified = true; return it }
         }
-        // Падает и на процессоре — сами больше не пробуем, объясняем и предлагаем быструю модель.
+        if (lastError != "no_reply") return null
+        // Падает при любых настройках — сами больше не пробуем, объясняем и предлагаем быструю модель.
+        val kind = currentKind()
         val why = com.kartoteka.app.i18n.t("Движок ИИ закрывается при ответе на этом телефоне. Выберите быструю модель в настройках ассистента.")
         prefs.edit().putString(KEY_CRASHED, kind).putString(KEY_CRASH_DETAIL, why).apply()
         detail = why; state = State.UNAVAILABLE
@@ -378,6 +386,7 @@ class LlmBrain(context: Context) {
         val id = ids.incrementAndGet()
         val r = request(BrainService.MSG_ASK, id, android.os.Bundle().apply {
             putInt(BrainService.KEY_ID, id); putString(BrainService.KEY_PROMPT, wrap(prompt))
+            putBoolean(BrainService.KEY_GREEDY, !prefs.getBoolean(KEY_NO_SESSION + currentKind(), false))
         }, 90_000)
         if (r == null) { lastError = "no_reply"; return@withContext null }
         lastError = r.getString(BrainService.KEY_ERR)
@@ -423,6 +432,7 @@ class LlmBrain(context: Context) {
         private const val KEY_LOADING = "loading_kind"
         private const val KEY_CRASH_DETAIL = "crashed_detail"
         private const val KEY_GPU_BAD = "gpu_bad_"
+        private const val KEY_NO_SESSION = "no_session_"
         private const val KEY_CRASH_RESET = "crash_reset_294"
 
         fun kindOf(fileName: String): String = when {
