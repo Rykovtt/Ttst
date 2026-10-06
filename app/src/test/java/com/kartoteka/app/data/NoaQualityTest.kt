@@ -36,6 +36,7 @@ class NoaQualityTest {
         assertTrue(NoaBenchmark.signature(seq).startsWith("Seq(Message"))
         assertEquals("Message", NoaBenchmark.firstStep(NoaBenchmark.signature(seq)))
         assertEquals(3, NoaBenchmark.pick((1..9).map { "p$it" }, 3).size)
+        assertTrue(NoaBenchmark.samePerson("Илью", "Ілля Риков") && NoaBenchmark.samePerson("Ани", "Анна Іванова"))
         assertEquals(9, NoaBenchmark.pick((1..9).map { "p$it" }, 0).size)
     }
 

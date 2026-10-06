@@ -6,9 +6,12 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 
 /**
- * Проверка ИИ на самом телефоне: прогоняет через модель эталонные фразы и сравнивает её разбор с тем,
- * что даёт быстрый разбор по правилам (для этих фраз он проверен тестами). Результат — отчёт, который можно
- * скопировать: по нему видно, где модель ошибается, насколько она быстра и на чём работает (GPU / процессор).
+ * Проверка ИИ на самом телефоне. Два набора фраз:
+ *  • «эталон по правилам» — фразы, которые быстрый разбор понимает (проверено тестами); модель должна дать то же самое;
+ *  • «свободные формулировки» — как люди говорят на самом деле; быстрые правила их не понимают, и модель нужна именно тут
+ *    (правильный ответ размечен вручную).
+ * Команды, которые решают только правила (время, калькулятор, переводы единиц, вопросы о записях), в проверку модели не входят:
+ * в работе она их не увидит. Результат — отчёт, который можно скопировать.
  */
 object NoaBenchmark {
     /** Короткая запись разбора: «Message», «Seq(Message,GoHome)», «ask», «chat», «—» (нет ответа). */
@@ -20,46 +23,77 @@ object NoaBenchmark {
 
     internal fun firstStep(sig: String) = sig.removePrefix("Seq(").substringBefore(',').removeSuffix(")")
 
-    /** Эталонные фразы (assets/golden_phrases.txt), равномерно прореженные до [count]. */
-    fun phrases(app: KartotekaApp, count: Int): List<String> {
-        val all = runCatching { app.assets.open("golden_phrases.txt").bufferedReader().readLines() }.getOrDefault(emptyList())
-            .map { it.trim() }.filter { it.isNotEmpty() }
-        return pick(all, count)
+    /** Эти команды модель выразить не может (их нет среди её действий) — их разбирают только правила. */
+    private val RULES_ONLY = setOf("Tool", "Calc", "Convert", "Crm", "Dismiss", "Repeat", "Wrong", "Unknown")
+
+    data class Item(val phrase: String, val expected: String, val group: String)
+
+    private fun lines(app: KartotekaApp, file: String): List<String> =
+        runCatching { app.assets.open(file).bufferedReader().readLines() }.getOrDefault(emptyList()).map { it.trim() }.filter { it.isNotEmpty() }
+
+    /** Эталон по правилам: фразы из assets/golden_phrases.txt, ожидаемое берём у разбора по правилам. */
+    internal fun rulesSet(app: KartotekaApp, now: LocalDateTime): List<Item> =
+        lines(app, "golden_phrases.txt").mapNotNull { p ->
+            val sig = signature(NoaParser.parse(p, now))
+            if (firstStep(sig) in RULES_ONLY) null else Item(p, sig, "rules")
+        }
+
+    /** Свободные формулировки: assets/golden_free.tsv — «фраза<TAB>ожидаемое» (подпись разбора), размечено вручную. */
+    internal fun freeSet(app: KartotekaApp): List<Item> =
+        lines(app, "golden_free.tsv").mapNotNull { l ->
+            val p = l.split('\t'); if (p.size < 2 || p[0].isBlank()) null else Item(p[0].trim(), p[1].trim(), "free")
+        }
+
+    /** Короткая проверка берёт поровну из обоих наборов, полная — всё. */
+    fun items(app: KartotekaApp, count: Int, now: LocalDateTime): List<Item> {
+        val a = rulesSet(app, now); val b = freeSet(app)
+        if (count <= 0) return a + b
+        if (b.isEmpty()) return pick(a, count)
+        return pick(a, count / 2) + pick(b, count - count / 2)
     }
 
-    internal fun pick(all: List<String>, count: Int): List<String> {
+    internal fun <T> pick(all: List<T>, count: Int): List<T> {
         if (count >= all.size || count <= 0) return all
         return List(count) { all[(it.toLong() * all.size / count).toInt()] }
     }
 
-    data class Row(val phrase: String, val expected: String, val got: String, val millis: Long, val raw: String, val personOk: Boolean?)
+    data class Row(val item: Item, val got: String, val millis: Long, val raw: String, val personOk: Boolean?) {
+        val phrase get() = item.phrase; val expected get() = item.expected
+    }
 
     data class Report(val model: String, val backend: String, val rows: List<Row>, val note: String? = null, val tokens: List<Int> = emptyList(), val lastError: String? = null) {
-        private val answered get() = rows.count { it.got != "—" }
-        private val exact get() = rows.count { it.got == it.expected }
-        private val firstOk get() = rows.count { firstStep(it.got) == firstStep(it.expected) }
         private fun pct(a: Int, b: Int) = if (b == 0) 0 else a * 100 / b
+        private fun stats(list: List<Row>): String {
+            val answered = list.count { it.got != "—" }
+            val exact = list.count { it.got == it.expected }
+            val first = list.count { firstStep(it.got) == firstStep(it.expected) }
+            val people = list.mapNotNull { it.personOk }
+            return buildString {
+                append(t("Ответ получен: %1\$s из %2\$s (%3\$s%%)", answered, list.size, pct(answered, list.size))).append('\n')
+                append(t("Команда верная целиком: %1\$s из %2\$s (%3\$s%%)", exact, list.size, pct(exact, list.size))).append('\n')
+                append(t("Первое действие верное: %1\$s из %2\$s (%3\$s%%)", first, list.size, pct(first, list.size))).append('\n')
+                if (people.isNotEmpty()) append(t("Имя понято верно: %1\$s из %2\$s", people.count { it }, people.size)).append('\n')
+            }
+        }
 
         fun text(version: String): String = buildString {
             append("RVault ").append(version).append(" · ").append(model).append(" · ").append(backend.ifBlank { "CPU" }).append('\n')
             note?.let { append(it).append('\n') }
             if (rows.isEmpty()) return@buildString
             val ms = rows.map { it.millis }.sorted()
-            val people = rows.mapNotNull { it.personOk }
             append(t("Фраз: %1\$s", rows.size)).append('\n')
             if (tokens.isNotEmpty()) append(t("Размер запроса: в среднем %1\$s токенов (окно модели — 1280)", tokens.average().toInt())).append('\n')
-            if (answered == 0 && lastError != null) append(t("Причина: %1\$s", explain(lastError))).append('\n')
-            append(t("Ответ получен: %1\$s из %2\$s (%3\$s%%)", answered, rows.size, pct(answered, rows.size))).append('\n')
-            append(t("Команда верная целиком: %1\$s из %2\$s (%3\$s%%)", exact, rows.size, pct(exact, rows.size))).append('\n')
-            append(t("Первое действие верное: %1\$s из %2\$s (%3\$s%%)", firstOk, rows.size, pct(firstOk, rows.size))).append('\n')
-            if (people.isNotEmpty()) append(t("Имя понято верно: %1\$s из %2\$s", people.count { it }, people.size)).append('\n')
-            append(t("Время ответа: в среднем %1\$s с, 95%% — до %2\$s с", "%.1f".format(ms.average() / 1000), "%.1f".format(ms[(ms.size * 95 / 100).coerceAtMost(ms.size - 1)] / 1000.0))).append('\n')
+            if (rows.count { it.got != "—" } == 0 && lastError != null) append(t("Причина: %1\$s", explain(lastError))).append('\n')
+            val rules = rows.filter { it.item.group == "rules" }; val free = rows.filter { it.item.group == "free" }
+            if (rules.isNotEmpty()) append('\n').append(t("Эталон по правилам")).append(": ").append(rules.size).append('\n').append(stats(rules))
+            if (free.isNotEmpty()) append('\n').append(t("Свободные формулировки")).append(": ").append(free.size).append('\n').append(stats(free))
+            append('\n').append(t("Время ответа: в среднем %1\$s с, 95%% — до %2\$s с", "%.1f".format(ms.average() / 1000), "%.1f".format(ms[(ms.size * 95 / 100).coerceAtMost(ms.size - 1)] / 1000.0))).append('\n')
             val bad = rows.filter { it.got != it.expected }
             if (bad.isNotEmpty()) {
                 append('\n').append(t("Ошибки (первые %1\$s):", minOf(bad.size, 25))).append('\n')
                 bad.take(25).forEachIndexed { n, r ->
-                    append("${n + 1}. «${r.phrase}» → ${r.got} (${t("ожидалось")} ${r.expected})")
-                    if (r.raw.isNotBlank()) append("\n   ").append(r.raw.replace('\n', ' ').take(90))
+                    append("${n + 1}. [${if (r.item.group == "free") "св" else "эт"}] «${r.phrase}» → ${r.got} (${t("ожидалось")} ${r.expected})")
+                    if (r.raw.isNotBlank()) append("\n   ").append(r.raw.replace('\n', ' ').take(110))
                     append('\n')
                 }
             }
@@ -75,7 +109,7 @@ object NoaBenchmark {
         else -> err
     }
 
-    /** Прогон. [count] — сколько фраз (короткая проверка ~30, полная ~140); [cancelled] прерывает между фразами. */
+    /** Прогон. [count] — сколько фраз (короткая ~30, 0 — все); [cancelled] прерывает между фразами. */
     suspend fun run(app: KartotekaApp, count: Int, onProgress: (Int, Int) -> Unit, cancelled: () -> Boolean): Report {
         val title = app.brain.installed()?.title ?: t("своя модель")
         if (app.brain.prepare() != LlmBrain.State.READY) {
@@ -92,17 +126,15 @@ object NoaBenchmark {
         val noa = Noa(app)
         val names = noa.knownNames(60)
         val interpreter = NoaInterpreter(app.brain)
-        val list = phrases(app, count)
+        val list = items(app, count, now)
         val rows = ArrayList<Row>()
         val tokens = ArrayList<Int>()
         var lastErr: String? = null
-        for ((n, phrase) in list.withIndex()) {
+        for ((n, item) in list.withIndex()) {
             if (cancelled()) break
             onProgress(n, list.size)
-            val rules = NoaParser.parse(phrase, now)
-            val expected = signature(rules)
             val t0 = System.nanoTime()
-            val r = runCatching { withTimeoutOrNull(90_000) { interpreter.interpret(phrase, now, names = names) } }.getOrNull()
+            val r = runCatching { withTimeoutOrNull(90_000) { interpreter.interpret(item.phrase, now, names = names) } }.getOrNull()
             val ms = (System.nanoTime() - t0) / 1_000_000
             val got = when {
                 r == null -> "—"
@@ -110,23 +142,29 @@ object NoaBenchmark {
                 r.intent != null -> signature(r.intent)
                 else -> "chat"
             }
-            val wantPerson = NoaParser.personOf(if (rules is NoaIntent.Sequence) rules.steps.first() else rules).trim()
+            val wantPerson = personOfExpected(item, now)
             val gotPerson = r?.intent?.let { NoaParser.personOf(if (it is NoaIntent.Sequence) it.steps.first() else it) }?.trim().orEmpty()
             val personOk = wantPerson.takeIf { it.isNotBlank() }?.let { samePerson(it, gotPerson) }
             val err = app.brain.lastError
             if (app.brain.lastTokens > 0) tokens += app.brain.lastTokens
             if (err != null) lastErr = err
-            rows += Row(phrase, expected, got, ms, if (got == "—" && err != null) "${t("ошибка")}: ${explain(err)}" else interpreter.lastRaw.orEmpty(), personOk)
+            rows += Row(item, got, ms, if (got == "—" && err != null) "${t("ошибка")}: ${explain(err)}" else interpreter.lastRaw.orEmpty(), personOk)
         }
         onProgress(list.size, list.size)
         return Report(title, app.brain.backend.uppercase(), rows, tokens = tokens, lastError = lastErr)
     }
 
-    /** Имя из фразы («Илью») и из ответа модели («Илья») — один человек: совпадают первые 3–4 буквы. */
+    /** Имя из фразы: у эталона — по разбору правил; у свободной фразы — по правилам, если поняли (иначе не проверяем). */
+    private fun personOfExpected(item: Item, now: LocalDateTime): String {
+        val i = NoaParser.parse(item.phrase, now)
+        return NoaParser.personOf(if (i is NoaIntent.Sequence) i.steps.firstOrNull() ?: i else i).trim()
+    }
+
+    /** Имя из фразы («Илью», «Ани») и из ответа модели («Илья Риков», «Анна Иванова») — один человек, с учётом падежей и русских/украинских букв. */
     internal fun samePerson(a: String, b: String): Boolean {
-        fun key(s: String) = s.lowercase().split(Regex("[^\\p{L}]+")).firstOrNull { it.length >= 2 }.orEmpty()
-            .replace('ё', 'е').replace('і', 'и').replace('ї', 'и').replace('й', 'и').replace('ы', 'и').let { it.take(maxOf(3, it.length - 2)).take(4) }
-        val x = key(a); val y = key(b)
-        return x.isNotEmpty() && y.isNotEmpty() && (x == y || x.startsWith(y) || y.startsWith(x))
+        fun first(s: String) = s.lowercase().split(Regex("[^\\p{L}]+")).firstOrNull { it.length >= 2 }.orEmpty()
+        val x = NoaMatch.stem(first(a)).replace(Regex("(.)\\1"), "$1")
+        val y = NoaMatch.stem(first(b)).replace(Regex("(.)\\1"), "$1")
+        return x.length >= 2 && y.length >= 2 && NoaMatch.stemMatch(x, y)
     }
 }
