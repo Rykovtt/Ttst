@@ -97,16 +97,21 @@ class VoiceNoteService : Service() {
         val rate = VoiceStorage.SAMPLE_RATE
         val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         // Пока ассистент договаривает «Записываю…», микрофон не трогаем — иначе его голос попадёт в заметку.
-        Thread.sleep(1_400)
+        Thread.sleep(700)
+        var waited = 0
+        while (NoaVoice.speaking && waited < 6_000 && running) { Thread.sleep(100); waited += 100 }
+        Thread.sleep(300)
         if (!running) return
         val ar = runCatching { AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate) * 2) }
             .getOrNull()?.takeIf { it.state == AudioRecord.STATE_INITIALIZED } ?: return
         val model = if (WakeModel.ready(this)) runCatching { Model(WakeModel.dir(this).absolutePath) }.getOrNull() else null
-        val rec = model?.let { m -> runCatching { Recognizer(m, rate.toFloat(), JSONArray(STOP_PHRASES + "[unk]").toString()) }.getOrNull() }
+        // Свободное распознавание, а не узкая грамматика из стоп-фраз: узкая «слышит» стоп-фразу даже в шуме и обрывала запись через пару секунд.
+        val rec = model?.let { m -> runCatching { Recognizer(m, rate.toFloat()) }.getOrNull() }
         val file = storage.newName()
         val buf = ShortArray(rate / 10)
         var total = 0L
         var stoppedByVoice = false
+        var stopHits = 0
         main.post { beep(ToneGenerator.TONE_PROP_BEEP) }
         try {
             ar.startRecording()
@@ -121,7 +126,10 @@ class VoiceNoteService : Service() {
                     if (rec != null) {
                         val final = rec.acceptWaveForm(buf, n)
                         val text = JSONObject(if (final) rec.result else rec.partialResult).let { if (final) it.optString("text") else it.optString("partial") }
-                        if (isStop(text)) { stoppedByVoice = true; running = false }
+                        // Стоп — только после первых секунд и если фраза услышана два чтения подряд (или в законченной реплике).
+                        val hit = isStop(text) && VoiceStorage.durationMs(total) >= MIN_BEFORE_STOP_MS
+                        stopHits = if (hit) stopHits + 1 else 0
+                        if (hit && (final || stopHits >= 2)) { stoppedByVoice = true; running = false }
                     }
                     if (VoiceStorage.durationMs(total) >= VoiceRecorder.MAX_MS) running = false
                 }
@@ -159,6 +167,7 @@ class VoiceNoteService : Service() {
         private const val EXTRA_NAME = "name"
         private const val CHANNEL = "voicenote"
         private const val NOTIF_ID = 4108
+        private const val MIN_BEFORE_STOP_MS = 3_000L
         /** Идёт запись — ассистент не трогает микрофон. */
         @Volatile var active = false
             private set

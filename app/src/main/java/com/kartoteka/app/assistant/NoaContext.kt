@@ -137,8 +137,18 @@ object NoaMatch {
     }
 
     /** Названо ли [name] во фразе (по основам слов). */
+    /** Латиница → кириллица («Oleg» → «олег»): английская фраза называет того же человека, что записан по-русски. */
+    internal fun translit(w: String): String {
+        var s = w.lowercase()
+        if (s.isEmpty() || s.any { it !in 'a'..'z' }) return w
+        for ((a, b) in listOf("shch" to "щ", "sh" to "ш", "ch" to "ч", "zh" to "ж", "kh" to "х", "ts" to "ц", "ya" to "я", "yu" to "ю", "yo" to "ё", "ye" to "е", "ii" to "ий")) s = s.replace(a, b)
+        val m = mapOf('a' to 'а', 'b' to 'б', 'c' to 'к', 'd' to 'д', 'e' to 'е', 'f' to 'ф', 'g' to 'г', 'h' to 'х', 'i' to 'и', 'j' to 'й', 'k' to 'к', 'l' to 'л', 'm' to 'м',
+            'n' to 'н', 'o' to 'о', 'p' to 'п', 'q' to 'к', 'r' to 'р', 's' to 'с', 't' to 'т', 'u' to 'у', 'v' to 'в', 'w' to 'в', 'x' to 'х', 'y' to 'и', 'z' to 'з')
+        return s.map { m[it] ?: it }.joinToString("")
+    }
+
     fun mentions(phrase: String, name: String): Boolean {
-        val ps = words(phrase).map(::stem)
+        val ps = words(phrase).flatMap { listOf(it, translit(it)) }.map(::stem)
         return words(name).filter { it.length > 1 }.map(::stem).let { ns -> ns.isNotEmpty() && ns.all { n -> ps.any { stemStrict(it, n) } } }
     }
 }

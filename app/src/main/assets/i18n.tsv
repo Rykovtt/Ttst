@@ -1346,3 +1346,5 @@ SMS одним сообщением	SMS одним повідомленням	SM
 На %1$s несколько записей: %2$s. Скажите, чью перенести.	На %1$s кілька записів: %2$s. Скажіть, чий перенести.	There are several appointments for %1$s: %2$s. Tell me whose to move.
 отправить %1$s напоминание о записи в %2$s	надіслати %1$s нагадування про запис у %2$s	send %1$s an appointment reminder via %2$s
 перенести запись с %1$s на %2$s	перенести запис з %1$s на %2$s	move the appointment from %1$s to %2$s
+Записываю заметку о %1$s.	Записую нотатку про %1$s.	Recording a note about %1$s.
+Запись уже идёт.	Запис уже триває.	Already recording.

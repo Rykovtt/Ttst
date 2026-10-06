@@ -92,6 +92,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 args["person"] = who
             }
             "read_messages" -> NoaMatch.fromPhrase(phrase, ctx.people)?.display?.let { args["person"] = it }
+            "select" -> args["person"] = (NoaMatch.fromPhrase(phrase, ctx.people)?.display ?: personGuess(ctx)).ifBlank { return null }
+            "play_music" -> args["query"] = lw(phrase).drop(1).filter { it !in RESCUE_NOISE }.joinToString(" ").ifBlank { return null }
             "launch_app", "close_app" -> args["app"] = appGuess(ctx).ifBlank { return null }
             "find" -> args["query"] = lw(phrase).drop(1).filter { it !in RESCUE_NOISE }.joinToString(" ").ifBlank { return null }
         }
@@ -453,7 +455,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     private val REFUSALS = Regex("не могу|не можу|не умею|не вмію|не знаю|не вмею|не получится|can't|cannot|unable")
     private val CLOSE_START = arrayOf("закр", "close", "kill", "заверш")
     private val OPEN_START = arrayOf("откр", "відкр", "open", "запуст", "launch", "start")
-    private val REPLY_START = arrayOf("ответ", "відпов", "reply", "answer")
+    private val REPLY_START = arrayOf("ответ", "відпов", "reply", "answer", "отпиш", "відпиш", "откликн")
     private val NOTE_START = arrayOf("замет", "нотат", "запиш", "запис", "добав", "додай", "додат", "note", "запомн", "запамʼят", "запам'ят", "отмет", "комментар", "хроник", "занес", "занос", "внес", "внос", "впиш", "помет", "зафикс", "зафіксу", "внеси")
     private val MOVE_START = arrayOf("перенес", "перенест", "перемест", "перемі", "переназнач", "reschedule", "postpone", "move")
     private val PLAY_WORDS = arrayOf("послуша", "послуха", "послуш", "включ", "увімк", "запуст", "постав", "заиграй", "зіграй", "врубай", "play")
@@ -598,6 +600,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                     else -> null
                 }
                 val plans = hasWord(w, arrayOf("план", "распис", "розклад", "agenda", "schedule")) || (w.take(3).containsAll(listOf("что", "у")) && "меня" in w)
+                // «Найти» — запасной ответ маленькой модели на всё непонятное: если во фразе нет слов поиска, это не поиск.
+                val searchy = hasWord(w, arrayOf("найд", "найт", "знайд", "знайт", "поищ", "поиск", "пошук", "покаж", "показ", "где", "де", "кто", "хто", "find", "search", "show", "who", "where", "look",
+                    "дай", "відшук", "отыщ", "подбер", "ищ", "шука", "контакт", "базе", "базі", "человек", "людин", "клиент", "клієнт"))
                 val qw = NoaMatch.words(a["query"].orEmpty())
                 val echo = w.size >= 4 && qw.size >= w.size - 1 && w.count { it in qw } >= w.size - 1
                 when {
@@ -608,6 +613,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                     plans && topic == null -> swap("agenda", emptyMap())
                     topic != null && hasWord(w, arrayOf("когда", "какой", "какая", "какие", "какое", "що", "коли", "який", "яка", "яке", "які", "what", "when", "скажи", "расскажи", "розкажи")) ->
                         swap("person_info", mapOf("person" to personGuess(ctx), "topic" to topic))
+                    w.size >= 2 && !searchy -> drop()
                     else -> keep()
                 }
             }
@@ -624,12 +630,31 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 val q = a["query"].orEmpty()
                 when {
                     LOCAL_Q.containsMatchIn((q + " " + ctx.phrase).lowercase()) -> drop()
+                    // «Где-то был клиент Андрей, поищи» — искать надо в книжке, а не в Google.
+                    !startsWith(ctx, SEARCH_START) && NoaMatch.fromPhrase(ctx.phrase, ctx.people) != null -> swap("find", mapOf("query" to personGuess(ctx)))
                     !startsWith(ctx, SEARCH_START) && hasWord(w, arrayOf("мой", "мій", "мои", "мої")) && hasWord(w, arrayOf("день", "дня", "план", "расписан", "розклад")) -> swap("agenda", emptyMap())
                     !startsWith(ctx, SEARCH_START) && !ctx.phrase.contains(Regex("[A-Za-z]")) && Regex("[A-Za-z]{3,}").findAll(q).count() >= 2 -> drop()
                     !startsWith(ctx, SEARCH_START) && startsWith(ctx, CMD_START) && navOverlap(q, ctx.phrase) -> drop()
                     else -> keep()
                 }
             }
+            // «Пометочку Маше что в долгу» — заметка, а не сообщение Маше.
+            "message" -> if (w.firstOrNull()?.let { f -> arrayOf("помет", "помітк", "заметк", "нотатк").any { f.startsWith(it) } } == true && a["text"] != null)
+                swap("add_note", mapOf("person" to bestPerson(a, ctx), "text" to a["text"].orEmpty().removePrefix("Пометочку, ").removePrefix("пометочку, "))) else keep()
+            // «Напомни какой номер у Ильи» — вопрос о человеке, а не напоминание.
+            "remind" -> {
+                val q = NoaMatch.words(a["query"].orEmpty()) + w
+                val topic = when {
+                    hasWord(q, arrayOf("телефон", "номер", "phone")) -> "phone"
+                    hasWord(q, arrayOf("рожд", "народж", "birthday")) -> "birthday"
+                    hasWord(q, arrayOf("адрес", "address")) -> "address"
+                    else -> null
+                }
+                if (topic != null && hasWord(w, arrayOf("какой", "какая", "какие", "який", "яка", "які", "скажи", "когда", "коли", "what")) && a["time"] == null)
+                    swap("person_info", mapOf("person" to personGuess(ctx), "topic" to topic)) else keep()
+            }
+            // «Запри телефон» — это блокировка, а не закрытие приложения «phone».
+            "close_app" -> if (hasWord(w, arrayOf("запри", "заперт")) || (a["app"]?.lowercase() in setOf("phone", "телефон", "телефона", "екран", "экран", "screen") && hasWord(w, arrayOf("заблок", "замкн")))) swap("lock", emptyMap()) else keep()
             "flashlight" -> if (w.size < 2 || hasWord(w, FLASH_WORDS)) keep() else drop()
             "read_messages" -> shareRescue(ctx)?.let { swap(it) } ?: if (hasWord(w, SEND_WORDS)) drop() else keep()
             "launch_app" -> if (startsWith(ctx, CLOSE_START)) swap("close_app", a) else keep()
@@ -645,7 +670,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 }
             }
             // Раздел, которого нет в приложении («Calculator»), — это приложение телефона.
-            "open_screen" -> a["section"].orEmpty().let { sec -> if (section(sec) != null) keep() else if (sec.isNotBlank()) swap("launch_app", mapOf("app" to sec)) else drop() }
+            "open_screen" -> if (NoaMatch.fromPhrase(ctx.phrase, ctx.people) != null && hasWord(w, arrayOf("откр", "відкр", "розкр", "покаж", "show", "open")))
+                swap("open_person", mapOf("person" to personGuess(ctx)))
+            else a["section"].orEmpty().let { sec -> if (section(sec) != null) keep() else if (sec.isNotBlank()) swap("launch_app", mapOf("app" to sec)) else drop() }
             "create_appointment" -> {
                 a["service"]?.let { sv ->
                     val pw = w.filter { it.length >= 3 }.map(NoaMatch::stem)
@@ -676,7 +703,15 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     private fun digits(s: String) = s.filter { it.isDigit() }
 
     /** Имя от модели → имя из книжки. Выдуманное (нет ни в книжке, ни во фразе, ни в данных) отбрасываем. */
-    private fun fixPerson(raw: String, ctx: Ctx): Fix {
+    private val LATIN_TWINS = mapOf('a' to 'а', 'e' to 'е', 'o' to 'о', 'p' to 'р', 'c' to 'с', 'x' to 'х', 'y' to 'у', 'i' to 'і',
+        'A' to 'А', 'B' to 'В', 'C' to 'С', 'E' to 'Е', 'H' to 'Н', 'I' to 'І', 'K' to 'К', 'M' to 'М', 'O' to 'О', 'P' to 'Р', 'T' to 'Т', 'X' to 'Х')
+
+    /** «Oлег» с латинской O внутри кириллического имени (модель так пишет) → «Олег». Чисто латинские имена не трогаем. */
+    internal fun deLatin(s: String): String =
+        if (s.any { it in 'а'..'я' || it in 'А'..'Я' || it in "іїєґІЇЄҐ" } && s.any { it in 'a'..'z' || it in 'A'..'Z' }) s.map { LATIN_TWINS[it] ?: it }.joinToString("") else s
+
+    private fun fixPerson(rawIn: String, ctx: Ctx): Fix {
+        val raw = deLatin(rawIn)
         if (NoaText.looksLikePhone(raw)) return if (digits(ctx.phrase).contains(digits(raw))) Fix.Keep else Fix.Drop
         if (ctx.people.isEmpty()) return Fix.Keep
         val own = NoaMatch.resolve(raw, ctx.people)
@@ -732,7 +767,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             val a = LinkedHashMap(st.args)
             a.putAll(spec.prefill(a, ctx))
             if (spec.hasPerson) {
-                var raw = a["person"].orEmpty().trim()
+                var raw = deLatin(a["person"].orEmpty().trim()).also { if (it.isNotBlank()) a["person"] = it }
                 // Человек остаётся, только если он назван во фразе (или это местоимение): имена из списка «People» модель копирует без причины.
                 // Ответ на уточняющий вопрос («ту, что отвечает по ночам») — модель может узнать человека по описанию: верим, если он есть в книжке.
                 val known = ctx.answering && NoaMatch.resolve(raw, ctx.people).kind == NoaMatch.Kind.ONE

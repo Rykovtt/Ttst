@@ -828,8 +828,8 @@ class Noa(private val app: KartotekaApp) {
     /** «Открой голосовые заметки об Илье и начни запись»: запись в карточку человека, стоп — «стоп запись» или кнопка в шторке. */
     private suspend fun voiceNote(i: NoaIntent.VoiceNote): Reply = withPerson(i.personQuery) { pf ->
         if (!com.kartoteka.app.voice.VoiceRecorder.hasPermission(app)) return@withPerson Reply.Say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
-        if (VoiceNoteService.active) return@withPerson Reply.Say(t("Запись уже идёт. Скажите «стоп запись»."))
-        Reply.Do(t("Записываю заметку о %1\$s. Чтобы закончить, скажите «стоп запись».", pf.person.displayName)) { ctx ->
+        if (VoiceNoteService.active) return@withPerson Reply.Say(t("Запись уже идёт."))
+        Reply.Do(t("Записываю заметку о %1\$s.", pf.person.displayName)) { ctx ->
             VoiceNoteService.start(ctx, pf.person.id, pf.person.displayName)
         }
     }

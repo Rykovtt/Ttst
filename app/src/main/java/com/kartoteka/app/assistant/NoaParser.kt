@@ -458,7 +458,7 @@ object NoaParser {
         }
 
         // заметка в хронику — раньше записи на приём («запиши в хронику»)
-        if (has(s, "заметк", "нотатк", "хроник", "хронік", "note")) return note(original, s)
+        if (has(s, "заметк", "нотатк", "хроник", "хронік", "note", "пометочк", "помітк", "пометк")) return note(original, s)
 
         // план на день: «что у меня сегодня», «які записи на завтра»
         if (has(s, "что у меня", "что сегодня", "что завтра", "що в мене", "що у мене", "що сьогодні", "що завтра",
@@ -869,6 +869,8 @@ object NoaParser {
             (has(s, "в случайном порядке", "перемешай", "перемішай", "вперемешку", "shuffle", "випадковому порядку", "рандом") && (words <= 7 || music)) -> NoaMedia.Control.SHUFFLE_ON
             has(s, "на повтор", "повторяй", "repeat") -> NoaMedia.Control.REPEAT
             has(s, "следующ", "наступн", "next", "пропусти", "skip", "переключи") && (words <= 4 || music) -> NoaMedia.Control.NEXT
+            // «Поменяй на другую песню», «смени трек»
+            has(s, "поменяй", "смени", "змін", "замін", "другую песн", "другий трек", "другу пісн", "другой трек") && (music || words <= 4) -> NoaMedia.Control.NEXT
             // «дальше», «давай дальше» — только коротко: «поехали дальше» не про музыку
             words <= 2 && has(s, "дальше", "далі", "далее") -> NoaMedia.Control.NEXT
             has(s, "предыдущ", "попередн", "previous", "прошл трек", "верни трек", "предыдущую") && (words <= 4 || music) -> NoaMedia.Control.PREV
@@ -1348,7 +1350,7 @@ object NoaParser {
             return NoaIntent.AddNote(extractPerson(s), text)
         }
         val low = original.lowercase()
-        val marker = Regex("(заметк|нотатк|хроник|хронік|note)\\S*").find(low) ?: return NoaIntent.AddNote(extractPerson(s), "")
+        val marker = Regex("(заметк|нотатк|хроник|хронік|note|пометочк|помітк|пометк)\\S*").find(low) ?: return NoaIntent.AddNote(extractPerson(s), "")
         val head = original.substring(0, marker.range.first)
         var tail = original.substring(marker.range.last + 1).trim()
         var who = extractPerson(" " + head.lowercase() + " ")
@@ -1363,6 +1365,8 @@ object NoaParser {
                 tail = " $tail ".substring(split.range.last + 1).trim()
             }
         }
+        // «Помітка для Дмитра хоче приходити вранці» — имя сразу после «для/про/о», дальше текст.
+        if (who.isBlank()) Regex("^(?:для|про|о|об|на|по)\\s+(\\S+)\\s+(.+)$", RegexOption.IGNORE_CASE).find(tail)?.let { who = it.groupValues[1].lowercase(); tail = it.groupValues[2] }
         return NoaIntent.AddNote(who, tail)
     }
 
