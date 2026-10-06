@@ -62,7 +62,7 @@ class LlmBrain(context: Context) {
     /** Процесс модели умер (обычно — не хватило памяти): все ожидающие получают null. */
     private fun died() {
         if (service != null || connecting?.isCompleted == false) lastDeath = System.currentTimeMillis()
-        service = null; prepared = false
+        service = null; prepared = false; verified = false
         connecting?.complete(null)
         replies.values.forEach { it.complete(null) }; replies.clear()
         runCatching { app.unbindService(connection) }
@@ -110,6 +110,8 @@ class LlmBrain(context: Context) {
         // (свернули, закрыли). Старую пометку «не хватило памяти» из версий, где модель жила в приложении, снимаем.
         prefs.edit().remove(KEY_LOADING).apply()
         if (!prefs.getBoolean(KEY_CRASH_RESET, false)) prefs.edit().remove(KEY_CRASHED).putBoolean(KEY_CRASH_RESET, true).apply()
+        // 3.4.2: движок падал на видеокарте — прежние пометки о сбое сбрасываем, модель получает чистую попытку на процессоре.
+        if (!prefs.getBoolean("crash_reset_342", false)) prefs.edit().remove(KEY_CRASHED).remove(KEY_CRASH_DETAIL).putBoolean("crash_reset_342", true).apply()
     }
 
     /** Почему система закрыла процесс модели — по журналу выходов (Android 11+). */
@@ -290,7 +292,9 @@ class LlmBrain(context: Context) {
         }
         state = State.PREPARING
         val kind = currentKind()
-        val gpu = !prefs.getBoolean(KEY_GPU_BAD + kind, false)
+        // Видеокарту пробуем только для «своей» модели (Gemma): сборки Phi-4 и Qwen в формате .task рассчитаны на процессор,
+        // на видеокарте движок на них аварийно закрывается при первом ответе.
+        val gpu = kind == KIND_GEMMA && !prefs.getBoolean(KEY_GPU_BAD + kind, false)
         val started = System.currentTimeMillis()
         val reply = request(BrainService.MSG_PREPARE, 0, android.os.Bundle().apply {
             putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 1280); putBoolean(BrainService.KEY_GPU, gpu)
@@ -330,7 +334,45 @@ class LlmBrain(context: Context) {
     @Volatile var lastTokens: Int = -1
         private set
 
-    suspend fun ask(prompt: String): String? = withContext(Dispatchers.IO) {
+    /** Модель реально ответила хотя бы раз с момента загрузки (а не просто «загрузилась»). */
+    @Volatile var verified = false
+        private set
+
+    /**
+     * Спросить модель. Если процесс движка умер во время ответа (аварийное завершение — его в самой службе не поймать),
+     * считаем видеокарту негодной, перезагружаем модель на процессоре и повторяем запрос один раз.
+     */
+    suspend fun ask(prompt: String): String? {
+        askOnce(prompt)?.let { verified = true; return it }
+        if (lastError != "no_reply") return null
+        val kind = currentKind()
+        val onGpu = !prefs.getBoolean(KEY_GPU_BAD + kind, false)
+        if (onGpu) {
+            // Видеокарта: движок падает на ответе. Дальше — только процессор.
+            prefs.edit().putBoolean(KEY_GPU_BAD + kind, true).apply()
+            if (prepare() == State.READY) askOnce(prompt)?.let { verified = true; return it }
+            if (lastError != "no_reply") return null
+        }
+        // Падает и на процессоре — сами больше не пробуем, объясняем и предлагаем быструю модель.
+        val why = com.kartoteka.app.i18n.t("Движок ИИ закрывается при ответе на этом телефоне. Выберите быструю модель в настройках ассистента.")
+        prefs.edit().putString(KEY_CRASHED, kind).putString(KEY_CRASH_DETAIL, why).apply()
+        detail = why; state = State.UNAVAILABLE
+        lastError = "engine_crash"
+        return null
+    }
+
+    /** Короткий настоящий ответ после загрузки: проверяем, что модель не только загружена, но и отвечает. */
+    suspend fun selfTest(): Boolean {
+        if (verified && isReady) return true
+        val t0 = System.currentTimeMillis()
+        val ok = ask("Ответь одним словом: ОК") != null
+        selfTestMillis = System.currentTimeMillis() - t0
+        return ok
+    }
+    @Volatile var selfTestMillis = 0L
+        private set
+
+    private suspend fun askOnce(prompt: String): String? = withContext(Dispatchers.IO) {
         lastError = null; lastTokens = -1
         if (!isReady) { lastError = "not_ready"; return@withContext null }
         val id = ids.incrementAndGet()
@@ -361,7 +403,7 @@ class LlmBrain(context: Context) {
     }
 
     fun close() {
-        prepared = false
+        prepared = false; verified = false
         service?.let { to -> runCatching { to.send(android.os.Message.obtain(null, BrainService.MSG_CLOSE)) } }
     }
 

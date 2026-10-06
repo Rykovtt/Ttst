@@ -70,6 +70,7 @@ object NoaBenchmark {
         err.startsWith("too_long") -> t("запрос не помещается в окно модели (%1\$s токенов)", err.substringAfter(':'))
         err == "no_model" -> t("модель не загружена в службе")
         err == "not_ready" -> t("модель не готова")
+        err == "engine_crash" -> t("движок ИИ аварийно закрывается при ответе (и на видеокарте, и на процессоре)")
         err == "no_reply" -> t("служба модели не ответила (возможно, не хватило памяти)")
         else -> err
     }
@@ -79,6 +80,13 @@ object NoaBenchmark {
         val title = app.brain.installed()?.title ?: t("своя модель")
         if (app.brain.prepare() != LlmBrain.State.READY) {
             return Report(title, "", emptyList(), app.brain.detail.ifBlank { t("Модель не запущена. Откройте ассистента и дождитесь «ИИ на устройстве».") })
+        }
+        // Сначала короткий настоящий ответ: нет смысла гнать фразы, если движок падает.
+        onProgress(0, 1)
+        if (!app.brain.selfTest()) {
+            val why = app.brain.lastError?.let { explain(it) }.orEmpty()
+            return Report(title, app.brain.backend.uppercase(), emptyList(),
+                t("Модель загрузилась, но не отвечает. Причина: %1\$s. Выберите быструю модель в настройках ассистента.", why))
         }
         val now = LocalDateTime.of(2026, 10, 4, 10, 0)
         val noa = Noa(app)

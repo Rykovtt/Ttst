@@ -287,7 +287,16 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         if (!on || !app.brain.supported) { brainStatus = t("Быстрые команды"); return }
         if (app.brain.hasModel()) brainStatus = t("Просыпаюсь…")
         brainStatus = when (app.brain.prepare()) {
-            LlmBrain.State.READY -> { brainReady = true; t("ИИ на устройстве") + if (app.brain.backend == "gpu") " · GPU" else "" }
+            LlmBrain.State.READY -> {
+                // «Готова» — только если модель реально ответила, а не просто загрузилась.
+                if (app.brain.selfTest()) {
+                    brainReady = true
+                    t("ИИ на устройстве") + when (app.brain.backend) { "gpu" -> " · GPU"; "cpu" -> " · CPU"; else -> "" }
+                } else {
+                    app.brain.detail.takeIf { it.isNotBlank() }?.let { bubbles.add(Bubble(it, mine = false)) }
+                    t("ИИ не отвечает · быстрые команды")
+                }
+            }
             LlmBrain.State.NEEDS_MODEL -> {
                 val dl = app.brain.syncDownload()
                 if (dl is LlmBrain.Download.Running) t("Модель скачивается · %1\$s", "${dl.percent}%") else t("Без ИИ · скачайте модель")
