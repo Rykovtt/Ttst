@@ -56,6 +56,7 @@ fun AssistantSettings() {
         if (brain) BrainModelRow()
         // Доступ к уведомлениям: плеер (пауза, перемешать), чтение и ответ в мессенджерах по команде.
         var access by remember { mutableStateOf(com.kartoteka.app.assistant.NoaNotifications.granted(context)) }
+        var accessHelp by remember { mutableStateOf(false) }
         androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
             access = com.kartoteka.app.assistant.NoaNotifications.granted(context)
             onPauseOrDispose { }
@@ -64,7 +65,16 @@ fun AssistantSettings() {
             Icons.Default.Apps, t("Музыка и сообщения"),
             if (access) t("Включено: пауза, «дальше», перемешать, читаю ответы вслух и отвечаю в мессенджерах по команде")
             else t("Выключено. Нажмите и разрешите доступ к уведомлениям — тогда я смогу управлять музыкой, читать ответы и отвечать в WhatsApp/Telegram"),
-        ) { com.kartoteka.app.assistant.NoaNotifications.openSettings(context) }
+        ) { if (access) com.kartoteka.app.assistant.NoaNotifications.openSettings(context) else accessHelp = true }
+        if (accessHelp) {
+            AlertDialog(
+                onDismissRequest = { accessHelp = false },
+                title = { Text(t("Доступ к уведомлениям")) },
+                text = { Text(t("1. Нажмите «Открыть» и включите RVault в списке.\n\nЕсли переключатель серый и пишет «Ограниченная настройка»: откройте «О приложении» → меню ⋮ вверху справа → «Разрешить ограниченные настройки», потом вернитесь и включите доступ. Так Android защищает приложения, установленные не из Google Play.")) },
+                confirmButton = { TextButton(onClick = { accessHelp = false; com.kartoteka.app.assistant.NoaNotifications.openSettings(context) }) { Text(t("Открыть")) } },
+                dismissButton = { TextButton(onClick = { accessHelp = false; com.kartoteka.app.assistant.NoaNotifications.openAppDetails(context) }) { Text(t("О приложении")) } },
+            )
+        }
         WakeRow()
         ActionRow(Icons.Default.RecordVoiceOver, t("Имя ассистента"), name.ifBlank { "Ноа" }) { rename = true }
         ToggleRow(Icons.Default.RecordVoiceOver, t("Отвечать голосом"), t("Женский голос; читает ответы вслух"), voice, s.assistantVoice::set)

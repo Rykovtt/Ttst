@@ -62,8 +62,23 @@ class NoaNotifications : NotificationListenerService() {
         fun granted(context: Context): Boolean =
             androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
+        /** Список приложений с доступом к уведомлениям; не нашёлся — настройки уведомлений приложения. */
         fun openSettings(context: Context) {
-            val i = Intent("android.settings.NOTIFICATION_LISTENER_SETTINGS")
+            val tries = listOf(
+                Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
+                Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"),
+                Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName),
+                Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + context.packageName)),
+            )
+            for (i in tries) {
+                if (context !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (runCatching { context.startActivity(i) }.isSuccess) return
+            }
+        }
+
+        /** «О приложении»: там в меню ⋮ включается «Разрешить ограниченные настройки» (для приложений не из Google Play). */
+        fun openAppDetails(context: Context) {
+            val i = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:" + context.packageName))
             if (context !is android.app.Activity) i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { context.startActivity(i) }
         }
