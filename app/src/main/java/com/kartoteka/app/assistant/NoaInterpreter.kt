@@ -161,13 +161,26 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         w.any { it in 'a'..'z' || it in 'A'..'Z' } && w.any { it in 'а'..'я' || it in 'А'..'Я' || it in "іїєґІЇЄҐёЁ" }
     }
 
-    /** Язык фразы (по буквам) не совпадает с языком текста: украинский ответ на русскую фразу и наоборот. */
+    private val RU_MARK = setOf("расскажи", "открой", "включи", "выключи", "что", "сегодня", "сейчас", "когда", "какой", "какие", "мне", "меня",
+        "пожалуйста", "пятницу", "скажи", "найди", "покажи", "поставь", "позвони", "отправь", "напомни", "сколько", "нужно", "хочу")
+    private val UK_MARK = setOf("розкажи", "відкрий", "увімкни", "вимкни", "що", "сьогодні", "зараз", "коли", "який", "які", "мені", "мене",
+        "будь", "ласка", "пʼятницю", "п'ятницю", "знайди", "покажи", "постав", "зателефонуй", "надішли", "нагадай", "скільки", "потрібно", "хочу")
+
+    /** Язык фразы: «ru» / «uk» / null (не ясно) — по особым буквам и по характерным словам («розкажи» — украинское, «расскажи» — русское). */
+    internal fun phraseLang(phrase: String): String? {
+        val words = phrase.lowercase().split(Regex("[^\\p{L}'ʼ]+")).filter { it.isNotEmpty() }
+        val uk = phrase.any { it in "іїєґІЇЄҐ" } || words.any { it in UK_MARK && it !in RU_MARK }
+        val ru = phrase.any { it in "ыэёъЫЭЁЪ" } || words.any { it in RU_MARK && it !in UK_MARK }
+        return when { uk && !ru -> "uk"; ru && !uk -> "ru"; else -> null }
+    }
+
+    /** Язык фразы не совпадает с языком текста: украинский ответ на русскую фразу и наоборот. */
     internal fun languageClash(phrase: String, text: String): Boolean {
         val ukL = text.any { it in "іїєґІЇЄҐ" }
         val ruL = text.any { it in "ыэёъЫЭЁЪ" }
-        return when (langFor(phrase)) {
-            "Russian" -> phrase.any { it in 'а'..'я' || it in 'А'..'Я' } && ukL && !ruL
-            "Ukrainian" -> ruL && !ukL
+        return when (phraseLang(phrase)) {
+            "ru" -> ukL && !ruL
+            "uk" -> ruL && !ukL
             else -> false
         }
     }

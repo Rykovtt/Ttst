@@ -73,7 +73,7 @@ class NoaExamplesTest {
             NoaIntent.MoveAppointment("Аня", null, true, false), NoaIntent.Call("Аня"), NoaIntent.Message("Аня", NoaIntent.Channel.TELEGRAM, "привет \"друг\""), NoaIntent.Message("Аня", NoaIntent.Channel.WHATSAPP, null, aboutAppointment = true),
             NoaIntent.Reply("Олег", "буду в семь"), NoaIntent.ReadMessages("Аня", true), NoaIntent.AddNote("Аня", "любит кофе"), NoaIntent.Open("Аня"), NoaIntent.Find("клиенты"),
             NoaIntent.OpenContact("Аня", com.kartoteka.app.data.ContactType.INSTAGRAM), NoaIntent.Route("Аня", com.kartoteka.app.data.PlaceKind.WORK, "waze"), NoaIntent.Route("", null, null, "Киевская 5"),
-            NoaIntent.Agenda(d), NoaIntent.PersonInfo("Аня", NoaIntent.Topic.PHONE, "x"), NoaIntent.Favorite("Аня", false), NoaIntent.Select("Аня"),
+            NoaIntent.Agenda(d), NoaIntent.PersonInfo("Аня", NoaIntent.Topic.PHONE, "Аня"), NoaIntent.Favorite("Аня", false), NoaIntent.Select("Аня"),
             NoaIntent.ShareData("Аня", NoaIntent.Data.PHONE, "clipboard"), NoaIntent.ShareData("Аня", NoaIntent.Data.CARD, "app:telegram"), NoaIntent.LaunchApp("spotify"), NoaIntent.CloseApp("waze"),
             NoaIntent.WebSearch("рецепт борща"), NoaIntent.Alarm(7, 30), NoaIntent.Timer(5400), NoaIntent.Timer(45), NoaIntent.Remind("позвонить в банк", null, false), NoaIntent.Flashlight(false),
             NoaIntent.PhoneSettings("wifi"), NoaIntent.Play("queen", null, false, artist = true, shuffle = true), NoaIntent.Media(NoaMedia.Control.QUIETER), NoaIntent.OpenScreen(NoaIntent.Section.CALENDAR),
@@ -83,7 +83,14 @@ class NoaExamplesTest {
         for (i in intents) {
             val json = NoaIntentJson.toJson(i)!!
             assertTrue(json, json.startsWith("{\"actions\":[{\"action\":\"") && !json.contains("\n"))
-            val back = ip.fromJson(json, "x", now)?.intent
+            // Человек должен быть назван во фразе — иначе защита от выдумок модели его отбросит.
+            val who = NoaParser.personOf(if (i is NoaIntent.Sequence) i.steps.first() else i).ifBlank { "x" }
+            val phrase = when (i) {
+                is NoaIntent.Reply -> "ответь $who"
+                is NoaIntent.AddNote -> "добавь заметку $who ${i.text}"
+                else -> who
+            }
+            val back = ip.fromJson(json, phrase, now)?.intent
             // та же команда; даты и время берутся из фразы, поэтому сравниваем тип и значимые поля
             assertEquals(json, NoaBenchmark.signature(i), NoaBenchmark.signature(back))
             if (i is NoaIntent.Message || i is NoaIntent.Play || i is NoaIntent.Timer || i is NoaIntent.Alarm || i is NoaIntent.Media || i is NoaIntent.ShareData ||
