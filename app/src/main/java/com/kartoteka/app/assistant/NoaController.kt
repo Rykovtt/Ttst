@@ -188,17 +188,22 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
         val yes = pendingYes
         val asked = pendingAsk
         pendingAsk = null
+        NoaParser.setAssistantName(app.settings.assistantName.value.value)
         scope.launch {
             thinking = true; syncWake()
             runCatching {
+                // Поправка к ожидающей записи («нет, на пятницу», «отмена», «повтори») — раньше, чем обычное «нет».
+                val yn = NoaParser.yesNo(text)
+                val fix = if (yes != null && yn == true) null else noa.continueBooking(text)
                 when {
-                    yes != null && isYes(text) -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
-                    yes != null && isNo(text) -> { pendingYes = null; say(t("Хорошо, отменила.")) }
+                    yes != null && yn == true -> { pendingYes = null; val r = yes(); if (!(r is Noa.Reply.Say && r.text.isEmpty())) apply(r) }
+                    fix != null -> { pendingYes = null; run(fix) }
+                    yes != null && yn == false -> { pendingYes = null; say(t("Хорошо, отменила.")) }
                     else -> {
                         pendingYes = null
                         // Правила — точные и мгновенные: если поняли команду (в т.ч. цепочку), выполняем их разбор.
                         // Модель — только для того, что правила не поняли: свободная речь и разговор.
-                        val rules = noa.continueBooking(text) ?: NoaParser.parse(text)
+                        val rules = NoaParser.parse(text)
                         // Правила поняли команду, но человека с таким именем нет («запись ильи рыкова») —
                         // скорее всего, фраза разобрана неверно: пусть её прочитает модель.
                         val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)

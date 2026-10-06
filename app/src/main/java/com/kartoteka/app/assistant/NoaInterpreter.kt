@@ -248,6 +248,12 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             prefill = { _, c -> durationSecs(c.phrase)?.let { mapOf("hours" to "0", "minutes" to (it / 60).toString(), "seconds" to (it % 60).toString()) }.orEmpty() }) { a, _ ->
             seconds(a).takeIf { it > 0 }?.let { NoaIntent.Timer(it) }
         },
+        act("remind", listOf("reminder", "set_reminder", "remind_me", "create_reminder"), setOf("text"), listOf(Need.TEXT), own = setOf("time"),
+            ask = mapOf(Need.TEXT to { t("О чём напомнить?") })) { a, c ->
+            // Когда напомнить — из самой фразы (правила дат понимают «через час», «завтра в 10»), а не со слов модели.
+            val dt = NoaDateTime.parse(c.phrase, c.now, workHours = true) ?: a["time"]?.let { NoaDateTime.parse(it, c.now, workHours = true) }
+            NoaIntent.Remind(a["text"].orEmpty(), dt?.dateTime, dt?.hadTime ?: false)
+        },
         act("flashlight", listOf("torch", "light", "flash", "flashlight_on")) { a, _ -> NoaIntent.Flashlight(bool(a["on"], true)) },
         act("phone_settings", listOf("settings", "open_settings")) { a, _ -> NoaIntent.PhoneSettings(a["what"]) },
         act("play_music", listOf("play", "music", "play_song", "play_track", "play_video"), setOf("query"), own = setOf("channel")) { a, _ ->
@@ -654,7 +660,7 @@ create_appointment(person,service) cancel_appointment(person) delete_appointment
 add_note(person,text) open_person(person) select(person) favorite(person,on) find(query) person_info(person,topic)
 open_contact(person,contact) share_data(person,data,to) route(person|place,kind:home|work,app:waze|google|yandex|organic) agenda(day)
 play_music(query,app,playlist,artist,shuffle,video,channel) media(control:pause|resume|next|prev|shuffle_on|shuffle_off|repeat|stop|louder|quieter|what)
-launch_app(app) web_search(query) alarm(time) timer(minutes) flashlight(on) phone_settings(what) open_screen(section) go_home lock
+launch_app(app) web_search(query) remind(text) alarm(time) timer(minutes) flashlight(on) phone_settings(what) open_screen(section) go_home lock
 Rules: person as spelled in People. Several commands → actions in order. Message text = words to send, not to you. About people or appointments answer ONLY from Data; not in Data → say it is not in the book; never invent names, phones, dates. Person or time unclear → actions [] and ask one short question. Chat or general knowledge → actions [] + short friendly reply. reply, ask: $lang, max 2 sentences.
 напиши Ане что опоздаю и сверни → {"actions":[{"action":"message","person":"Аня","text":"опоздаю"},{"action":"go_home"}],"reply":"Пишу"}
 увімкни плейлист для бігу вперемішку → {"actions":[{"action":"play_music","query":"для бігу","playlist":true,"shuffle":true}],"reply":"Вмикаю"}
