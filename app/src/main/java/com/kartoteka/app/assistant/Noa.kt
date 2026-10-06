@@ -156,7 +156,7 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Select -> withPerson(intent.personQuery) { Reply.Say("") }
             is NoaIntent.OpenContact -> openContact(intent)
             is NoaIntent.Route -> route(intent)
-            is NoaIntent.Agenda -> agenda(intent.date, now.toLocalDate())
+            is NoaIntent.Agenda -> if (intent.days > 1) agendaRange(intent.date, intent.days, now.toLocalDate()) else agenda(intent.date, now.toLocalDate())
             is NoaIntent.PersonInfo -> withPerson(intent.personQuery) { info(it, intent) }
             is NoaIntent.Favorite -> withPerson(intent.personQuery) { pf ->
                 repo.setFavorite(pf.person.id, intent.on)
@@ -241,6 +241,21 @@ class Noa(private val app: KartotekaApp) {
     }
 
     /** Записи и дни рождения на день — коротко, голосом. */
+    /** План на несколько дней («на эту неделю»): по дням, только непустые. */
+    private suspend fun agendaRange(from: java.time.LocalDate, days: Int, today: java.time.LocalDate): Reply {
+        val to = from.plusDays(days.toLong())
+        val appts = repo.appointmentsBetween(AppointmentLogic.millis(from.atStartOfDay()), AppointmentLogic.millis(to.atStartOfDay()))
+            .filter { it.appointment.appointmentStatus != com.kartoteka.app.data.AppointmentStatus.CANCELLED }
+            .sortedBy { it.appointment.start }
+        val head = if (from == today) t("На этой неделе") else t("На следующей неделе")
+        if (appts.isEmpty()) return Reply.Say(t("%1\$s записей нет.", head))
+        val lines = appts.groupBy { AppointmentLogic.zoned(it.appointment.start).toLocalDate() }.map { (d, list) ->
+            val day = when (d) { today -> t("Сегодня"); today.plusDays(1) -> t("Завтра"); else -> AppointmentLogic.weekday(d) + " " + AppointmentLogic.dateText(d.atStartOfDay()) }
+            day + ": " + list.joinToString("; ") { af -> AppointmentLogic.timeText(AppointmentLogic.zoned(af.appointment.start)) + " " + af.person?.displayName.orEmpty() }
+        }
+        return Reply.Say(t("%1\$s записей: %2\$s.", head, appts.size) + "\n" + lines.joinToString("\n"))
+    }
+
     private suspend fun agenda(date: java.time.LocalDate, today: java.time.LocalDate): Reply {
         val from = AppointmentLogic.millis(date.atStartOfDay())
         val to = AppointmentLogic.millis(date.plusDays(1).atStartOfDay())
@@ -687,6 +702,13 @@ class Noa(private val app: KartotekaApp) {
         val named = intent.app?.let { PhoneActions.find(app, it) }
         val pkg = named?.pkg ?: if (intent.video) NoaMedia.YT else NoaMedia.defaultMusic(app)
         val label = named?.label ?: when (pkg) { NoaMedia.YT -> "YouTube"; NoaMedia.YT_MUSIC -> "YouTube Music"; NoaMedia.SPOTIFY -> "Spotify"; else -> "" }
+        if (NoaMedia.isLiked(intent.query)) {
+            val lp = if (pkg == NoaMedia.YT || pkg == NoaMedia.YT_MUSIC) pkg else if (NoaMedia.installed(app, NoaMedia.YT_MUSIC)) NoaMedia.YT_MUSIC else NoaMedia.YT
+            val lbl = if (lp == NoaMedia.YT_MUSIC) "YouTube Music" else "YouTube"
+            return Reply.Do(t("Включаю плейлист «Понравившиеся» в %1\$s.", lbl) + if (intent.shuffle) " " + t("В случайном порядке.") else "") { ctx ->
+                NoaMedia.open(ctx, lp, NoaMedia.likedUrl(lp), "", true, false, intent.shuffle)
+            }
+        }
         val query = intent.query.ifBlank { if (intent.video) t("популярное видео") else "" }
         // YouTube / YouTube Music: находим конкретное видео или плейлист — тогда приложение сразу играет.
         var url: String? = null

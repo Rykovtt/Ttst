@@ -117,6 +117,13 @@ object NoaMedia {
         }
     }
 
+    /** Метка в запросе: «плейлист Понравившиеся» (в YouTube Music — LM, в YouTube — LL), а не слова для поиска. */
+    const val LIKED_QUERY = "понравившиеся"
+
+    fun isLiked(query: String) = query.trim().equals(LIKED_QUERY, ignoreCase = true)
+
+    fun likedUrl(pkg: String) = if (pkg == YT_MUSIC) "https://music.youtube.com/watch?list=LM" else "https://www.youtube.com/watch?list=LL"
+
     // ---------- запуск ----------
 
     fun installed(context: Context, pkg: String) =

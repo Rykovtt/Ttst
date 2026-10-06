@@ -26,7 +26,7 @@ sealed interface NoaIntent {
     /** Маршрут: к человеку ([personQuery]) или в любое место ([place] — «Киевская 5», «ближайшая заправка»). */
     data class Route(val personQuery: String, val kind: com.kartoteka.app.data.PlaceKind?, val app: String? = null, val place: String = "") : NoaIntent
     /** Что запланировано на день: записи и дни рождения. */
-    data class Agenda(val date: java.time.LocalDate) : NoaIntent
+    data class Agenda(val date: java.time.LocalDate, val days: Int = 1) : NoaIntent
     /** Вопрос о человеке: ответ из его карточки. */
     data class PersonInfo(val personQuery: String, val topic: Topic, val question: String) : NoaIntent
     data class Favorite(val personQuery: String, val on: Boolean) : NoaIntent
@@ -254,6 +254,14 @@ object NoaParser {
             val prev = merged.lastOrNull()
             // «выключи экран и закрой» — экран уже погашен, «закрой» после блокировки не нужно
             if (st is NoaIntent.GoHome && prev is NoaIntent.Lock) continue
+            // «найди на ютубе X и включи его» — одно действие: включить X (а не искать и играть «его»)
+            if (st is NoaIntent.Play && prev is NoaIntent.Find && st.query.trim().lowercase() in IT_WORDS) {
+                val yt = Regex("^(?:на\\s+|в\\s+|у\\s+)?(ютубе|ютуб|ютюбе|ютюб|youtube)\\s+").find(prev.query.trim().lowercase())
+                val rest = (yt?.let { prev.query.trim().lowercase().removeRange(it.range) } ?: prev.query).split(" ")
+                    .filter { it.isNotBlank() && it.lowercase() !in FILLER_WORDS }.joinToString(" ")
+                merged[merged.lastIndex] = NoaIntent.Play(rest, st.app ?: yt?.let { "youtube" }, false, false, st.shuffle, yt != null || st.video, "")
+                continue
+            }
             if (st is NoaIntent.Play && st.app == null && prev is NoaIntent.LaunchApp) merged[merged.lastIndex] = st.copy(app = prev.name)
             // «зайди на ютуб и включи …» — «зайди» разобралось как открытие карточки, но «ютуб» — это приложение
             else if (st is NoaIntent.Play && st.app == null && prev is NoaIntent.Open && PhoneActions.isAppName(prev.personQuery)) merged[merged.lastIndex] = st.copy(app = prev.personQuery)
@@ -369,6 +377,13 @@ object NoaParser {
                 "какие записи", "які записи", "записи на", "кто у меня", "хто в мене", "хто у мене", "agenda", "my schedule", "what do i have",
                 "как у меня", "як у мене", "по записах", "по записям", "с записями", "з записами", "мой день", "мій день")
             && !has(s, "убери", "удали", "видали", "прибери", "сними", "зніми", "выкинь", "викинь", "перейди", "зайди", "отказыва", "відмовля", "scratch") && !SCHED_ADD.containsMatchIn(s)) {
+            // «на эту неделю» — до воскресенья, «на следующей неделе» — с понедельника, «на неделе» — тоже эта.
+            if (has(s, "недел", "тижн", "тиждень", "week")) {
+                val today = now.toLocalDate()
+                val next = has(s, "следующ", "наступн", "next", "будущ")
+                val start = if (next) today.plusDays((8 - today.dayOfWeek.value).toLong()) else today
+                return NoaIntent.Agenda(start, if (next) 7 else 8 - today.dayOfWeek.value)
+            }
             val d = NoaDateTime.parse(original, now)?.dateTime?.toLocalDate() ?: now.toLocalDate()
             return NoaIntent.Agenda(d)
         }
@@ -650,7 +665,8 @@ object NoaParser {
 
     /** «Включи плейлист», «включи музыку в спотифай», «поставь Imagine Dragons», «увімкни мій плейлист Ранок». */
     private fun play(s: String): NoaIntent.Play? {
-        if (!has(s, "включи", "включить", "увімкни", "ввімкни", "постав", "запусти", "play", "проиграй", "сыграй", "грай")) return null
+        if (!has(s, "включи", "включить", "увімкни", "ввімкни", "постав", "запусти", "play", "проиграй", "сыграй", "грай") &&
+            !(has(s, "открой", "відкрий", "open") && has(s, "плейлист", "плейліст", "playlist"))) return null
         val music = has(s, "музык", "музик", "песн", "пісн", "трек", "плейлист", "плейліст", "playlist", "song", "music", "альбом", "album", "радио", "радіо",
             "видео", "відео", "клип", "кліп", "ролик", "video", "канал", "channel")
         val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it.startsWith("спотіф") || it == "spotify" }
@@ -658,6 +674,9 @@ object NoaParser {
         if (has(s, "будильник", "таймер", "фонар", "ліхтар")) return null
         return playIntent(s, app)
     }
+
+    /** «понравившиеся», «которые я лайкал», «яка сподобалась» — это плейлист «Понравившиеся», а не слова для поиска. */
+    private val LIKED = Regex("лайк|понравивш|понравил|сподоба|вподоба|подобал|\\bliked\\b")
 
     private fun playIntent(sIn: String, app: String?): NoaIntent.Play {
         val s0 = sIn
@@ -671,6 +690,8 @@ object NoaParser {
         val s = if (ch != null) s0.replace(ch.value, " ") else s0
         var q = (if (app != null) MUSIC_APP.replace(s, " ") else s).trim()
         q = q.split(" ").filter { it.isNotBlank() && it !in PLAY_WORDS }.joinToString(" ")
+        if (LIKED.containsMatchIn(s0)) return NoaIntent.Play(NoaMedia.LIKED_QUERY, app, true, false,
+            has(s0, "в случайном порядке", "случайн", "випадков", "перемешай", "перемішай", "shuffle", "рандом"), false, "")
         val shuffle = has(s0, "в случайном порядке", "случайн", "випадков", "перемешай", "перемішай", "вперемешку", "shuffle", "рандом")
         val video = channel.isNotBlank() || has(s0, "видео", "відео", "клип", "кліп", "ролик", "video", "clip") ||
             (app != null && Regex("^(ютуб|ютюб|youtube)$").matches(app.trim()))
@@ -680,6 +701,10 @@ object NoaParser {
 
     /** «с канала X», «на канале X», «від каналу X», «from the X channel» — название канала до конца фразы. */
     private val CHANNEL = Regex("(?:\\s)(?:с|со|из|от|на|від|з|із|from)?\\s*(?:канала|каналу|каналі|канале|канал|channel)\\s+(.+?)\\s*$")
+
+    private val IT_WORDS = setOf("его", "её", "ее", "это", "его же", "його", "її", "це", "it")
+    private val FILLER_WORDS = setOf("какой-то", "какую-то", "какое-то", "какой-нибудь", "какую-нибудь", "какое-нибудь", "что-то", "что-нибудь", "любой", "любую", "любое",
+        "якийсь", "якусь", "якесь", "щось", "будь-який", "будь-яку", "будь-яке", "some", "any", "a")
 
     private val SHUFFLE_WORDS = setOf("в", "у", "случайном", "випадковому", "порядке", "порядку", "перемешай", "перемішай", "вперемешку", "shuffle",
         "рандом", "рандомно", "случайно", "випадково", "видео", "відео", "клип", "кліп", "ролик", "видос", "video", "clip", "найди", "найти", "знайди",
