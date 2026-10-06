@@ -39,7 +39,8 @@ class NoaExamplesTest {
         val byClass = NoaExamples.all.groupBy { it.cls }
         println("классы: " + byClass.entries.sortedByDescending { it.value.size }.joinToString { "${it.key}=${it.value.size}" })
         assertTrue("классов ${byClass.size}", byClass.size >= 30)
-        assertTrue("ни один класс не больше 12% библиотеки", byClass.values.all { it.size <= pairs.size * 12 / 100 })
+        // библиотека — объединение examples.tsv и examples_free.tsv
+        assertTrue("ни один класс не больше 12% библиотеки", byClass.values.all { it.size <= NoaExamples.all.size * 12 / 100 })
         assertTrue(byClass.getValue("seq").size >= 30)
         val uk = pairs.count { (p, _) -> p.any { it in "іїєґ" } }
         val en = pairs.count { (p, _) -> p.none { it in 'а'..'я' } }

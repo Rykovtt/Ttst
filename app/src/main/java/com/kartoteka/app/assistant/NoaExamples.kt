@@ -5,7 +5,8 @@ import kotlin.math.ln
 import kotlin.math.sqrt
 
 /**
- * Библиотека проверенных примеров «фраза → JSON» (assets/examples.tsv) и быстрый поиск самых похожих на команду.
+ * Библиотека проверенных примеров «фраза → JSON» (assets/examples.tsv — от правил, assets/examples_free.tsv — вольная речь,
+ * написанная вручную; библиотека — объединение двух файлов) и быстрый поиск самых похожих на команду.
  * Маленькая модель плохо учится схеме по голым названиям действий, зато уверенно повторяет форму похожего примера:
  * в промпт кладём три ближайших вместо статичных примеров. Поиск офлайн и детерминированный: совпадение основ слов
  * (с весом редкости) плюс триграммы символов (устойчиво к ошибкам распознавания); имена людей и вежливые слова не считаются.
@@ -19,7 +20,8 @@ object NoaExamples {
     /** Откуда читать библиотеку на телефоне (задаёт приложение при запуске); в тестах читаем файл из исходников. */
     @Volatile var assets: android.content.res.AssetManager? = null
 
-    private const val FILE = "examples.tsv"
+    /** Файлы библиотеки: фразы, которые понимают правила, и вольные формулировки (филлеры, суржик, косвенные просьбы). */
+    internal val FILES = listOf("examples.tsv", "examples_free.tsv")
 
     private val default: Index by lazy { Index(readLines()) }
 
@@ -32,9 +34,11 @@ object NoaExamples {
     /** [k] самых похожих на [phrase] примеров из общей библиотеки; [names] — имена людей из книжки (их слова не учитываются). */
     fun pick(phrase: String, k: Int = 3, names: List<String> = emptyList()): List<Ex> = default.pick(phrase, k, names)
 
-    private fun readLines(): List<String> {
-        runCatching { assets?.open(FILE)?.bufferedReader()?.use { it.readLines() } }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
-        for (p in listOf("src/main/assets/$FILE", "app/src/main/assets/$FILE")) {
+    private fun readLines(): List<String> = FILES.flatMap { readFile(it) }
+
+    private fun readFile(name: String): List<String> {
+        runCatching { assets?.open(name)?.bufferedReader()?.use { it.readLines() } }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+        for (p in listOf("src/main/assets/$name", "app/src/main/assets/$name")) {
             runCatching { File(p).takeIf { it.isFile }?.readLines() }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
         }
         return emptyList()

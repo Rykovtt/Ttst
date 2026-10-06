@@ -1,0 +1,153 @@
+так а теперь позвони Никите	call
+тут мне надо Георгию набрать срочно	call
+зроби дзвінок Вікторії	call
+дайте мені Артема на лінії	call
+can you ring Peter for me	call
+звякни Жене пожалуйста	call
+ну набери вже Ромку	call
+давай телефонуй Зої	call
+ей напиши Вике что я опаздываю на десять минут	message
+кинь Артёму в тг что документы отправил	message
+скажи Зинаиде что завтра не выйду	message
+напиши-но Петру що вже виїхав	message
+чиркни Соні смс що я вдома	message
+давай відправимо Вані повідомлення що дякую	message
+please text Helen that i'm outside	message
+отправь Ксюше в ватсап что заберу в пять	message
+напиши Лиде о записи на завтра	message
+ответь Стасу что я приду	reply
+відповідай Каті що не зможу	reply
+ну ответь ему Жене что да	reply
+reply to Peter that works for me	reply
+відповісти Лесі що згода	reply
+что там Никита написал	read_messages
+чи писала мені Вікторія	read_messages
+прочитай что мне прислал Артём	read_messages
+глянь что Зина ответила	read_messages
+any texts from Helen	read_messages
+зачитай мне новое от Жени	read_messages
+запиши Никиту на четверг на половину второго	create_appointment
+запиши Віктора на стрижку на завтра	create_appointment
+Георгия в запись на субботу на двенадцать	create_appointment
+запишіть Вероніку на п'ятницю на 16:00	create_appointment
+book Helen for wednesday at 2pm	create_appointment
+оформи запись Зинаиде на понедельник	create_appointment
+поставь Соню на послезавтра в одиннадцать	create_appointment
+перенеси Никиту на субботу	move_appointment
+пересунь запис Віри на годину пізніше	move_appointment
+передвинь Георгия на полчаса позже	move_appointment
+reschedule Helen for next monday	move_appointment
+давай Зою с четверга на пятницу переставим	move_appointment
+отмени Никиту на завтра	cancel_appointment
+скасуй запис Вероніки	cancel_appointment
+освободи время Зинаиды на среду	cancel_appointment
+cancel Peter's booking	cancel_appointment
+зніми Лесю із запису на завтра	cancel_appointment
+сотри запись Георгия	delete_appointment
+видали запис Соні	delete_appointment
+стерти запис Віри остаточно	delete_appointment
+remove Helen from bookings	delete_appointment
+кто записан на сегодня после обеда	agenda
+що в мене на післязавтра	agenda
+what's my day look like on friday	agenda
+какие у нас записи на четверг	agenda
+скільки в мене клієнтів завтра	agenda
+добавь заметку Никите что просил скидку	add_note
+запиши в карточку Вікторії що алергія на лак	add_note
+сделай пометку по Зинаиде придёт с мужем	add_note
+note for Helen she prefers mornings	add_note
+додай нотатку Лесі що змінила номер	add_note
+открой карточку Георгия	open_person
+покажи профіль Вероніки	open_person
+глянь анкету Зины	open_person
+pull up Peter's profile	open_person
+зайди к Лесе в профиль	open_person
+найди Никиту в базе	find
+знайди клієнтів із Одеси	find
+поищи кто у нас Георгий	find
+look up Helen	find
+пошукай Віру в картотеці	find
+когда родился Георгий	person_info
+який номер у Вероніки	person_info
+где живёт Зинаида	person_info
+what's Helen's number	person_info
+розкажи мені про Лесю	person_info
+открой инсту Никиты	open_contact
+зайди у фейсбук до Вероніки	open_contact
+покажи сайт Зинаиды	open_contact
+open Peter's instagram	open_contact
+зайди на пошту Георгия	open_contact
+добавь Никиту в избранное	favorite
+убери Зою из избранного	favorite
+додай Вероніку в обране	favorite
+star Helen	favorite
+выбери Георгия	select
+вибери Лесю	select
+tick Peter	select
+скопируй телефон Зинаиды	share_data
+скинь адрес Никиты в гугл	share_data
+перешли контакт Вероніки в телеграм	share_data
+copy Peter's number	share_data
+поехали на Богдана Хмельницкого 12	route
+навігація до Георгія	route
+веди меня домой через гугл	route
+take me to work	route
+построй путь на вокзал	route
+запусти телеграмм	launch_app
+запусти слак	launch_app
+включи ватсап	launch_app
+launch viber	launch_app
+зайди в сбербанк	launch_app
+закрой скайп	close_app
+закрий телеграм	close_app
+выйди из ватсапа	close_app
+close zoom	close_app
+убери ютуб с экрана	close_app
+сверни телефон	go_home
+давай на рабочий	go_home
+згорни застосунок	go_home
+minimize this	go_home
+заблокируй мне телефон	lock
+замкни екран	lock
+lock my screen	lock
+открой календарик	open_screen
+покажи розділ людей	open_screen
+перейди на карту	open_screen
+show me services	open_screen
+загугли сколько живут коты	web_search
+пошукай в інтернеті погоду на завтра в Києві	web_search
+search the web for cheap flights	web_search
+найди в сети как сварить борщ	web_search
+разбуди меня в 5:45	alarm
+постав будильник на пів на восьму	alarm
+wake me up at 7	alarm
+таймер на сорок минут	timer
+засічи сім хвилин	timer
+timer for 15 minutes	timer
+напомни мне забрать Никиту из школы	remind
+нагадай купити хліб	remind
+remind me to water the plants	remind
+посвети фонариком	flashlight
+вимкни ліхтарик зараз	flashlight
+torch on	flashlight
+включи вайфай	phone_settings
+вимкни блютус	phone_settings
+turn off bluetooth	phone_settings
+включи Арию	play_music
+увімкни щось від Бумбокса	play_music
+play Nirvana	play_music
+запусти мой плейлист для сна	play_music
+а теперь потише	media
+наступний трек	media
+skip this one	media
+поставь на паузу	media
+зроби бекап усього	backup
+бэкап пожалуйста	backup
+привет Ноа как дела	chat
+напиши Ане что приду и сверни	seq
+позвони Никите и включи музыку	seq
+відкрий картку Віри і подзвони	seq
+запиши Георгия на завтра и отправь подтверждение	seq
+закрой ютуб и заблокируй	seq
+set a timer for 10 minutes and play queen	seq
+скинь Зої в телеграм что выезжаю и построй путь домой	seq
