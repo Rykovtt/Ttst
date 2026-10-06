@@ -16,7 +16,10 @@ import com.kartoteka.app.data.ContactType
 /** Звонки, SMS и мессенджеры через системные интенты. */
 object Messaging {
     const val WHATSAPP = "com.whatsapp"
+    const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
     const val TELEGRAM = "org.telegram.messenger"
+    /** Telegram, Telegram из APK с сайта, Telegram X. */
+    val TELEGRAM_APPS = listOf(TELEGRAM, "org.telegram.messenger.web", "org.thunderdog.challegram")
     const val VIBER = "com.viber.voip"
 
     fun isInstalled(context: Context, pkg: String): Boolean =
@@ -65,9 +68,16 @@ object Messaging {
         start(context, intent)
     }
 
-    fun viber(context: Context, phone: String) {
+    /** Ссылка на чат Viber по номеру; draft — черновик сообщения. */
+    fun viberUrl(phone: String, text: String = ""): String {
         val p = ArchiveLogic.normalizePhone(phone)
-        start(context, Intent(Intent.ACTION_VIEW, Uri.parse("viber://chat?number=" + Uri.encode(p))))
+        return "viber://chat?number=" + Uri.encode(p) + if (text.isNotEmpty()) "&draft=" + Uri.encode(text) else ""
+    }
+
+    /** Viber: чат с черновиком; текст также копируется на случай, если черновик не подставится. */
+    fun viber(context: Context, phone: String, text: String = "") {
+        if (text.isNotEmpty()) copy(context, text)
+        start(context, Intent(Intent.ACTION_VIEW, Uri.parse(viberUrl(phone, text))))
     }
 
     fun email(context: Context, emails: List<String>, subject: String = "", text: String = "") {

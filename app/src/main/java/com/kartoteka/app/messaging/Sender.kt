@@ -25,6 +25,7 @@ object Sender {
     fun targetFor(pf: PersonFull, ch: NotifyChannel): String? = when (ch) {
         NotifyChannel.WHATSAPP -> pf.whatsapp
         NotifyChannel.TELEGRAM -> pf.telegram
+        NotifyChannel.VIBER -> pf.viber
         NotifyChannel.SMS -> pf.phone
         NotifyChannel.NONE -> null
     }
@@ -55,12 +56,16 @@ object Sender {
                     Messaging.sms(context, listOf(target), text); onResult(true); Result.OPENED
                 } else Result.FAILED
 
-            NotifyChannel.WHATSAPP, NotifyChannel.TELEGRAM ->
+            NotifyChannel.WHATSAPP, NotifyChannel.TELEGRAM, NotifyChannel.VIBER ->
                 if (AutoSend.isServiceEnabled(context)) {
                     AutoSend.start(context, listOf(SendJob(pf.person.id, pf.person.displayName, ch, target, text)), delaySec) { _, ok -> onResult(ok) }
                     Result.QUEUED
                 } else if (interactive) {
-                    if (ch == NotifyChannel.WHATSAPP) Messaging.whatsapp(context, target, text) else Messaging.telegram(context, target, text)
+                    when (ch) {
+                        NotifyChannel.WHATSAPP -> Messaging.whatsapp(context, target, text)
+                        NotifyChannel.VIBER -> Messaging.viber(context, target, text)
+                        else -> Messaging.telegram(context, target, text)
+                    }
                     onResult(true)
                     Result.OPENED
                 } else Result.FAILED

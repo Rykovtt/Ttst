@@ -491,6 +491,7 @@ fun AppointmentCard(af: AppointmentFull, onClick: () -> Unit) = TimelineItem(af,
 fun channelColors(ch: NotifyChannel): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> = when (ch) {
     NotifyChannel.WHATSAPP -> androidx.compose.ui.graphics.Color(0xFFDDF7E6) to androidx.compose.ui.graphics.Color(0xFF1FA855)
     NotifyChannel.TELEGRAM -> androidx.compose.ui.graphics.Color(0xFFDDF0FC) to androidx.compose.ui.graphics.Color(0xFF229ED9)
+    NotifyChannel.VIBER -> androidx.compose.ui.graphics.Color(0xFFEDE8FD) to androidx.compose.ui.graphics.Color(0xFF7360F2)
     NotifyChannel.SMS -> androidx.compose.ui.graphics.Color(0xFFEAE4FD) to androidx.compose.ui.graphics.Color(0xFF7456E8)
     NotifyChannel.NONE -> androidx.compose.ui.graphics.Color(0xFFFDE6EE) to androidx.compose.ui.graphics.Color(0xFFE0406E)
 }
@@ -498,6 +499,7 @@ fun channelColors(ch: NotifyChannel): Pair<androidx.compose.ui.graphics.Color, a
 fun channelIcon(ch: NotifyChannel): ImageVector? = when (ch) {
     NotifyChannel.WHATSAPP -> Icons.AutoMirrored.Filled.Chat
     NotifyChannel.TELEGRAM -> Icons.AutoMirrored.Filled.Send
+    NotifyChannel.VIBER -> Icons.AutoMirrored.Filled.Chat
     NotifyChannel.SMS -> Icons.Default.Sms
     NotifyChannel.NONE -> null
 }

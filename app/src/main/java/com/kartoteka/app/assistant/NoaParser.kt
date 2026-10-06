@@ -15,8 +15,11 @@ sealed interface NoaIntent {
     data class Open(val personQuery: String) : NoaIntent
     data class OpenScreen(val section: Section) : NoaIntent
     data class Call(val personQuery: String) : NoaIntent
-    /** [aboutAppointment] — «отправь ему об этом / подтверждение»: текст берём из шаблона подтверждения записи. */
-    data class Message(val personQuery: String, val channel: Channel, val text: String?, val aboutAppointment: Boolean = false) : NoaIntent
+    /**
+     * [aboutAppointment] — «отправь ему об этом / подтверждение»: текст берём из шаблона записи;
+     * [reminder] — «отправь напоминание»: шаблон напоминания, иначе — подтверждения.
+     */
+    data class Message(val personQuery: String, val channel: Channel, val text: String?, val aboutAppointment: Boolean = false, val reminder: Boolean = false) : NoaIntent
     /** «Возьми контакт Илья Рыков…» — просто выбрать человека для следующих шагов. */
     data class Select(val personQuery: String) : NoaIntent
     data class AddNote(val personQuery: String, val text: String) : NoaIntent
@@ -32,8 +35,12 @@ sealed interface NoaIntent {
     data class Favorite(val personQuery: String, val on: Boolean) : NoaIntent
     /** Отменить/удалить запись человека (на день [date] или ближайшую). */
     data class CancelAppointment(val personQuery: String, val date: java.time.LocalDate?, val delete: Boolean) : NoaIntent
-    /** Перенести ближайшую запись человека; [hadDate]/[hadTime] — что именно названо в новом времени. */
-    data class MoveAppointment(val personQuery: String, val dateTime: LocalDateTime?, val hadDate: Boolean, val hadTime: Boolean) : NoaIntent
+    /**
+     * Перенести ближайшую запись человека; [hadDate]/[hadTime] — что именно названо в новом времени.
+     * [from] — старое время записи («завтрашнюю запись на 13:00 перенеси на 14:00»): по нему запись ищется и без имени.
+     */
+    data class MoveAppointment(val personQuery: String, val dateTime: LocalDateTime?, val hadDate: Boolean, val hadTime: Boolean,
+                               val from: LocalDateTime? = null, val fromHadDate: Boolean = false, val fromHadTime: Boolean = false) : NoaIntent
     /** Несколько действий подряд: «открой Аню и добавь заметку…». */
     data class Sequence(val steps: List<NoaIntent>) : NoaIntent
     /** Запустить приложение телефона по названию. */
@@ -84,7 +91,7 @@ sealed interface NoaIntent {
     data object Repeat : NoaIntent
     data class Unknown(val heard: String) : NoaIntent
 
-    enum class Channel { WHATSAPP, SMS, TELEGRAM }
+    enum class Channel { WHATSAPP, SMS, TELEGRAM, VIBER }
     enum class Data { NOTES, PHONE, ADDRESS, EMAIL, BIRTHDAY, CARD }
     enum class Topic { BIRTHDAY, PHONE, ADDRESS, SUMMARY }
     enum class Section { PEOPLE, CALENDAR, MAP, BROADCAST, SETTINGS, SERVICES }
@@ -379,6 +386,8 @@ object NoaParser {
      * кроме двоеточия/точки во времени (12:00, 12.30) и кавычек (в них — текст заметки/сообщения).
      */
     fun normalize(input: String): String = input
+        // Распознаватель часто слышит «отправив» вместо «отправь»
+        .replace(Regex("(?<=^|\\s)([Оо])тправив(?=\\s|$)"), "$1тправь")
         .replace(Regex("(?<=\\d),(?=\\d)"), "\u0001")   // «2,5» и «15,30» — запятая внутри числа остаётся
         .replace(Regex("[,!?;…]+"), " ")
         .replace(Regex("\\.(?!\\d)|(?<!\\d)\\."), " ")
@@ -405,6 +414,9 @@ object NoaParser {
             if (head != null && !has(head, "заметк", "нотатк", "хроник", "хронік", "note") &&
                 (addressee || verb !in setOf("скажи", "передай", "скажіть", "передайте"))) return message(s, original)
         }
+
+        // «Отправь напоминание Илье в вайбер» — сообщение о записи по шаблону (раньше «напомни мне…»)
+        apptMessage(s)?.let { return it }
 
         // диалог («повтори», «отмена»), локальные инструменты, напоминания и вопросы по картотеке — раньше остальных правил
         dialogue(s)?.let { return it }
@@ -508,11 +520,8 @@ object NoaParser {
 
         // перенести / отменить / удалить запись — раньше создания («удали запись Ильи» — не новая запись)
         val apptWord = has(s, "запис", "встреч", "зустріч", "сеанс", "прийом", "приём", "прием", "appointment", "booking", "meeting", "визит", "візит", "расписан", "розклад")
-        if (has(s, "перенес", "перенест", "перенос", "передвин", "пересун", "зсунь", "посунь", "reschedule", "move")) {
-            // «с пятницы на субботу» — новое время только то, что после «на»
-            val to = Regex("\\s(?:с|со|з|із|from)\\s.+?\\s(?:на|to)\\s(.+)$").find(" " + original.lowercase())?.groupValues?.get(1)
-            val dt = to?.let { NoaDateTime.parse(it, now, workHours = true) } ?: NoaDateTime.parse(original, now, workHours = true)
-            return NoaIntent.MoveAppointment(extractPerson(s), dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false)
+        if (has(s, "перенес", "перенест", "перенос", "передвин", "пересун", "зсунь", "посунь", "reschedule", "move") || CHANGE_TIME.containsMatchIn(s)) {
+            return moveAppointment(s, original, now)
         }
         // «scratch his booking», «відмовляється від запису», «запису вже нема» — отмена записи, если запись названа
         val cancelSoft = apptWord && has(s, "scratch", "drop", "відмовля", "отказыва", "нема", "немає", "нету", "не придет", "не придёт", "не прийде", "can't make", "cannot make")
@@ -610,9 +619,9 @@ object NoaParser {
 
     /** Слова, которыми действительно просят написать/передать (а не просто названо приложение или «повідомляє»). */
     private val MSG_STEM = Regex("(?:^|\\s)(?:напиш\\S*|напис\\S*|отправ\\S*|відправ\\S*|надішл\\S*|надісл\\S*|скинь\\S*|кинь|закинь|сбрось|сообщ(?:и|ите|ение)\\S*|повідом(?:и|те)|повідомленн\\S*|" +
-        "скаж\\S*|переда\\S*|смс|sms|message|write|send|text|whatsapp|вотсап|ватсап|телеграм|telegram)(?:\\s|$)")
+        "скаж\\S*|переда\\S*|смс|sms|message|write|send|text|whatsapp|вотсап|ватсап|телеграм|telegram|вайбер|viber)(?:\\s|$)")
     /** Каналы, которых у «Написать» нет: уйти в WhatsApp вместо Viber/Instagram было бы тихой ошибкой. */
-    private val UNSUPPORTED_CH = Regex("\\s(?:в|у|во|через|по|via|on)\\s+(?:вайбер\\S*|viber|инстаграм\\S*|інстаграм\\S*|instagram|фейсбук\\S*|фейсбуц\\S*|facebook|мессенджер\\S*|messenger|вк|вконтакте|фб|fb)(?:\\s|$)")
+    private val UNSUPPORTED_CH = Regex("\\s(?:в|у|во|через|по|via|on)\\s+(?:инстаграм\\S*|інстаграм\\S*|instagram|фейсбук\\S*|фейсбуц\\S*|facebook|мессенджер\\S*|messenger|вк|вконтакте|фб|fb)(?:\\s|$)")
     private val SEND_VERBS = setOf("перешли", "перешлите", "перешли-ка", "перекинь", "отправь", "відправ", "надішли", "скинь", "кинь", "пошли", "відішли", "forward", "send")
     private val QUESTION_WORDS = setOf("какой", "какая", "какое", "какие", "який", "яка", "яке", "які", "где", "де", "сколько", "скільки", "кто", "хто", "как", "як", "what", "when", "where", "who", "how")
 
@@ -656,18 +665,14 @@ object NoaParser {
 
     private fun message(s: String, original: String): NoaIntent.Message {
         val head = messageBody(original)?.first?.let { " " + it.lowercase() + " " } ?: s
-        val channel = when {
-            has(head, "whatsapp", "вотсап", "ватсап", "вацап", "вотс", "ватс") -> NoaIntent.Channel.WHATSAPP
-            has(head, "телеграм", "telegram", "тг") -> NoaIntent.Channel.TELEGRAM
-            has(head, "смс", "sms") -> NoaIntent.Channel.SMS
-            else -> null
-        }
+        val channel = channelIn(head)
         // Мессенджер бывает назван в самом конце: «напиши Илье что опаздываю в телеграм».
         val end = if (channel == null) CHANNEL_END.find(original.lowercase()) else null
         val endChannel = when (end?.groupValues?.get(1)) {
             null -> null
             "телеграм", "telegram", "тг" -> NoaIntent.Channel.TELEGRAM
             "смс", "sms", "эсэмэс" -> NoaIntent.Channel.SMS
+            "вайбер", "viber", "вайбере", "вайбером", "вибер", "вібер" -> NoaIntent.Channel.VIBER
             else -> NoaIntent.Channel.WHATSAPP
         }
         val about = isAboutAppointment(s)
@@ -676,10 +681,74 @@ object NoaParser {
         val body = if (about || quoted != null) null else messageBody(if (end != null) original.substring(0, end.range.first) else original)
         val text = if (about) null else quoted ?: body?.second
         val who = body?.let { extractPerson(" " + it.first.lowercase() + " ") } ?: extractPerson(s)
-        return NoaIntent.Message(who, channel ?: endChannel ?: NoaIntent.Channel.WHATSAPP, text, aboutAppointment = about)
+        return NoaIntent.Message(who, channel ?: endChannel ?: NoaIntent.Channel.WHATSAPP, text, aboutAppointment = about, reminder = about && REMINDER_WORD.containsMatchIn(s))
     }
 
-    private val CHANNEL_END = Regex("\\s(?:в|у|по|через)\\s+(вотсап|ватсап|вацап|whatsapp|телеграм|telegram|тг|смс|sms|эсэмэс)\\s*$")
+    /** Мессенджер, названный во фразе. */
+    private fun channelIn(t: String): NoaIntent.Channel? = when {
+        has(t, "whatsapp", "вотсап", "ватсап", "вацап", "вотс", "ватс") -> NoaIntent.Channel.WHATSAPP
+        has(t, "телеграм", "telegram", "тг") -> NoaIntent.Channel.TELEGRAM
+        has(t, "вайбер", "viber", "вибер", "вібер") -> NoaIntent.Channel.VIBER
+        has(t, "смс", "sms") -> NoaIntent.Channel.SMS
+        else -> null
+    }
+
+    // ---- сообщение о записи: «отправь напоминание / подтверждение» ----
+
+    private val APPT_MSG_WORD = Regex("напоминан|нагадуван|reminder|подтвержд|підтвердж|confirmation")
+    private val REMINDER_WORD = Regex("напоминан|нагадуван|reminder")
+    private val SEND_STEMS = listOf("отправ", "відправ", "надішл", "надісл", "скинь", "кинь", "пошли", "send")
+    /** «Поставь / создай напоминание» — себе, а не клиенту. */
+    private val SELF_REMINDER_VERBS = setOf("поставь", "постав", "поставити", "создай", "створи", "установи", "встанови", "сделай", "зроби",
+        "добавь", "додай", "set", "create", "add", "make")
+    private val APPT_MSG_STOP = setOf("отправьте", "отправлю", "пошли", "пошлите", "кинь", "надішліть", "відправте", "відправити", "надіслати",
+        "вайбер", "вайбере", "вайбером", "вайбері", "вибер", "вібер", "viber", "вотсапе", "ватсапе", "ватсапі", "вотсапі", "вотсапп", "ватсапп",
+        "телеграме", "телеграмі", "телеграмм", "смской", "смс-кой", "смскою", "его", "её", "ее", "його", "її", "клиенту", "клієнту", "a", "an", "the", "his", "her")
+
+    /**
+     * «Отправь напоминание Илье Рыкову в WhatsApp», «надішли Олі підтвердження запису у вайбер», «отправь ему напоминание»:
+     * текст — шаблон записи (напоминание или подтверждение), человек — названный или из прошлого шага.
+     */
+    private fun apptMessage(s: String): NoaIntent.Message? {
+        val toks = s.trim().split(" ")
+        val send = toks.indexOfFirst { w -> SEND_STEMS.any { w.startsWith(it) } }
+        val about = toks.indexOfFirst { APPT_MSG_WORD.containsMatchIn(it) }
+        // Сначала «отправь», потом «напоминание»: «поставь напоминание: отправить отчёт» — это напоминание себе.
+        if (send < 0 || about < 0 || send > about) return null
+        if (toks.any { it in REMIND_VERBS || it in SELF_REMINDER_VERBS }) return null
+        val rest = s.replace(Regex("\\S*(?:напоминан|нагадуван|reminder|подтвержд|підтвердж|confirmation)\\S*"), " ")
+        val who = extractPerson(rest, extraStop = APPT_MSG_STOP)
+        return NoaIntent.Message(who, channelIn(s) ?: NoaIntent.Channel.WHATSAPP, null, aboutAppointment = true, reminder = REMINDER_WORD.containsMatchIn(s))
+    }
+
+    // ---- перенос записи ----
+
+    /** «Измени время», «поменяй время записи», «змін час» — тоже перенос. */
+    private val CHANGE_TIME = Regex("\\s(?:измени\\S*|изменить|поменя\\S*|змін\\S*|change)\\s(?:\\S+\\s){0,2}(?:время|времени|час|time|запис\\S*|встреч\\S*|зустріч\\S*)(?:\\s|$)")
+    private val MOVE_VERB = Regex("\\s(?:перенес\\S*|перенест\\S*|передвин\\S*|пересун\\S*|зсунь|посунь|reschedule|move|измени\\S*|изменить|поменя\\S*|змін\\S*|change)\\s")
+    private val MOVE_STOP = setOf("измени", "измените", "изменить", "поменяй", "поменяйте", "поменять", "зміни", "змініть", "змінити", "change",
+        "время", "времени", "час", "time", "завтрашнюю", "сегодняшнюю", "завтрашню", "сьогоднішню", "tomorrow's", "today's")
+
+    /**
+     * «Перенеси Илью на пятницу», «с пятницы на субботу», «завтра запись на 13:00 измени время на 14:00».
+     * То, что сказано до глагола (или после «с/з/from»), — старое время записи; после — новое.
+     */
+    private fun moveAppointment(s: String, original: String, now: LocalDateTime): NoaIntent.MoveAppointment {
+        val low = " " + original.lowercase() + " "
+        val fromTo = Regex("\\s(?:с|со|з|із|from)\\s(.+?)\\s(?:на|to)\\s(.+)$").find(low.trimEnd())
+        val verb = MOVE_VERB.find(low)
+        val fromText = fromTo?.groupValues?.get(1) ?: verb?.let { low.substring(0, it.range.first) }
+        val toText = fromTo?.groupValues?.get(2) ?: verb?.let { low.substring(it.range.last) }
+        val from = fromText?.takeIf { it.isNotBlank() }?.let { NoaDateTime.parse(it, now, workHours = true) }
+        val dt = toText?.takeIf { from != null || fromTo != null }?.let { NoaDateTime.parse(it, now, workHours = true) }
+            ?: NoaDateTime.parse(original, now, workHours = true)
+        return NoaIntent.MoveAppointment(
+            extractPerson(s, extraStop = MOVE_STOP), dt?.dateTime, dt?.hadDate ?: false, dt?.hadTime ?: false,
+            from?.dateTime, from?.hadDate ?: false, from?.hadTime ?: false,
+        )
+    }
+
+    private val CHANNEL_END = Regex("\\s(?:в|у|по|через)\\s+(вотсап|ватсап|вацап|whatsapp|телеграм|telegram|тг|смс|sms|эсэмэс|вайбер|вайбере|вайбером|viber|вибер|вібер)\\s*$")
 
     /** Глаголы, с которых начинается сообщение: дальше после «что/:» — его текст, а не команды. */
     private val MESSAGE_VERBS = setOf("напиши", "напишите", "отправь", "отправьте", "відправ", "надішли", "напиши-ка", "скажи", "передай",

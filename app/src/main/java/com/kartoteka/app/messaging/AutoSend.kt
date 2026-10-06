@@ -5,13 +5,11 @@ import com.kartoteka.app.i18n.t
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import com.kartoteka.app.MainActivity
 import com.kartoteka.app.R
@@ -44,13 +42,16 @@ data class AutoSendProgress(
 }
 
 /**
- * Очередь авто-отправки в WhatsApp/Telegram. Открывает чат с готовым текстом,
- * а [AutoSendService] (служба специальных возможностей) сам нажимает «Отправить».
+ * Очередь авто-отправки в WhatsApp/Telegram/Viber. Каждое сообщение передаётся
+ * приложению «RVServices» ([AutoSendLink]): его служба открывает чат с текстом
+ * и сама нажимает «Отправить», а итог возвращает в [onResult].
  * После отправки — пауза и следующий человек.
  */
 object AutoSend {
+    /** Сколько служба ждёт кнопку «Отправить». */
     private const val TIMEOUT_MS = 25_000L
-    private const val TICK_MS = 700L
+    /** Запас на случай, если ответ службы не пришёл (служба выключена посреди рассылки и т.п.). */
+    private const val FALLBACK_MS = TIMEOUT_MS + 5_000L
     private const val NOTIFICATION_ID = 7001
     private const val CHANNEL = "autosend"
 
@@ -61,29 +62,28 @@ object AutoSend {
     private var jobs: List<SendJob> = emptyList()
     private var states: MutableList<JobState> = mutableListOf()
     private var index = -1
-    private var startedAt = 0L
+    private var run = 0L
     private var delayMs = 6_000L
     private var onResult: ((SendJob, Boolean) -> Unit)? = null
     private lateinit var appContext: Context
 
     /** Сообщение, которое сейчас ждёт нажатия «Отправить». */
-    val armedJob: SendJob?
+    private val armedJob: SendJob?
         get() = jobs.getOrNull(index)?.takeIf { states.getOrNull(index) == JobState.SENDING }
 
-    fun isServiceEnabled(context: Context): Boolean {
-        val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        val me = ComponentName(context, AutoSendService::class.java)
-        return enabled.split(':').any { ComponentName.unflattenFromString(it) == me }
-    }
+    /** Идентификатор команды для текущего сообщения: ответы на старые команды отбрасываются. */
+    private val currentRequestId: String get() = "rvault-$run-$index"
 
-    fun openServiceSettings(context: Context) {
-        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }
+    /** «RVServices» установлена и её служба включена. */
+    fun isServiceEnabled(context: Context): Boolean = AutoSendLink.isServiceEnabled(context)
+
+    fun openServiceSettings(context: Context) = AutoSendLink.openSetup(context)
 
     fun start(context: Context, list: List<SendJob>, delaySec: Int, onResult: (SendJob, Boolean) -> Unit) {
         if (list.isEmpty()) return
         stop(silent = true)
         appContext = context.applicationContext
+        run++
         jobs = list
         states = MutableList(list.size) { JobState.PENDING }
         index = -1
@@ -95,7 +95,10 @@ object AutoSend {
 
     fun stop(silent: Boolean = false) {
         handler.removeCallbacksAndMessages(null)
-        if (index in states.indices && states[index] == JobState.SENDING) states[index] = JobState.FAILED
+        if (index in states.indices && states[index] == JobState.SENDING) {
+            states[index] = JobState.FAILED
+            runCatching { AutoSendLink.cancel(appContext) }
+        }
         for (i in states.indices) if (states[i] == JobState.PENDING) states[i] = JobState.FAILED
         if (!silent && jobs.isNotEmpty()) publish(false)
         if (::appContext.isInitialized) cancelNotification()
@@ -107,8 +110,13 @@ object AutoSend {
         _progress.value = null
     }
 
-    /** Вызывается службой после нажатия «Отправить». */
-    internal fun onSent() {
+    /** Ответ «RVServices» на команду [requestId]. */
+    internal fun onResult(requestId: String?, status: String?) {
+        if (armedJob == null || requestId != currentRequestId) return
+        if (status == AutoSendLink.STATUS_SENT) onSent() else fail()
+    }
+
+    private fun onSent() {
         val job = armedJob ?: return
         states[index] = JobState.SENT
         onResult?.invoke(job, true)
@@ -124,25 +132,19 @@ object AutoSend {
             return
         }
         states[index] = JobState.SENDING
-        startedAt = System.currentTimeMillis()
         publish(true)
         val job = jobs[index]
-        val ok = runCatching { launch(launcher ?: AutoSendService.instance ?: appContext, job) }.isSuccess
+        // Чат открывает служба «RVServices»: RVault в фоне окна открывать не может.
+        val ok = runCatching {
+            val (pkg, uri) = chatFor(launcher ?: appContext, job) ?: error("no messenger")
+            AutoSendLink.send(appContext, currentRequestId, pkg, uri, job.text, TIMEOUT_MS)
+        }.isSuccess
         if (!ok) {
             fail()
             return
         }
-        handler.postDelayed(::tick, 1500)
-    }
-
-    private fun tick() {
-        if (armedJob == null) return
-        if (System.currentTimeMillis() - startedAt > TIMEOUT_MS) {
-            fail()
-            return
-        }
-        AutoSendService.instance?.trySend()
-        handler.postDelayed(::tick, TICK_MS)
+        val requestId = currentRequestId
+        handler.postDelayed({ if (requestId == currentRequestId && armedJob != null) fail() }, FALLBACK_MS)
     }
 
     private fun fail() {
@@ -157,30 +159,30 @@ object AutoSend {
     private fun finish() {
         publish(false)
         cancelNotification()
-        // Возвращаемся в картотеку показать итог.
+        // Возвращаемся в картотеку показать итог (из фона Android 10+ может не пустить — тогда итог в приложении).
         runCatching {
-            (AutoSendService.instance ?: appContext).startActivity(
+            appContext.startActivity(
                 Intent(appContext, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
             )
         }
     }
 
-    private fun launch(context: Context, job: SendJob) {
-        val intent = when (job.channel) {
-            NotifyChannel.WHATSAPP -> {
-                val digits = ArchiveLogic.normalizePhone(job.target).removePrefix("+")
-                val pkg = if (Messaging.isInstalled(context, Messaging.WHATSAPP)) Messaging.WHATSAPP else "com.whatsapp.w4b"
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://api.whatsapp.com/send?phone=${digits}&text=" + Uri.encode(job.text)))
-                    .setPackage(pkg)
-            }
-            NotifyChannel.TELEGRAM -> {
-                Intent(Intent.ACTION_VIEW, Uri.parse(Messaging.telegramUrl(job.target) + "?text=" + Uri.encode(job.text)))
-                    .apply { if (Messaging.isInstalled(context, Messaging.TELEGRAM)) setPackage(Messaging.TELEGRAM) }
-            }
-            else -> error("unsupported")
+    /** Пакет мессенджера и ссылка на чат с текстом; null — нужного мессенджера нет. */
+    private fun chatFor(context: Context, job: SendJob): Pair<String, String>? = when (job.channel) {
+        NotifyChannel.WHATSAPP -> {
+            val digits = ArchiveLogic.normalizePhone(job.target).removePrefix("+")
+            val pkg = listOf(Messaging.WHATSAPP, Messaging.WHATSAPP_BUSINESS).firstOrNull { Messaging.isInstalled(context, it) }
+            pkg?.let { it to "https://api.whatsapp.com/send?phone=${digits}&text=" + Uri.encode(job.text) }
         }
-        context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        NotifyChannel.TELEGRAM -> {
+            val pkg = Messaging.TELEGRAM_APPS.firstOrNull { Messaging.isInstalled(context, it) }
+            pkg?.let { it to Messaging.telegramUrl(job.target) + "?text=" + Uri.encode(job.text) }
+        }
+        NotifyChannel.VIBER -> {
+            if (Messaging.isInstalled(context, Messaging.VIBER)) Messaging.VIBER to Messaging.viberUrl(job.target, job.text) else null
+        }
+        else -> null
     }
 
     private fun publish(running: Boolean) {

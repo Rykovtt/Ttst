@@ -26,6 +26,7 @@ object NoaIntentJson {
             is NoaIntent.Message -> {
                 p(i.personQuery)
                 if (i.channel != NoaIntent.Channel.WHATSAPP) f += "channel" to i.channel.name.lowercase()
+                if (i.aboutAppointment && i.reminder) f += "reminder" to true
                 if (i.aboutAppointment) f += "about_appointment" to true else i.text?.takeIf { it.isNotBlank() }?.let { f += "text" to it }
                 "message"
             }

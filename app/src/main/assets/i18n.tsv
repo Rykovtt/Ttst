@@ -1337,3 +1337,12 @@ SMS одним сообщением	SMS одним повідомленням	SM
 верно	вірно	correct
 Весь конвейер (правила → модель → библиотека)	Увесь конвеєр (правила → модель → бібліотека)	Whole pipeline (rules → model → library)
 Диагностика модели (эталон по правилам)	Діагностика моделі (еталон за правилами)	Model diagnostics (rules reference)
+Установите приложение «RVServices»	Встановіть застосунок «RVServices»	Install the “RVServices” app
+Чтобы сообщения уходили сами, установите приложение «RVServices» и включите его службу: Спец. возможности → «RVServices». 	Щоб повідомлення надсилалися самі, встановіть застосунок «RVServices» і увімкніть його службу: Спец. можливості → «RVServices». 	To send messages automatically, install the “RVServices” app and turn on its service: Accessibility → “RVServices”. 
+Если переключатель неактивен: Настройки → Приложения → «RVServices» → ⋮ → «Разрешить ограниченные настройки».	Якщо перемикач неактивний: Налаштування → Застосунки → «RVServices» → ⋮ → «Дозволити обмежені налаштування».	If the switch is greyed out: Settings → Apps → “RVServices” → ⋮ → “Allow restricted settings”.
+Приложение «RVServices» само нажимает «Отправить» в WhatsApp, Telegram и Viber во время рассылок и напоминаний. 	Застосунок «RVServices» сам натискає «Надіслати» у WhatsApp, Telegram і Viber під час розсилок і нагадувань. 	The “RVServices” app taps “Send” in WhatsApp, Telegram and Viber for you during broadcasts and reminders. 
+Установите его, затем: Настройки → Спец. возможности → «RVServices». Если переключатель неактивен: Приложения → «RVServices» → ⋮ → «Разрешить ограниченные настройки».	Встановіть його, потім: Налаштування → Спец. можливості → «RVServices». Якщо перемикач неактивний: Застосунки → «RVServices» → ⋮ → «Дозволити обмежені налаштування».	Install it, then: Settings → Accessibility → “RVServices”. If the switch is greyed out: Apps → “RVServices” → ⋮ → “Allow restricted settings”.
+Не нашла запись на %1$s.	Не знайшла запис на %1$s.	I couldn't find an appointment for %1$s.
+На %1$s несколько записей: %2$s. Скажите, чью перенести.	На %1$s кілька записів: %2$s. Скажіть, чий перенести.	There are several appointments for %1$s: %2$s. Tell me whose to move.
+отправить %1$s напоминание о записи в %2$s	надіслати %1$s нагадування про запис у %2$s	send %1$s an appointment reminder via %2$s
+перенести запись с %1$s на %2$s	перенести запис з %1$s на %2$s	move the appointment from %1$s to %2$s

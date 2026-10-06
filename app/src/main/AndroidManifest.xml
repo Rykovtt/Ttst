@@ -35,8 +35,11 @@
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
         <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
         <package android:name="com.viber.voip" />
+        <!-- RVServices: служба, которая нажимает «Отправить» -->
+        <package android:name="com.rykov.autosend" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -248,18 +251,8 @@
             </intent-filter>
         </activity-alias>
 
-        <service
-            android:name=".messaging.AutoSendService"
-            android:exported="false"
-            android:label="@string/autosend_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/autosend_service" />
-        </service>
+        <!-- Итог от RVServices (com.rykov.autosend): приходит только через наш PendingIntent. -->
+        <receiver android:name=".messaging.AutoSendResultReceiver" android:exported="false" />
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />
         <receiver android:name=".reminders.BootReceiver" android:exported="false">
