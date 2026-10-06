@@ -214,8 +214,8 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
             ActionRow(
                 Icons.Default.AutoMode,
                 if (on) t("Включена ✓") else t("Выключена — нажмите, чтобы включить"),
-                t("Приложение «Автоотправка CRM» само нажимает «Отправить» в WhatsApp, Telegram и Viber во время рассылок и напоминаний. ") +
-                    t("Установите его, затем: Настройки → Спец. возможности → «Автоотправка CRM». Если переключатель неактивен: Приложения → «Автоотправка CRM» → ⋮ → «Разрешить ограниченные настройки»."),
+                t("Приложение «RVServices» само нажимает «Отправить» в WhatsApp, Telegram и Viber во время рассылок и напоминаний. ") +
+                    t("Установите его, затем: Настройки → Спец. возможности → «RVServices». Если переключатель неактивен: Приложения → «RVServices» → ⋮ → «Разрешить ограниченные настройки»."),
             ) { com.kartoteka.app.messaging.AutoSend.openServiceSettings(context) }
             Text(t("Пауза между сообщениями: %1\$s с", delay), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
             androidx.compose.material3.Slider(

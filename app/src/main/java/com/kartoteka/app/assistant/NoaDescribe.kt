@@ -54,6 +54,7 @@ object NoaDescribe {
         NoaIntent.Channel.WHATSAPP -> "WhatsApp"
         NoaIntent.Channel.TELEGRAM -> "Telegram"
         NoaIntent.Channel.SMS -> "SMS"
+        NoaIntent.Channel.VIBER -> "Viber"
     }
 
     private fun section(s: NoaIntent.Section) = when (s) {
@@ -123,6 +124,7 @@ object NoaDescribe {
         is NoaIntent.OpenScreen -> t("открыть раздел «%1\$s»", section(i.section))
         is NoaIntent.Call -> t("позвонить %1\$s", who(i.personQuery))
         is NoaIntent.Message -> when {
+            i.aboutAppointment && i.reminder -> t("отправить %1\$s напоминание о записи в %2\$s", who(i.personQuery), channel(i.channel))
             i.aboutAppointment -> t("отправить %1\$s подтверждение записи в %2\$s", who(i.personQuery), channel(i.channel))
             i.text.isNullOrBlank() -> t("написать %1\$s в %2\$s", who(i.personQuery), channel(i.channel))
             else -> t("написать %1\$s в %2\$s: «%3\$s»", who(i.personQuery), channel(i.channel), i.text)
@@ -153,7 +155,12 @@ object NoaDescribe {
         }
         is NoaIntent.MoveAppointment -> {
             val w = whenText(i.dateTime, i.hadDate, i.hadTime)
-            if (w.isBlank()) t("перенести запись %1\$s", who(i.personQuery)) else t("перенести запись %1\$s на %2\$s", who(i.personQuery), w)
+            val old = whenText(i.from, i.fromHadDate, i.fromHadTime)
+            when {
+                i.personQuery.isBlank() && old.isNotBlank() && w.isNotBlank() -> t("перенести запись с %1\$s на %2\$s", old, w)
+                w.isBlank() -> t("перенести запись %1\$s", who(i.personQuery))
+                else -> t("перенести запись %1\$s на %2\$s", who(i.personQuery), w)
+            }
         }
         is NoaIntent.LaunchApp -> t("запустить приложение «%1\$s»", i.name)
         is NoaIntent.CloseApp -> t("закрыть приложение «%1\$s»", i.name)

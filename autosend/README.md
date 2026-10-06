@@ -1,4 +1,4 @@
-# Автоотправка CRM (модуль `:autosend`)
+# RVServices (модуль `:autosend`)
 
 Отдельное приложение со службой специальных возможностей (`AccessibilityService`), которая
 по команде RVault открывает чат в WhatsApp / WhatsApp Business / Telegram / Viber и

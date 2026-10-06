@@ -249,7 +249,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     ) = Spec(name, aliases, fields, needs, own, implies, ask, fillKey, inherit, prefill, missing, build)
 
     private val P = setOf("person")
-    private val chats = listOf("whatsapp", "telegram", "sms", "тг", "телеграм", "смс", "ватсап")
+    private val chats = listOf("whatsapp", "telegram", "sms", "viber", "тг", "телеграм", "смс", "ватсап", "вайбер")
 
     private val SPECS: List<Spec> = listOf(
         act("create_appointment", listOf("book", "appointment", "schedule_appointment", "add_appointment", "new_appointment", "make_appointment", "create_event", "book_appointment"), P, listOf(Need.PERSON),
@@ -279,7 +279,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             }) { a, c ->
             // «Отправь ему об этом» — текст из шаблона подтверждения, а не выдумка модели.
             val about = NoaParser.isAboutAppointment(c.phrase) || bool(a["about_appointment"], false)
-            NoaIntent.Message(a["person"].orEmpty(), channel(a["channel"]), if (about) null else a["text"], aboutAppointment = about)
+            val reminder = about && (bool(a["reminder"], false) || Regex("напоминан|нагадуван|remind").containsMatchIn(c.phrase.lowercase()))
+            NoaIntent.Message(a["person"].orEmpty(), channel(a["channel"]), if (about) null else a["text"], aboutAppointment = about, reminder = reminder)
         },
         act("reply", listOf("answer", "respond", "reply_message"), setOf("person", "text"), listOf(Need.TEXT), ask = mapOf(Need.TEXT to { t("Что ответить?") })) { a, _ ->
             NoaIntent.Reply(a["person"].orEmpty(), a["text"].orEmpty())
@@ -850,6 +851,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     private fun channel(s: String?): NoaIntent.Channel = when (s?.lowercase()?.trim()) {
         "telegram", "тг", "телеграм", "tg", "телеграмм" -> NoaIntent.Channel.TELEGRAM
         "sms", "смс" -> NoaIntent.Channel.SMS
+        "viber", "вайбер", "вибер", "вібер" -> NoaIntent.Channel.VIBER
         else -> NoaIntent.Channel.WHATSAPP
     }
 
@@ -859,6 +861,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         return when {
             w.any { it.startsWith("telegram") || it.startsWith("телеграм") || it.startsWith("телег") || it == "тг" || it == "tg" } -> "telegram"
             w.any { it == "sms" || it.startsWith("смс") || it.startsWith("эсэмэс") } -> "sms"
+            w.any { it.startsWith("viber") || it.startsWith("вайбер") || it.startsWith("вибер") || it.startsWith("вібер") } -> "viber"
             w.any { it.startsWith("whatsapp") || it.startsWith("ватсап") || it.startsWith("вотсап") || it.startsWith("вацап") || it.startsWith("вотс") || it.startsWith("ватс") } -> "whatsapp"
             else -> null
         }
@@ -975,7 +978,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
          */
         internal fun staticPrompt(lang: String = "Russian"): String = """
 JSON only, compact: {"actions":[{"action":"…"}]}. Add "reply" only for chat/answers, "ask" only to clarify.
-Actions: call message(channel,text) reply read_messages create_appointment(service) cancel_appointment delete_appointment move_appointment add_note open_person select favorite find(query) person_info open_contact share_data route agenda play_music(query) media(control) launch_app(app) close_app(app) web_search(query) remind alarm timer flashlight phone_settings open_screen(section) go_home lock backup
+Actions: call message(channel:whatsapp|telegram|viber|sms,text) reply read_messages create_appointment(service) cancel_appointment delete_appointment move_appointment add_note open_person select favorite find(query) person_info open_contact share_data route agenda play_music(query) media(control) launch_app(app) close_app(app) web_search(query) remind alarm timer flashlight phone_settings open_screen(section) go_home lock backup
 open_screen=section of this app; launch_app=phone app; close_app=named app; go_home=close, no name; lock=lock this app. find=search the book; person_info=question about a person. move_appointment is ONE action. Time, math, apps are not web_search.
 Rules: person only if the user said a name or pronoun; never copy names from People. Date/time are read from the command. Several commands → actions in order. About people or appointments answer ONLY from Data; not in Data → say it is not in the book; never invent. Unclear → actions [] + ask. Chat → actions [] + reply. reply, ask: $lang, max 2 sentences.
 """.trim()

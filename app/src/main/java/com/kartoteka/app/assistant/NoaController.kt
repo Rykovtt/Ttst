@@ -333,9 +333,24 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
 
 internal fun sendMessage(context: Context, pf: PersonFull?, m: NoaActions.Message) {
     pf ?: return
+    // Мессенджер и готовый текст: отправляет «RVServices» (открывает чат и сама нажимает «Отправить»),
+    // как кнопка «Отправить» в приложении. Без неё — просто открываем чат с текстом.
+    val notify = when (m.channel) {
+        NoaIntent.Channel.WHATSAPP -> com.kartoteka.app.data.NotifyChannel.WHATSAPP
+        NoaIntent.Channel.TELEGRAM -> com.kartoteka.app.data.NotifyChannel.TELEGRAM
+        NoaIntent.Channel.VIBER -> com.kartoteka.app.data.NotifyChannel.VIBER
+        NoaIntent.Channel.SMS -> null
+    }
+    val target = notify?.let { com.kartoteka.app.messaging.Sender.targetFor(pf, it) }
+    if (notify != null && target != null && m.text.isNotBlank() && com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context)) {
+        val job = com.kartoteka.app.messaging.SendJob(pf.person.id, pf.person.displayName, notify, target, m.text)
+        com.kartoteka.app.messaging.AutoSend.start(context, listOf(job), 6) { _, _ -> }
+        return
+    }
     when (m.channel) {
         NoaIntent.Channel.WHATSAPP -> pf.whatsapp?.let { Messaging.whatsapp(context, it, m.text) }
         NoaIntent.Channel.TELEGRAM -> pf.telegram?.let { Messaging.telegram(context, it, m.text) }
+        NoaIntent.Channel.VIBER -> pf.viber?.let { Messaging.viber(context, it, m.text) }
         NoaIntent.Channel.SMS -> pf.phone?.let { Messaging.sms(context, listOf(it), m.text) }
     }
 }

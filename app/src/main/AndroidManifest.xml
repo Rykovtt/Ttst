@@ -38,7 +38,7 @@
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
         <package android:name="com.viber.voip" />
-        <!-- «Автоотправка CRM»: служба, которая нажимает «Отправить» -->
+        <!-- RVServices: служба, которая нажимает «Отправить» -->
         <package android:name="com.rykov.autosend" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
@@ -251,7 +251,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Итог от «Автоотправки CRM» (com.rykov.autosend): приходит только через наш PendingIntent. -->
+        <!-- Итог от RVServices (com.rykov.autosend): приходит только через наш PendingIntent. -->
         <receiver android:name=".messaging.AutoSendResultReceiver" android:exported="false" />
 
         <receiver android:name=".reminders.ReminderReceiver" android:exported="false" />

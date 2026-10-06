@@ -43,7 +43,7 @@ data class AutoSendProgress(
 
 /**
  * Очередь авто-отправки в WhatsApp/Telegram/Viber. Каждое сообщение передаётся
- * приложению «Автоотправка CRM» ([AutoSendLink]): его служба открывает чат с текстом
+ * приложению «RVServices» ([AutoSendLink]): его служба открывает чат с текстом
  * и сама нажимает «Отправить», а итог возвращает в [onResult].
  * После отправки — пауза и следующий человек.
  */
@@ -74,7 +74,7 @@ object AutoSend {
     /** Идентификатор команды для текущего сообщения: ответы на старые команды отбрасываются. */
     private val currentRequestId: String get() = "rvault-$run-$index"
 
-    /** «Автоотправка CRM» установлена и её служба включена. */
+    /** «RVServices» установлена и её служба включена. */
     fun isServiceEnabled(context: Context): Boolean = AutoSendLink.isServiceEnabled(context)
 
     fun openServiceSettings(context: Context) = AutoSendLink.openSetup(context)
@@ -110,7 +110,7 @@ object AutoSend {
         _progress.value = null
     }
 
-    /** Ответ «Автоотправки CRM» на команду [requestId]. */
+    /** Ответ «RVServices» на команду [requestId]. */
     internal fun onResult(requestId: String?, status: String?) {
         if (armedJob == null || requestId != currentRequestId) return
         if (status == AutoSendLink.STATUS_SENT) onSent() else fail()
@@ -134,7 +134,7 @@ object AutoSend {
         states[index] = JobState.SENDING
         publish(true)
         val job = jobs[index]
-        // Чат открывает служба «Автоотправки CRM»: RVault в фоне окна открывать не может.
+        // Чат открывает служба «RVServices»: RVault в фоне окна открывать не может.
         val ok = runCatching {
             val (pkg, uri) = chatFor(launcher ?: appContext, job) ?: error("no messenger")
             AutoSendLink.send(appContext, currentRequestId, pkg, uri, job.text, TIMEOUT_MS)

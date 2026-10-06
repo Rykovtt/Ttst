@@ -633,8 +633,8 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
             } else {
                 Text(t("Авто-отправка выключена"), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    t("Чтобы сообщения уходили сами, установите приложение «Автоотправка CRM» и включите его службу: Спец. возможности → «Автоотправка CRM». ") +
-                        t("Если переключатель неактивен: Настройки → Приложения → «Автоотправка CRM» → ⋮ → «Разрешить ограниченные настройки»."),
+                    t("Чтобы сообщения уходили сами, установите приложение «RVServices» и включите его службу: Спец. возможности → «RVServices». ") +
+                        t("Если переключатель неактивен: Настройки → Приложения → «RVServices» → ⋮ → «Разрешить ограниченные настройки»."),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text(t("Открыть настройки")) }

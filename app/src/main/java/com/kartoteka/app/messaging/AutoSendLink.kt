@@ -10,7 +10,7 @@ import android.provider.Settings
 import android.widget.Toast
 
 /**
- * Связь с отдельным приложением «Автоотправка CRM» (модуль :autosend, пакет com.rykov.autosend):
+ * Связь с отдельным приложением «RVServices» (модуль :autosend, пакет com.rykov.autosend):
  * его служба специальных возможностей открывает чат, при необходимости вписывает текст
  * и один раз нажимает «Отправить». Протокол — com.rykov.autosend.core.AutoSendContract.
  */
@@ -44,11 +44,11 @@ object AutoSendLink {
         }
     }
 
-    /** Открывает «Автоотправку CRM» (там инструкция и кнопка в настройки); нет её — подсказка. */
+    /** Открывает «RVServices» (там инструкция и кнопка в настройки); нет её — подсказка. */
     fun openSetup(context: Context) {
         val launch = context.packageManager.getLaunchIntentForPackage(PACKAGE)
         if (launch == null) {
-            Toast.makeText(context, t("Установите приложение «Автоотправка CRM»"), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, t("Установите приложение «RVServices»"), Toast.LENGTH_LONG).show()
             return
         }
         runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
@@ -87,7 +87,7 @@ object AutoSendLink {
     )
 }
 
-/** Итог команды от «Автоотправки CRM». Приходит только через наш PendingIntent. */
+/** Итог команды от «RVServices». Приходит только через наш PendingIntent. */
 class AutoSendResultReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != AutoSendLink.ACTION_SEND_RESULT) return
