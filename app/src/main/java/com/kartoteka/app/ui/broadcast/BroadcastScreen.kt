@@ -108,6 +108,7 @@ import kotlinx.coroutines.launch
 enum class Channel(private val titleRu: String, private val descriptionRu: String, val icon: ImageVector, val personal: Boolean) {
     WHATSAPP("WhatsApp", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Chat, true),
     TELEGRAM("Telegram", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Send, true),
+    VIBER("Viber", "Каждому своё сообщение. С авто-отправкой уходит само, по очереди, с паузами", Icons.AutoMirrored.Filled.Chat, true),
     SMS_AUTO("SMS автоматически", "Персональные SMS уходят сами, без открытия приложений. Оплачивается по тарифу оператора", Icons.Default.Sms, true),
     SMS_APP("SMS одним сообщением", "Открыть SMS-приложение сразу со всеми номерами — один текст всем", Icons.Default.Sms, false),
     SHARE("В группу / чат мессенджера", "Отправить текст в существующий групповой чат WhatsApp, Telegram, Viber или любой другой", Icons.Default.Share, false),
@@ -135,9 +136,13 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
     fun startAuto(context: android.content.Context) {
         val targets = selected().filter { canReceive(it) }
         val byId = targets.associateBy { it.person.id }
-        val ch = if (channel == Channel.WHATSAPP) com.kartoteka.app.data.NotifyChannel.WHATSAPP else com.kartoteka.app.data.NotifyChannel.TELEGRAM
+        val ch = when (channel) {
+            Channel.WHATSAPP -> com.kartoteka.app.data.NotifyChannel.WHATSAPP
+            Channel.VIBER -> com.kartoteka.app.data.NotifyChannel.VIBER
+            else -> com.kartoteka.app.data.NotifyChannel.TELEGRAM
+        }
         val jobs = targets.map { pf ->
-            com.kartoteka.app.messaging.SendJob(pf.person.id, pf.person.displayName, ch, (if (ch == com.kartoteka.app.data.NotifyChannel.WHATSAPP) pf.whatsapp else pf.telegram)!!, messageFor(pf))
+            com.kartoteka.app.messaging.SendJob(pf.person.id, pf.person.displayName, ch, com.kartoteka.app.messaging.Sender.targetFor(pf, ch)!!, messageFor(pf))
         }
         sending = true
         com.kartoteka.app.messaging.AutoSend.start(context, jobs, delaySec.value.value.toIntOrNull() ?: 6) { job, ok ->
@@ -162,6 +167,7 @@ class BroadcastViewModel(private val app: KartotekaApp, initialGroupId: Long, in
     fun canReceive(pf: PersonFull, ch: Channel = channel): Boolean = when (ch) {
         Channel.WHATSAPP -> pf.whatsapp != null
         Channel.TELEGRAM -> pf.telegram != null
+        Channel.VIBER -> pf.viber != null
         Channel.SMS_AUTO, Channel.SMS_APP -> pf.phone != null
         Channel.SHARE -> true
     }
@@ -354,7 +360,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                     }
                 }
             }
-            if (vm.channel == Channel.WHATSAPP || vm.channel == Channel.TELEGRAM) {
+            if (vm.channel == Channel.WHATSAPP || vm.channel == Channel.TELEGRAM || vm.channel == Channel.VIBER) {
                 item {
                     AutoSendCard(
                         serviceOn = serviceOn,
@@ -396,7 +402,7 @@ fun BroadcastScreen(initialGroupId: Long, initialPersonIds: List<Long>, onBack: 
                                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) confirmAuto = true
                                 else smsPermission.launch(Manifest.permission.SEND_SMS)
                             }
-                            Channel.WHATSAPP, Channel.TELEGRAM ->
+                            Channel.WHATSAPP, Channel.TELEGRAM, Channel.VIBER ->
                                 if (serviceOn && vm.autoMode) confirmMessenger = true else vm.sending = true
                         }
                     },
@@ -570,6 +576,7 @@ private fun friendsWord(lang: com.kartoteka.app.data.MessageLang) = when (lang) 
 private fun channelTile(ch: Channel): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> = when (ch) {
     Channel.WHATSAPP -> androidx.compose.ui.graphics.Color(0xFF25D366) to androidx.compose.ui.graphics.Color.White
     Channel.TELEGRAM -> androidx.compose.ui.graphics.Color(0xFF2AABEE) to androidx.compose.ui.graphics.Color.White
+    Channel.VIBER -> androidx.compose.ui.graphics.Color(0xFF7360F2) to androidx.compose.ui.graphics.Color.White
     Channel.SMS_AUTO, Channel.SMS_APP -> androidx.compose.ui.graphics.Color(0xFF7C5CFA) to androidx.compose.ui.graphics.Color.White
     Channel.SHARE -> androidx.compose.ui.graphics.Color(0xFF3A3A40) to androidx.compose.ui.graphics.Color.White
 }
@@ -579,6 +586,7 @@ private fun sendOne(context: android.content.Context, vm: BroadcastViewModel, pf
     when (vm.channel) {
         Channel.WHATSAPP -> Messaging.whatsapp(context, pf.whatsapp!!, msg)
         Channel.TELEGRAM -> Messaging.telegram(context, pf.telegram!!, msg)
+        Channel.VIBER -> Messaging.viber(context, pf.viber!!, msg)
         else -> return
     }
     vm.markSent(pf)
@@ -625,8 +633,8 @@ private fun AutoSendCard(serviceOn: Boolean, auto: Boolean, onAuto: (Boolean) ->
             } else {
                 Text(t("Авто-отправка выключена"), style = MaterialTheme.typography.titleSmall)
                 Text(
-                    t("Чтобы сообщения уходили сами, включите в настройках телефона: Спец. возможности → «RVault: авто-отправка». ") +
-                        t("Если переключатель неактивен: Настройки → Приложения → RVault → ⋮ → «Разрешить ограниченные настройки»."),
+                    t("Чтобы сообщения уходили сами, установите приложение «Автоотправка CRM» и включите его службу: Спец. возможности → «Автоотправка CRM». ") +
+                        t("Если переключатель неактивен: Настройки → Приложения → «Автоотправка CRM» → ⋮ → «Разрешить ограниченные настройки»."),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 FilledTonalButton(onClick = onEnable, modifier = Modifier.padding(top = 8.dp)) { Text(t("Открыть настройки")) }

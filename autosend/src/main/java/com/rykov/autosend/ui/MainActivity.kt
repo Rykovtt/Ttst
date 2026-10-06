@@ -1,6 +1,7 @@
 package com.rykov.autosend.ui
 
 import android.app.Activity
+import android.app.PendingIntent
 import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -51,11 +52,12 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.open_settings).setOnClickListener { openAccessibilitySettings() }
         findViewById<Button>(R.id.test_whatsapp).setOnClickListener { runTest("com.whatsapp") }
         findViewById<Button>(R.id.test_whatsapp_business).setOnClickListener { runTest("com.whatsapp.w4b") }
+        findViewById<Button>(R.id.test_viber).setOnClickListener { runTest("com.viber.voip") }
 
         // Регистрируем на всё время жизни экрана: ответ приходит, пока на экране WhatsApp.
         val filter = IntentFilter(AutoSendContract.ACTION_SEND_RESULT)
         val flags = if (Build.VERSION.SDK_INT >= 33) RECEIVER_NOT_EXPORTED else 0
-        registerReceiver(resultReceiver, filter, AutoSendContract.PERMISSION_CONTROL, null, flags)
+        registerReceiver(resultReceiver, filter, null, null, flags)
     }
 
     override fun onDestroy() {
@@ -79,7 +81,7 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Делает то же, что CRM: взводит службу и открывает чат с подставленным текстом. */
+    /** Делает то же, что CRM: просит службу открыть чат, при необходимости вписать текст и нажать «Отправить». */
     private fun runTest(messengerPackage: String) {
         val phone = testPhone.text.toString().filter { it.isDigit() }
         if (phone.isEmpty()) {
@@ -90,24 +92,30 @@ class MainActivity : Activity() {
             Toast.makeText(this, R.string.test_need_service, Toast.LENGTH_LONG).show()
             return
         }
-        val chat = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse("https://wa.me/$phone?text=" + Uri.encode(testText.text.toString())),
-        ).setPackage(messengerPackage)
-        if (chat.resolveActivity(packageManager) == null) {
+        val text = testText.text.toString()
+        val uri = when (messengerPackage) {
+            "com.viber.voip" -> Uri.parse("viber://chat?number=" + Uri.encode("+$phone") + "&draft=" + Uri.encode(text))
+            else -> Uri.parse("https://wa.me/$phone?text=" + Uri.encode(text))
+        }
+        if (Intent(Intent.ACTION_VIEW, uri).setPackage(messengerPackage).resolveActivity(packageManager) == null) {
             Toast.makeText(this, R.string.test_not_installed, Toast.LENGTH_LONG).show()
             return
         }
-
+        val callback = PendingIntent.getBroadcast(
+            this, 0,
+            Intent(AutoSendContract.ACTION_SEND_RESULT).setPackage(packageName),
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         sendBroadcast(
             Intent(AutoSendContract.ACTION_ARM_SEND)
                 .setPackage(packageName)
+                .putExtra(AutoSendContract.EXTRA_CALLBACK, callback)
                 .putExtra(AutoSendContract.EXTRA_TARGET_PACKAGE, messengerPackage)
-                .putExtra(AutoSendContract.EXTRA_REQUEST_ID, "test")
-                .putExtra(AutoSendContract.EXTRA_REPLY_PACKAGE, packageName),
+                .putExtra(AutoSendContract.EXTRA_OPEN_URI, uri.toString())
+                .putExtra(AutoSendContract.EXTRA_TEXT, text)
+                .putExtra(AutoSendContract.EXTRA_REQUEST_ID, "test"),
         )
         testResult.setText(R.string.test_waiting)
-        startActivity(chat)
     }
 
     private fun resultText(status: String?): Int = when (status) {
@@ -116,6 +124,8 @@ class MainActivity : Activity() {
         AutoSendContract.STATUS_TIMEOUT -> R.string.result_timeout
         AutoSendContract.STATUS_SERVICE_DISABLED -> R.string.result_service_disabled
         AutoSendContract.STATUS_UNSUPPORTED_PACKAGE -> R.string.result_unsupported_package
+        AutoSendContract.STATUS_OPEN_FAILED -> R.string.result_open_failed
+        AutoSendContract.STATUS_UNTRUSTED_CALLER -> R.string.result_untrusted
         else -> R.string.result_cancelled
     }
 

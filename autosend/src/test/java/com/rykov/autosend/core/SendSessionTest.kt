@@ -9,7 +9,7 @@ import org.junit.Test
 
 class SendSessionTest {
     private var now = 1_000L
-    private val session = SendSession { now }
+    private val session = SendSession<String> { now }
 
     @Test
     fun `not armed by default`() {
@@ -67,5 +67,21 @@ class SendSessionTest {
         assertNotNull(session.cancel())
         assertNull(session.cancel())
         assertFalse(session.isArmedFor("com.whatsapp"))
+    }
+
+    @Test
+    fun `text is offered for insertion once per arming`() {
+        session.arm("com.viber.voip", "r1", null, 10_000, text = "Привет")
+        assertNull(session.takeTextToInsert("com.whatsapp"))
+        assertEquals("Привет", session.takeTextToInsert("com.viber.voip"))
+        assertNull(session.takeTextToInsert("com.viber.voip"))
+        session.arm("com.viber.voip", "r2", null, 10_000, text = "Ещё")
+        assertEquals("Ещё", session.takeTextToInsert("com.viber.voip"))
+    }
+
+    @Test
+    fun `blank text is not inserted`() {
+        session.arm("com.viber.voip", "r1", null, 10_000, text = "  ")
+        assertNull(session.takeTextToInsert("com.viber.voip"))
     }
 }

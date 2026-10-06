@@ -1,7 +1,9 @@
 package com.rykov.autosend.core
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import com.rykov.autosend.services.AutoSendAccessibilityService
@@ -14,7 +16,7 @@ object AutoSendController {
     private const val TAG = "AutoSend"
 
     /** uptimeMillis — тот же отсчёт, что у Handler.postAtTime. */
-    val session = SendSession(clock = SystemClock::uptimeMillis)
+    val session = SendSession<PendingIntent>(clock = SystemClock::uptimeMillis)
 
     private var service: AutoSendAccessibilityService? = null
 
@@ -22,59 +24,76 @@ object AutoSendController {
         this.service = service
     }
 
-    fun detach(service: AutoSendAccessibilityService) {
+    fun detach(context: Context, service: AutoSendAccessibilityService) {
         if (this.service !== service) return
         this.service = null
-        session.cancel()
+        session.cancel()?.let { reply(context, it, null, AutoSendContract.STATUS_SERVICE_DISABLED) }
     }
 
     fun arm(context: Context, intent: Intent) {
+        val callback = callbackOf(intent)
         val target = intent.getStringExtra(AutoSendContract.EXTRA_TARGET_PACKAGE)?.takeIf { it.isNotBlank() }
         val requestId = intent.getStringExtra(AutoSendContract.EXTRA_REQUEST_ID)
-        val replyPackage = intent.getStringExtra(AutoSendContract.EXTRA_REPLY_PACKAGE)
+        val openUri = intent.getStringExtra(AutoSendContract.EXTRA_OPEN_URI)?.takeIf { it.isNotBlank() }
+        val text = intent.getStringExtra(AutoSendContract.EXTRA_TEXT)
         val ttl = intent.getLongExtra(AutoSendContract.EXTRA_TIMEOUT_MS, SendSession.DEFAULT_TTL_MS)
 
-        if (target != null && target !in TargetApps.packageNames) {
-            reply(context, requestId, replyPackage, target, AutoSendContract.STATUS_UNSUPPORTED_PACKAGE)
+        if (!CallerVerifier.isTrusted(context, callback)) {
+            send(context, callback, requestId, target, AutoSendContract.STATUS_UNTRUSTED_CALLER)
+            return
+        }
+        // Открыть чат можно только в конкретном поддерживаемом мессенджере.
+        if (target != null && target !in TargetApps.packageNames || openUri != null && target == null) {
+            send(context, callback, requestId, target, AutoSendContract.STATUS_UNSUPPORTED_PACKAGE)
             return
         }
         val running = service
         if (running == null) {
-            reply(context, requestId, replyPackage, target, AutoSendContract.STATUS_SERVICE_DISABLED)
+            send(context, callback, requestId, target, AutoSendContract.STATUS_SERVICE_DISABLED)
             return
         }
         // Новая команда вытесняет старую: та получает ответ «отменено».
         session.cancel()?.let { reply(context, it, null, AutoSendContract.STATUS_CANCELLED) }
-        val request = session.arm(target, requestId, replyPackage, ttl)
+        val request = session.arm(target, requestId, callback, ttl, text)
         Log.i(TAG, "armed for ${target ?: "any target"}")
+        if (openUri != null && target != null && !running.openChat(target, Uri.parse(openUri))) {
+            session.cancel()
+            reply(context, request, target, AutoSendContract.STATUS_OPEN_FAILED)
+            return
+        }
         running.onArmed(request)
     }
 
-    fun cancel(context: Context) {
+    fun cancel(context: Context, intent: Intent) {
+        if (!CallerVerifier.isTrusted(context, callbackOf(intent))) return
         session.cancel()?.let { reply(context, it, null, AutoSendContract.STATUS_CANCELLED) }
         service?.onCancelled()
     }
 
-    fun reply(context: Context, request: SendSession.Request, clickedPackage: String?, status: String) {
-        reply(context, request.requestId, request.replyPackage, clickedPackage ?: request.packageName, status)
+    fun reply(context: Context, request: SendSession.Request<PendingIntent>, clickedPackage: String?, status: String) {
+        send(context, request.replyTo, request.requestId, clickedPackage ?: request.packageName, status)
     }
 
-    /**
-     * Ответ адресуется только явно указанному пакету CRM и только при наличии у него
-     * разрешения CONTROL. В ответе нет ни текста сообщения, ни данных контакта.
-     */
-    private fun reply(context: Context, requestId: String?, replyPackage: String?, target: String?, status: String) {
+    /** Ответ уходит только в PendingIntent вызывающего. В нём нет ни текста, ни данных контакта. */
+    private fun send(context: Context, callback: PendingIntent?, requestId: String?, target: String?, status: String) {
         Log.i(TAG, "result: $status")
-        if (replyPackage.isNullOrBlank()) return
-        val intent = Intent(AutoSendContract.ACTION_SEND_RESULT)
-            .setPackage(replyPackage)
+        if (callback == null) return
+        val fillIn = Intent()
             .putExtra(AutoSendContract.EXTRA_STATUS, status)
             .putExtra(AutoSendContract.EXTRA_REQUEST_ID, requestId)
             .putExtra(AutoSendContract.EXTRA_TARGET_PACKAGE, target)
         try {
-            context.sendBroadcast(intent, AutoSendContract.PERMISSION_CONTROL)
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "reply failed", e)
+            callback.send(context, 0, fillIn)
+        } catch (e: PendingIntent.CanceledException) {
+            Log.w(TAG, "reply target is gone")
         }
     }
+
+    @Suppress("DEPRECATION")
+    private fun callbackOf(intent: Intent): PendingIntent? =
+        try {
+            intent.getParcelableExtra(AutoSendContract.EXTRA_CALLBACK) as? PendingIntent
+        } catch (e: RuntimeException) {
+            null
+        }
 }

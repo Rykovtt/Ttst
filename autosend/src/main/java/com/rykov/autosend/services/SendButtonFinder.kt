@@ -15,6 +15,7 @@ import com.rykov.autosend.core.TargetApp
 internal object SendButtonFinder {
     /** Насколько высоко подниматься к кликабельному родителю (FrameLayout и т.п.). */
     private const val MAX_PARENT_DEPTH = 4
+    private const val MAX_TREE_DEPTH = 40
 
     fun find(root: AccessibilityNodeInfo, app: TargetApp): AccessibilityNodeInfo? {
         // Основной сценарий: по идентификатору ресурса.
@@ -26,6 +27,27 @@ internal object SendButtonFinder {
             firstClickable(root.findAccessibilityNodeInfosByText(query)) {
                 SendLabels.matches(it.contentDescription) || SendLabels.matches(it.text)
             }?.let { return it }
+        }
+        return null
+    }
+
+    /** Поле ввода сообщения: сначала узел с фокусом ввода, затем первый видимый редактируемый. */
+    fun findInput(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)?.let {
+            if (it.isEditable && it.isVisibleToUser) return it
+            it.recycleSafely()
+        }
+        return findEditable(root, 0)
+    }
+
+    private fun findEditable(node: AccessibilityNodeInfo, depth: Int): AccessibilityNodeInfo? {
+        if (depth > MAX_TREE_DEPTH) return null
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            if (child.isEditable && child.isVisibleToUser) return child
+            val found = findEditable(child, depth + 1)
+            child.recycleSafely()
+            if (found != null) return found
         }
         return null
     }

@@ -208,14 +208,14 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
             CalendarSettings(settings, onServices)
         })
 
-        add(SettingEntry(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, if (autoOn) t("Включена") else t("Выключена"), "whatsapp telegram авто отправка") {
+        add(SettingEntry(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, if (autoOn) t("Включена") else t("Выключена"), "whatsapp telegram viber авто отправка") {
             val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
             val delay by settings.autoSendDelaySec.value.collectAsState()
             ActionRow(
                 Icons.Default.AutoMode,
                 if (on) t("Включена ✓") else t("Выключена — нажмите, чтобы включить"),
-                t("RVault сам нажимает «Отправить» в WhatsApp и Telegram во время рассылок и напоминаний. ") +
-                    t("Настройки → Спец. возможности → «RVault: авто-отправка». Если переключатель неактивен: Приложения → RVault → ⋮ → «Разрешить ограниченные настройки»."),
+                t("Приложение «Автоотправка CRM» само нажимает «Отправить» в WhatsApp, Telegram и Viber во время рассылок и напоминаний. ") +
+                    t("Установите его, затем: Настройки → Спец. возможности → «Автоотправка CRM». Если переключатель неактивен: Приложения → «Автоотправка CRM» → ⋮ → «Разрешить ограниченные настройки»."),
             ) { com.kartoteka.app.messaging.AutoSend.openServiceSettings(context) }
             Text(t("Пауза между сообщениями: %1\$s с", delay), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 18.dp))
             androidx.compose.material3.Slider(

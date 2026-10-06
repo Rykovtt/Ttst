@@ -2,26 +2,25 @@
 <resources>
     <string name="app_name">Автоотправка CRM</string>
 
-    <string name="accessibility_service_description">Нажимает кнопку «Отправить» в WhatsApp и Telegram, но только после того, как CRM подставила текст сообщения и явно запросила отправку. Служба не читает, не сохраняет и не передаёт текст сообщений и данные контактов; у приложения нет доступа в интернет.</string>
+    <string name="accessibility_service_description">Нажимает кнопку «Отправить» в WhatsApp, Telegram и Viber, но только после того, как CRM подставила текст сообщения и явно запросила отправку. Служба не читает, не сохраняет и не передаёт текст сообщений и данные контактов; у приложения нет доступа в интернет.</string>
 
-    <string name="permission_control_label">Управление автоотправкой</string>
-    <string name="permission_control_description">Позволяет CRM запросить одно нажатие «Отправить» в мессенджере.</string>
 
     <string name="title">Автоотправка сообщений</string>
     <string name="status_enabled">✅ Служба включена и готова к работе.</string>
     <string name="status_disabled">⚠️ Служба выключена. CRM не сможет подтверждать отправку сообщений.</string>
     <string name="instruction">Как включить:\n\n1. Нажмите «Открыть настройки» ниже.\n2. Найдите «Установленные приложения» (или «Скачанные службы»).\n3. Выберите «Автоотправка CRM».\n4. Включите переключатель и подтвердите.\n5. Вернитесь в это приложение.</string>
-    <string name="disclosure">Что делает служба: когда CRM открывает чат с уже подставленным текстом и просит отправить его, служба один раз нажимает кнопку «Отправить» в WhatsApp, WhatsApp Business или Telegram. Без запроса CRM служба ничего не нажимает. Она не читает и не сохраняет переписку, контакты и вводимый текст, и не может ничего передать в сеть.</string>
+    <string name="disclosure">Что делает служба: когда CRM открывает чат с уже подставленным текстом и просит отправить его, служба один раз нажимает кнопку «Отправить» в WhatsApp, WhatsApp Business, Telegram или Viber. Без запроса CRM служба ничего не нажимает. Она не читает и не сохраняет переписку, контакты и вводимый текст, и не может ничего передать в сеть.</string>
     <string name="open_settings">Открыть настройки</string>
     <string name="settings_unavailable">Не удалось открыть настройки специальных возможностей</string>
 
     <string name="test_title">Проверка</string>
-    <string name="test_hint">Работает как CRM: подставляет текст, открывает чат и просит службу нажать «Отправить» один раз. Для проверки можно указать свой номер — сообщение придёт в чат с самим собой.</string>
+    <string name="test_hint">Работает как RVault: открывает чат с текстом и просит службу нажать «Отправить» один раз. Для проверки можно указать свой номер — сообщение придёт в чат с самим собой.</string>
     <string name="test_phone_hint">Номер в международном формате, например 79991234567</string>
     <string name="test_text_hint">Текст сообщения</string>
     <string name="test_text_default">Проверка автоотправки</string>
     <string name="test_whatsapp">Отправить через WhatsApp</string>
     <string name="test_whatsapp_business">Отправить через WhatsApp Business</string>
+    <string name="test_viber">Отправить через Viber</string>
     <string name="test_need_phone">Введите номер</string>
     <string name="test_need_service">Сначала включите службу</string>
     <string name="test_not_installed">Приложение не установлено</string>
@@ -32,4 +31,6 @@
     <string name="result_cancelled">Команда отменена</string>
     <string name="result_service_disabled">❌ Служба не запущена</string>
     <string name="result_unsupported_package">❌ Мессенджер не поддерживается</string>
+    <string name="result_open_failed">❌ Не удалось открыть чат</string>
+    <string name="result_untrusted">❌ Команда от недоверенного приложения</string>
 </resources>

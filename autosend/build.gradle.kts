@@ -9,8 +9,8 @@ plugins {
 // которая нажимает «Отправить» в мессенджере по команде CRM.
 
 // Ключ подписи берётся из локального autosend/keystore.properties (не хранится в git).
-// Разрешение управления службой имеет protectionLevel=signature, поэтому CRM
-// должна быть подписана тем же ключом. Без файла используется debug-ключ.
+// Без файла используется debug-ключ. Доверие к CRM от ключа этого приложения не зависит:
+// RVault проверяется по своему сертификату (core/TrustedCallers).
 val keystoreProps = Properties().apply {
     val f = file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -24,8 +24,8 @@ android {
         applicationId = "com.rykov.autosend"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "2.0.0"
     }
 
     signingConfigs {

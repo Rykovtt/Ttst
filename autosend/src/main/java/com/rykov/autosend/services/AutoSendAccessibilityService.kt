@@ -1,7 +1,10 @@
 package com.rykov.autosend.services
 
 import android.accessibilityservice.AccessibilityService
+import android.app.PendingIntent
 import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -17,7 +20,7 @@ import com.rykov.autosend.core.TargetApps
  * и не более одного раза на команду.
  *
  * Поток: CRM подставляет текст и открывает чат → взводит службу → служба ждёт событий
- * окна целевого пакета → через [CLICK_DELAY_MS] (анимация открытия чата) ищет кнопку →
+ * окна целевого пакета (чат может открыть сама служба по ссылке CRM) → через [CLICK_DELAY_MS] (анимация открытия чата) ищет кнопку →
  * одна попытка клика → ответ CRM. Если кнопка не нашлась, служба продолжает ждать
  * изменений окна до таймаута команды.
  */
@@ -46,8 +49,20 @@ class AutoSendAccessibilityService : AccessibilityService() {
         scheduleClick(packageName)
     }
 
+    /**
+     * Открывает чат по ссылке CRM. Служба специальных возможностей может открывать окна
+     * из фона, а CRM — нет (ограничение Android 10+), поэтому это делаем мы.
+     */
+    fun openChat(packageName: String, uri: Uri): Boolean = try {
+        startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (e: RuntimeException) {
+        Log.w(TAG, "cannot open chat in $packageName", e)
+        false
+    }
+
     /** Вызывается контроллером сразу после новой команды. */
-    fun onArmed(request: SendSession.Request) {
+    fun onArmed(request: SendSession.Request<PendingIntent>) {
         handler.removeCallbacks(expiryRunnable)
         handler.postAtTime(expiryRunnable, request.expiresAt)
         // Чат мог открыться ещё до команды — тогда новых событий окна может не быть.
@@ -80,8 +95,13 @@ class AutoSendAccessibilityService : AccessibilityService() {
             // В фокусе другое окно (клавиатура, диалог, другое приложение) — ждём следующего события.
             if (root.packageName?.toString() != packageName) return
             val app = TargetApps.forPackage(packageName) ?: return
-            // Кнопки ещё нет (чат грузится, поле пустое) — ждём следующего события до таймаута.
-            val button = SendButtonFinder.find(root, app) ?: return
+            val button = SendButtonFinder.find(root, app)
+            if (button == null) {
+                // Кнопки ещё нет: чат грузится или поле пустое (мессенджер не подставил текст по ссылке).
+                // Один раз вписываем текст CRM; кнопка появится, и сработает следующее событие окна.
+                session.takeTextToInsert(packageName)?.let { insertIntoEmptyInput(root, it) }
+                return
+            }
             try {
                 // Единственная попытка: сессия снимается до клика, повтора не будет.
                 val request = session.takeForClick(packageName) ?: return
@@ -97,6 +117,21 @@ class AutoSendAccessibilityService : AccessibilityService() {
             Log.w(TAG, "tree traversal failed", e)
         } finally {
             root.recycleSafely()
+        }
+    }
+
+    private fun insertIntoEmptyInput(root: AccessibilityNodeInfo, text: String) {
+        val input = SendButtonFinder.findInput(root) ?: return
+        try {
+            val empty = input.isShowingHintText || input.text.isNullOrBlank()
+            if (empty) {
+                val args = Bundle().apply {
+                    putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+                }
+                input.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            }
+        } finally {
+            input.recycleSafely()
         }
     }
 
@@ -139,7 +174,7 @@ class AutoSendAccessibilityService : AccessibilityService() {
 
     private fun shutdown() {
         onCancelled()
-        AutoSendController.detach(this)
+        AutoSendController.detach(this, this)
     }
 
     companion object {

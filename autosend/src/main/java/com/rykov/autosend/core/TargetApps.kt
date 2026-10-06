@@ -14,6 +14,9 @@ object TargetApps {
         // Telegram рисует интерфейс своими View без resource-id: только резервный поиск по описанию.
         TargetApp("org.telegram.messenger", emptyList()),
         TargetApp("org.telegram.messenger.web", emptyList()),
+        TargetApp("org.thunderdog.challegram", emptyList()),
+        // Viber: известные id кнопки отправки; при их смене сработает поиск по описанию «Send»/«Отправить».
+        TargetApp("com.viber.voip", listOf("com.viber.voip:id/send_text", "com.viber.voip:id/btn_send")),
     )
 
     /** Должен совпадать с android:packageNames в accessibility_service_config.xml. */
@@ -27,7 +30,7 @@ object SendLabels {
     /** Строки для findAccessibilityNodeInfosByText — система ищет вхождение без учёта регистра. */
     val queries: List<String> = listOf("Отправить", "Send", "Надіслати")
 
-    private val exact: Set<String> = setOf("отправить", "send", "надіслати", "send message", "отправить сообщение")
+    private val exact: Set<String> = setOf("отправить", "send", "надіслати", "send message", "отправить сообщение", "надіслати повідомлення")
 
     /**
      * Точное совпадение подписи: findAccessibilityNodeInfosByText находит и сообщения

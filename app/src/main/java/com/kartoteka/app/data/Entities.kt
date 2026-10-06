@@ -267,7 +267,7 @@ enum class AppointmentStatus(private val titleRu: String) {
 }
 
 enum class NotifyChannel(private val titleRu: String) {
-    WHATSAPP("WhatsApp"), TELEGRAM("Telegram"), SMS("SMS"), NONE("Не оповещать");
+    WHATSAPP("WhatsApp"), TELEGRAM("Telegram"), VIBER("Viber"), SMS("SMS"), NONE("Не оповещать");
 
     /** Название на языке интерфейса. */
     val title: String get() = t(titleRu)

@@ -86,6 +86,12 @@
             android:layout_height="wrap_content"
             android:text="@string/test_whatsapp_business" />
 
+        <Button
+            android:id="@+id/test_viber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/test_viber" />
+
         <TextView
             android:id="@+id/test_result"
             android:layout_width="match_parent"
