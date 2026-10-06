@@ -61,4 +61,18 @@ class WakeWordTest {
         assertNull(WakeService.decide("анна", name, playing = false))
         assertEquals(Decision.Command(NoaMedia.Control.PAUSE), WakeService.decide("анна мария пауза", name, playing = false))
     }
+
+    @Test fun freeRecognitionMustConfirmTheName() {
+        val santa = listOf("санта")
+        assertTrue(WakeService.verifies("санта пауза", santa, command = true))
+        assertTrue(WakeService.verifies("эй санта", santa, command = false))
+        assertTrue(WakeService.verifies("санти ты тут", santa, command = false))       // одна неточность допустима
+        // речь из видео: узкая грамматика «подцепила» похожий звук, а свободное распознавание слышит другие слова
+        assertFalse(WakeService.verifies("сантехник пришёл вчера", santa, command = false))
+        assertFalse(WakeService.verifies("", santa, command = false))
+        assertFalse(WakeService.verifies("санта", santa, command = true))               // команда без слова команды
+        assertTrue(WakeService.verifies("ноа дальше", noa, command = true))
+        assertTrue(WakeService.verifies("ноя ты тут", noa, command = false))
+        assertFalse(WakeService.verifies("нога болит", noa, command = false))
+    }
 }

@@ -126,6 +126,10 @@ class WakeService : Service() {
         var refractoryUntil = 0L
         var lastKey: String? = null
         var stable = 0
+        // Последние ~2.5 с звука — для повторной проверки кандидата обычным (не «только имя») распознаванием.
+        val ring = ShortArray(SAMPLE_RATE * 5 / 2)
+        var ringPos = 0
+        var ringFilled = 0
         fun drop() {
             record?.let { runCatching { it.stop(); it.release() } }; record = null
             effects.forEach { runCatching { it.release() } }; effects.clear()
@@ -142,6 +146,8 @@ class WakeService : Service() {
                 if (ar == null) { Thread.sleep(1500); continue }
                 val n = ar.read(buf, 0, buf.size)
                 if (n <= 0) { Thread.sleep(40); continue }
+                for (k in 0 until n) { ring[ringPos] = buf[k]; ringPos = (ringPos + 1) % ring.size }
+                ringFilled = minOf(ring.size, ringFilled + n)
                 // Тишина не распознаётся — экономим заряд: решаем по громкости, держим «хвост» в 1.2 с.
                 var sum = 0.0
                 for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
@@ -162,10 +168,14 @@ class WakeService : Service() {
                     stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
                     lastKey = key
                 }
-                val ready = d != null && (final || stable >= 2)
+                val ready = d != null && (final || stable >= (if (playing) 3 else 2))
                 if (!ready) continue
                 val now = System.currentTimeMillis()
+                // Вторая проверка: настоящая речь с именем, а не похожий звук из видео/рилсов, которые «подпали» под узкую грамматику.
+                val snapshot = ShortArray(ringFilled) { ring[(ringPos - ringFilled + it + ring.size) % ring.size] }
+                val genuine = verify(model, snapshot, words, d is Decision.Command)
                 rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null
+                if (!genuine) continue
                 when (d) {
                     is Decision.Command -> if (now > cmdRefractoryUntil) {
                         cmdRefractoryUntil = now + 1_500
@@ -183,6 +193,22 @@ class WakeService : Service() {
         } finally {
             drop()
             runCatching { rec.close() }; runCatching { model.close() }
+        }
+    }
+
+    /** Свободное распознавание последних секунд: в услышанном тексте должно быть имя (и для команды — слово команды). */
+    private fun verify(model: Model, pcm: ShortArray, words: List<String>, command: Boolean): Boolean {
+        if (pcm.size < SAMPLE_RATE / 2) return true
+        var free: Recognizer? = null
+        return try {
+            free = Recognizer(model, SAMPLE_RATE.toFloat())
+            free.acceptWaveForm(pcm, pcm.size)
+            val text = JSONObject(free.finalResult).optString("text")
+            verifies(text, words, command)
+        } catch (_: Throwable) {
+            true        // сбой самой проверки не должен глушить зов
+        } finally {
+            runCatching { free?.close() }
         }
     }
 
@@ -302,6 +328,33 @@ class WakeService : Service() {
         }
 
         private const val MIN_CONFIDENCE = 0.7
+
+        /**
+         * Подтверждение свободным распознаванием: среди слов есть имя (допускаем одну неточность — «санти», «сонта»),
+         * а для команды — ещё и слово команды. Короткие имена («Ноа») — только со знакомыми вариантами записи.
+         */
+        internal fun verifies(freeText: String, words: List<String>, command: Boolean): Boolean {
+            val tokens = freeText.lowercase().split(Regex("[^\\p{L}]+")).filter { it.isNotEmpty() }
+            if (tokens.isEmpty() || words.isEmpty()) return false
+            fun nameOk(w: String) = tokens.any { t ->
+                t == w || (w.length >= 4 && editDistance(t, w) <= 1) || (w.length <= 3 && editDistance(t, w) <= 1 && t.firstOrNull() == w.firstOrNull() && t.length <= 3)
+            }
+            if (!words.all { nameOk(it) }) return false
+            return !command || tokens.any { it in COMMANDS }
+        }
+
+        internal fun editDistance(a: String, b: String): Int {
+            val dp = IntArray(b.length + 1) { it }
+            for (i in 1..a.length) {
+                var prev = dp[0]; dp[0] = i
+                for (j in 1..b.length) {
+                    val tmp = dp[j]
+                    dp[j] = minOf(dp[j] + 1, dp[j - 1] + 1, prev + if (a[i - 1] == b[j - 1]) 0 else 1)
+                    prev = tmp
+                }
+            }
+            return dp[b.length]
+        }
 
         /** Средняя уверенность распознанных слов (0..1). */
         internal fun confidence(obj: JSONObject): Double {
