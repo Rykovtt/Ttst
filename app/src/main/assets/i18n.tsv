@@ -1098,3 +1098,7 @@ SMS одним сообщением	SMS одним повідомленням	SM
 1. Нажмите «Открыть» и включите RVault в списке.\n\nЕсли переключатель серый и пишет «Ограниченная настройка»: откройте «О приложении» → меню ⋮ вверху справа → «Разрешить ограниченные настройки», потом вернитесь и включите доступ. Так Android защищает приложения, установленные не из Google Play.	1. Натисніть «Відкрити» і ввімкніть RVault у списку.\n\nЯкщо перемикач сірий і пише «Обмежене налаштування»: відкрийте «Про застосунок» → меню ⋮ угорі праворуч → «Дозволити обмежені налаштування», потім поверніться й увімкніть доступ. Так Android захищає застосунки, встановлені не з Google Play.	1. Tap "Open" and turn RVault on in the list.\n\nIf the switch is grey and says "Restricted setting": open "App info" → ⋮ menu at the top right → "Allow restricted settings", then come back and turn the access on. Android does this for apps installed from outside Google Play.
 Открыть	Відкрити	Open
 О приложении	Про застосунок	App info
+Журнал последнего сбоя	Журнал останнього збою	Last crash log
+Скопировать	Скопіювати	Copy
+Не нашла канал «%1$s» или его видео. Проверьте интернет и название.	Не знайшла канал «%1$s» або його відео. Перевірте інтернет і назву.	Couldn't find the channel "%1$s" or its videos. Check your connection and the name.
+Включаю «%1$s» с канала %2$s.	Вмикаю «%1$s» з каналу %2$s.	Playing "%1$s" from the %2$s channel.

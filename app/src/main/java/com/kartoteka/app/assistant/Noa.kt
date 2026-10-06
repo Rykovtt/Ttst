@@ -451,6 +451,24 @@ class Noa(private val app: KartotekaApp) {
         // YouTube / YouTube Music: находим конкретное видео или плейлист — тогда приложение сразу играет.
         var url: String? = null
         var title: String? = null
+        // «любое видео с канала X»: находим канал и берём случайное из его последних видео.
+        if (intent.channel.isNotBlank()) {
+            val picked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                kotlinx.coroutines.withTimeoutOrNull(12000) {
+                    NoaMedia.searchChannel(intent.channel)?.let { ch ->
+                        NoaMedia.channelVideos(ch.id).take(15).randomOrNull()?.let { ch to it }
+                    }
+                }
+            }
+            if (picked == null) return Reply.Say(t("Не нашла канал «%1\$s» или его видео. Проверьте интернет и название.", intent.channel))
+            val (ch, video) = picked
+            val ytPkg = if (pkg == NoaMedia.YT_MUSIC) NoaMedia.YT_MUSIC else NoaMedia.YT
+            val link = NoaMedia.playUrl(ytPkg, video)
+            val what = video.title ?: t("видео")
+            return Reply.Do(t("Включаю «%1\$s» с канала %2\$s.", what, ch.name ?: intent.channel)) { ctx ->
+                NoaMedia.open(ctx, ytPkg, link, intent.query, false, false, false)
+            }
+        }
         if ((pkg == NoaMedia.YT || pkg == NoaMedia.YT_MUSIC) && query.isNotBlank()) {
             val playlist = intent.playlist || (pkg == NoaMedia.YT_MUSIC && !intent.artist && intent.query.isBlank())
             val found = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

@@ -31,6 +31,7 @@ open class KartotekaApp : Application(), coil.ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        com.kartoteka.app.assistant.CrashLog.install(this)
         // Процесс языковой модели («:brain») — только модель, без напоминаний, карт и фоновой работы приложения.
         if (isBrainProcess()) return
         com.kartoteka.app.i18n.I18n.init(this, com.kartoteka.app.i18n.UiLang.of(settings.uiLang.value.value))

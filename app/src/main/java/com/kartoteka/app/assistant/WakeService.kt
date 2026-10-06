@@ -42,21 +42,28 @@ class WakeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Android требует сразу сделать службу «передним планом» — иначе приложение падает. Делаем это первым делом.
+        val n = notification()
+        val started = runCatching {
+            if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            else startForeground(NOTIF_ID, n)
+        }.recoverCatching { startForeground(NOTIF_ID, n) }.isSuccess
         if (intent?.action == ACTION_STOP) {
             (application as KartotekaApp).settings.assistantWake.set(false)
             stopSelf()
             return START_NOT_STICKY
         }
-        val n = notification()
-        runCatching {
-            if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-            else startForeground(NOTIF_ID, n)
-        }.onFailure { stopSelf(); return START_NOT_STICKY }
+        if (!started) { stopSelf(); return START_NOT_STICKY }
         if (!running) {
             running = true
-            worker = Thread({ loop() }, "wake").also { it.isDaemon = true; it.start() }
+            worker = Thread({
+                // Любой сбой в распознавании — только остановка службы, а не падение всего приложения.
+                try { loop() } catch (t: Throwable) {
+                    if (t !is InterruptedException) { CrashLog.record(this, "wake", t); main.post { stopSelf() } }
+                }
+            }, "wake").also { it.isDaemon = true; it.start() }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -96,14 +103,18 @@ class WakeService : Service() {
         val model = runCatching { Model(WakeModel.dir(this).absolutePath) }.getOrNull()
         if (model == null) { main.post { stopSelf() }; return }
         // Грамматика: только имя и пара «зовущих» фраз; всё остальное — «[unk]», поэтому случайная речь не будит.
-        val phrases = words + listOf("ты тут", "эй " + words.joinToString(" "), "привет " + words.joinToString(" "), words.joinToString(" ") + " ты тут", "[unk]")
+        val name = words.joinToString(" ")
+        val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]")
         val rec = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), JSONArray(phrases.distinct()).toString()) }.getOrNull()
         if (rec == null) { model.close(); main.post { stopSelf() }; return }
+        rec.setWords(true)
+        val audio = getSystemService(android.media.AudioManager::class.java)
 
         var record: AudioRecord? = null
         val buf = ShortArray(SAMPLE_RATE / 10)           // 100 мс
         var quiet = 0
         var fed = false
+        var refractoryUntil = 0L
         try {
             while (running) {
                 if (isBusy()) {
@@ -125,10 +136,17 @@ class WakeService : Service() {
                 if (rms < QUIET_RMS) quiet++ else quiet = 0
                 if (quiet > 12) { if (fed) { rec.reset(); fed = false }; continue }
                 fed = true
-                val json = if (rec.acceptWaveForm(buf, n)) rec.result else rec.partialResult
-                val text = runCatching { JSONObject(json).let { it.optString("text").ifBlank { it.optString("partial") } } }.getOrDefault("")
-                if (text.isNotBlank() && heard(text, words)) {
-                    rec.reset(); fed = false; quiet = 0
+                // Только законченные фразы: обрывки («ноа» внутри чужой речи) не считаются.
+                if (!rec.acceptWaveForm(buf, n)) continue
+                val obj = runCatching { JSONObject(rec.result) }.getOrNull() ?: continue
+                val text = obj.optString("text")
+                fed = false
+                if (text.isBlank()) continue
+                // Играет музыка/видео — в микрофон попадает чужая речь: просим более длинный зов («эй, Ноа»).
+                val strict = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
+                if (accepts(text, words, strict, confidence(obj)) && System.currentTimeMillis() > refractoryUntil) {
+                    refractoryUntil = System.currentTimeMillis() + 5_000
+                    rec.reset(); quiet = 0
                     record.let { runCatching { it.stop(); it.release() } }; record = null
                     wake(ping = text.contains("тут"))
                 }
@@ -178,6 +196,30 @@ class WakeService : Service() {
         internal fun heard(text: String, words: List<String>): Boolean {
             val t = text.lowercase().split(' ').filter { it.isNotBlank() }
             return words.isNotEmpty() && words.all { w -> w in t }
+        }
+
+        /**
+         * Будить только на ровно зов: «Ноа», «Эй, Ноа», «Привет, Ноа», «Ноа, ты тут». Любая другая речь вокруг
+         * (в распознанном тексте появляется «[unk]») — не зов. Пока играет звук ([strict]) — только фразы подлиннее.
+         */
+        internal fun accepts(text: String, words: List<String>, strict: Boolean, confidence: Double = 1.0): Boolean {
+            if (words.isEmpty() || confidence < MIN_CONFIDENCE) return false
+            val t = text.lowercase().trim().replace(Regex("\\s+"), " ")
+            if ("[unk]" in t) return false
+            val name = words.joinToString(" ")
+            val phrases = setOf("эй $name", "привет $name", "$name ты тут") + if (strict) emptySet() else setOf(name)
+            return t in phrases
+        }
+
+        private const val MIN_CONFIDENCE = 0.7
+
+        /** Средняя уверенность распознанных слов (0..1). */
+        internal fun confidence(obj: JSONObject): Double {
+            val arr = obj.optJSONArray("result") ?: return 1.0
+            if (arr.length() == 0) return 0.0
+            var sum = 0.0
+            for (i in 0 until arr.length()) sum += arr.optJSONObject(i)?.optDouble("conf", 1.0) ?: 1.0
+            return sum / arr.length()
         }
 
         @Volatile private var instance: WakeService? = null

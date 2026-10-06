@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.kartoteka.app.i18n.t
@@ -90,6 +92,28 @@ fun AssistantSettings() {
                 overlay, s.assistantOverlay::set,
             )
         }
+    }
+
+    // Журнал последнего сбоя: можно посмотреть, скопировать и прислать разработчику.
+    var crash by remember { mutableStateOf(com.kartoteka.app.assistant.CrashLog.read(context)) }
+    var showCrash by remember { mutableStateOf(false) }
+    crash?.let { text ->
+        ActionRow(Icons.Default.Close, t("Журнал последнего сбоя"), text.lineSequence().first().take(60)) { showCrash = true }
+        if (showCrash) AlertDialog(
+            onDismissRequest = { showCrash = false },
+            title = { Text(t("Журнал последнего сбоя")) },
+            text = { androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(text.take(2500), style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) } },
+            confirmButton = { TextButton(onClick = {
+                val cm = context.getSystemService(android.content.ClipboardManager::class.java)
+                cm?.setPrimaryClip(android.content.ClipData.newPlainText("crash", text))
+                showCrash = false
+            }) { Text(t("Скопировать")) } },
+            dismissButton = { TextButton(onClick = {
+                com.kartoteka.app.assistant.CrashLog.clear(context); crash = null; showCrash = false
+            }) { Text(t("Очистить")) } },
+        )
     }
 
     if (rename) {

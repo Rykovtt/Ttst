@@ -34,11 +34,9 @@ object NoaMedia {
 
     data class Found(val videoId: String?, val playlistId: String?, val title: String?)
 
-    /** Первое видео / плейлист по запросу со страницы поиска YouTube. Без ключей и аккаунта. */
-    fun searchYoutube(query: String, playlist: Boolean, timeoutMs: Int = 6000): Found? = runCatching {
-        val sp = if (playlist) "&sp=EgIQAw%253D%253D" else "&sp=EgIQAQ%253D%253D"
-        val url = URL("https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8") + sp)
-        val c = url.openConnection() as HttpURLConnection
+    /** Страница YouTube (настольная разметка, без аккаунта и ключей), первые ~1.6 МБ. */
+    private fun page(url: String, timeoutMs: Int): String {
+        val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = timeoutMs; c.readTimeout = timeoutMs
         // Настольная версия: мобильная перенаправляет на m.youtube.com с другой разметкой.
         c.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
@@ -51,8 +49,40 @@ object NoaMedia {
             String(buf, 0, n)
         }
         c.disconnect()
-        parseResults(html, playlist)
+        return html
+    }
+
+    /** Первое видео / плейлист по запросу со страницы поиска YouTube. */
+    fun searchYoutube(query: String, playlist: Boolean, timeoutMs: Int = 6000): Found? = runCatching {
+        val sp = if (playlist) "&sp=EgIQAw%253D%253D" else "&sp=EgIQAQ%253D%253D"
+        parseResults(page("https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8") + sp, timeoutMs), playlist)
     }.getOrNull()
+
+    data class Channel(val id: String, val name: String?)
+
+    /** Канал по названию: первый результат поиска среди каналов (YouTube сам прощает неточное написание). */
+    fun searchChannel(query: String, timeoutMs: Int = 6000): Channel? = runCatching {
+        parseChannel(page("https://www.youtube.com/results?search_query=" + URLEncoder.encode(query, "UTF-8") + "&sp=EgIQAg%253D%253D", timeoutMs))
+    }.getOrNull()
+
+    fun parseChannel(html: String): Channel? {
+        val data = html.substring(html.indexOf("ytInitialData").takeIf { it >= 0 } ?: 0)
+        val m = Regex("\"channelRenderer\":\\{\"channelId\":\"(UC[\\w-]{22})\"").find(data) ?: return null
+        val name = Regex("\"title\":\\{\"simpleText\":\"((?:[^\"\\\\]|\\\\.){1,100})\"").find(data, m.range.last)?.groupValues?.get(1)
+        return Channel(m.groupValues[1], name)
+    }
+
+    /** Последние видео канала (со страницы «Видео»): id и названия. */
+    fun channelVideos(channelId: String, timeoutMs: Int = 7000): List<Found> = runCatching {
+        parseChannelVideos(page("https://www.youtube.com/channel/$channelId/videos", timeoutMs))
+    }.getOrDefault(emptyList())
+
+    fun parseChannelVideos(html: String): List<Found> {
+        val data = html.substring(html.indexOf("ytInitialData").takeIf { it >= 0 } ?: 0)
+        val ids = Regex("\"contentId\":\"([\\w-]{11})\"").findAll(data).map { it.groupValues[1] }.distinct().toList()
+        val titles = Regex("\"lockupMetadataViewModel\":\\{\"title\":\\{\"content\":\"((?:[^\"\\\\]|\\\\.){1,120})\"").findAll(data).map { it.groupValues[1] }.toList()
+        return ids.mapIndexed { i, id -> Found(id, null, titles.getOrNull(i)) }
+    }
 
     /** Разбор ytInitialData: id и заголовок первого подходящего результата. */
     fun parseResults(html: String, playlist: Boolean): Found? {

@@ -140,7 +140,7 @@ class NoaInterpreter(private val brain: LlmBrain?) {
             "flashlight" -> NoaIntent.Flashlight(bool("on", true))
             "phone_settings", "settings" -> NoaIntent.PhoneSettings(str("what"))
             "play_music", "play", "music" -> play(str("query").orEmpty(), str("app"), bool("playlist", false), bool("artist", false),
-                bool("shuffle", false), bool("video", false))
+                bool("shuffle", false), bool("video", false), str("channel").orEmpty())
             "media", "player" -> control(str("control") ?: str("command"))?.let { NoaIntent.Media(it) }
             "pause", "resume", "next", "prev", "stop", "louder", "quieter" -> control(action)?.let { NoaIntent.Media(it) }
             "go_home", "home", "close_app", "minimize" -> NoaIntent.GoHome
@@ -153,12 +153,12 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     }
 
     /** «любую песню Скриптонита» — модель иногда оставляет эти слова в запросе: это исполнитель. */
-    private fun play(query: String, app: String?, playlist: Boolean, artist: Boolean, shuffle: Boolean, video: Boolean): NoaIntent.Play {
+    private fun play(query: String, app: String?, playlist: Boolean, artist: Boolean, shuffle: Boolean, video: Boolean, channel: String = ""): NoaIntent.Play {
         val any = Regex("^(?:любую|любой|какую-нибудь|будь-яку|будь-який|якусь)\\s+(?:песню|трек|музыку|пісню|музику)\\s+", RegexOption.IGNORE_CASE)
         val q = query.trim()
         val m = any.find(q)
-        return if (m != null) NoaIntent.Play(q.substring(m.range.last + 1).trim(), app, playlist, true, shuffle, video)
-        else NoaIntent.Play(q, app, playlist, artist, shuffle, video)
+        return if (m != null) NoaIntent.Play(q.substring(m.range.last + 1).trim(), app, playlist, true, shuffle, video, channel)
+        else NoaIntent.Play(q, app, playlist, artist, shuffle, video, channel)
     }
 
     private fun day(day: String?, userText: String, now: LocalDateTime): LocalDate {
@@ -275,7 +275,7 @@ call(person) message(person,channel:whatsapp|telegram|sms,text) reply(person,tex
 create_appointment(person,service) cancel_appointment(person) delete_appointment(person) move_appointment(person)
 add_note(person,text) open_person(person) select(person) favorite(person,on) find(query) person_info(person,topic)
 open_contact(person,contact) share_data(person,data,to) route(person or place,kind:home|work,app:waze|google|yandex|organic) agenda(day)
-play_music(query,app,playlist,artist,shuffle,video) media(control:pause|resume|next|prev|shuffle_on|shuffle_off|repeat|stop|louder|quieter|what)
+play_music(query,app,playlist,artist,shuffle,video,channel) media(control:pause|resume|next|prev|shuffle_on|shuffle_off|repeat|stop|louder|quieter|what)
 launch_app(app) web_search(query) alarm(time) timer(minutes) flashlight(on) phone_settings(what) open_screen(section) go_home lock
 Rules: several commands → actions in order. Message text = the user's own words to send, not to you. "любую песню X" → query X, artist true. Question → actions [] + answer only from Data. Chat → actions [] + friendly reply. reply: short, in $lang.
 напиши Ане что опоздаю и сверни → {"actions":[{"action":"message","person":"Аня","text":"опоздаю"},{"action":"go_home"}],"reply":"Пишу"}

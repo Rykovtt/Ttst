@@ -36,6 +36,8 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
     var flash by mutableStateOf<OrbState?>(null)
     var pendingYes by mutableStateOf<(suspend () -> Noa.Reply)?>(null); private set
     var brainReady by mutableStateOf(false); private set
+    /** Модель грузится не при открытии, а когда понадобилась (сфера по зову: ложные пробуждения не должны будить 4 ГБ). */
+    var lazyBrain = false
     var brainStatus by mutableStateOf(""); private set
 
     /** После ответа снова слушать (голосовой режим). Иначе — только если задан вопрос «да/нет». */
@@ -196,12 +198,17 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         // Правила поняли команду, но человека с таким именем нет («запись ильи рыкова») —
                         // скорее всего, фраза разобрана неверно: пусть её прочитает модель.
                         val steps = (rules as? NoaIntent.Sequence)?.steps ?: listOf(rules)
-                        val doubtful = brainReady && steps.any { st ->
+                        val doubtfulSteps = steps.any { st ->
                             !noa.knows(NoaParser.personOf(st)) &&
                                 !(st is NoaIntent.Open && PhoneActions.find(context, st.personQuery) != null) &&
                                 // Маршрут в любое место и переписка с теми, кого нет в книжке, — не ошибка разбора.
                                 !(st is NoaIntent.Route && st.place.isNotBlank()) && st !is NoaIntent.Reply && st !is NoaIntent.ReadMessages
                         }
+                        // Сфера по зову «Ноа» не грузит тяжёлую модель заранее: только когда правила не справились.
+                        if (lazyBrain && !brainReady && (rules is NoaIntent.Unknown || doubtfulSteps) && app.settings.assistantBrain.value.value) {
+                            prepareBrain(true)
+                        }
+                        val doubtful = brainReady && doubtfulSteps
                         if (rules !is NoaIntent.Unknown && !doubtful) run(rules)
                         else {
                             val smart = if (brainReady) runCatching {

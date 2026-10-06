@@ -159,4 +159,15 @@ class NoaCommandsTest {
         assertEquals("rammstein", p2.query); assertTrue(p2.artist)
         assertTrue(p("включи фонарик") is NoaIntent.Flashlight)
     }
+
+    @Test fun anyVideoFromChannel() {
+        val a = p("зайди на ютуб и включи любое видео с канала ределион") as NoaIntent.Play
+        assertEquals("ределион", a.channel); assertEquals("ютуб", a.app); assertTrue(a.video); assertEquals("", a.query)
+        val b = p("включи видео с канала Абаддон") as NoaIntent.Play
+        assertEquals("абаддон", b.channel)
+        val c = p("увімкни відео з каналу Вар'ят") as NoaIntent.Play
+        assertEquals("вар'ят", c.channel)
+        // обычное «включи музыку» не затронуто
+        assertEquals("", (p("включи музыку") as NoaIntent.Play).channel)
+    }
 }

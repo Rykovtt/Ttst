@@ -96,7 +96,9 @@ open class NoaLauncher : ComponentActivity() {
                     if (byWake) ctl.greet(if (intent.getBooleanExtra(WakeService.EXTRA_PING, false)) t("Да, я здесь. Слушаю.") else t("Готова. Слушаю."))
                     else ctl.startVoice()
                 }
-                LaunchedEffect(Unit) { ctl.prepareBrain(app.settings.assistantBrain.value.value) }
+                LaunchedEffect(Unit) {
+                    if (byWake) ctl.lazyBrain = true else ctl.prepareBrain(app.settings.assistantBrain.value.value)
+                }
 
                 Box(
                     Modifier.fillMaxSize()

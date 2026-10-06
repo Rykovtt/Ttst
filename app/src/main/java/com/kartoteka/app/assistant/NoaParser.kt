@@ -46,7 +46,7 @@ sealed interface NoaIntent {
     data class Flashlight(val on: Boolean) : NoaIntent
     /** Включить музыку: [query] — что (пусто — что-нибудь/продолжить), [app] — в каком приложении. */
     data class Play(val query: String, val app: String?, val playlist: Boolean, val artist: Boolean = false,
-                    val shuffle: Boolean = false, val video: Boolean = false) : NoaIntent
+                    val shuffle: Boolean = false, val video: Boolean = false, val channel: String = "") : NoaIntent
     /** Пауза, дальше, перемешать, громче… в плеере, который сейчас играет. */
     data class Media(val control: NoaMedia.Control) : NoaIntent
     /** Ответить человеку в мессенджере (кнопка «Ответить» уведомления), без открытия приложения. */
@@ -125,6 +125,8 @@ object NoaParser {
         for (st in steps) {
             val prev = merged.lastOrNull()
             if (st is NoaIntent.Play && st.app == null && prev is NoaIntent.LaunchApp) merged[merged.lastIndex] = st.copy(app = prev.name)
+            // «зайди на ютуб и включи …» — «зайди» разобралось как открытие карточки, но «ютуб» — это приложение
+            else if (st is NoaIntent.Play && st.app == null && prev is NoaIntent.Open && PhoneActions.isAppName(prev.personQuery)) merged[merged.lastIndex] = st.copy(app = prev.personQuery)
             // «найди плейлист … и включи в случайном порядке» — одно действие
             else if (prev is NoaIntent.Play && st is NoaIntent.Media && st.control in setOf(NoaMedia.Control.SHUFFLE_ON, NoaMedia.Control.RESUME))
                 merged[merged.lastIndex] = prev.copy(shuffle = prev.shuffle || st.control == NoaMedia.Control.SHUFFLE_ON)
@@ -382,26 +384,35 @@ object NoaParser {
     /** «Включи плейлист», «включи музыку в спотифай», «поставь Imagine Dragons», «увімкни мій плейлист Ранок». */
     private fun play(s: String): NoaIntent.Play? {
         if (!has(s, "включи", "включить", "увімкни", "ввімкни", "постав", "запусти", "play", "проиграй", "сыграй", "грай")) return null
-        val music = has(s, "музык", "музик", "песн", "пісн", "трек", "плейлист", "плейліст", "playlist", "song", "music", "альбом", "album", "радио", "радіо")
+        val music = has(s, "музык", "музик", "песн", "пісн", "трек", "плейлист", "плейліст", "playlist", "song", "music", "альбом", "album", "радио", "радіо",
+            "видео", "відео", "клип", "кліп", "ролик", "video", "канал", "channel")
         val app = MUSIC_APP.find(s)?.groupValues?.get(1)?.takeIf { PhoneActions.isAppName(it) || it.startsWith("спотиф") || it.startsWith("спотіф") || it == "spotify" }
         if (!music && app == null) return null
         if (has(s, "будильник", "таймер", "фонар", "ліхтар")) return null
         return playIntent(s, app)
     }
 
-    private fun playIntent(s: String, app: String?): NoaIntent.Play {
-        val playlist = has(s, "плейлист", "плейліст", "playlist", "альбом", "album")
+    private fun playIntent(sIn: String, app: String?): NoaIntent.Play {
+        val s0 = sIn
+        val playlist = has(s0, "плейлист", "плейліст", "playlist", "альбом", "album")
         // «любую песню Rammstein», «что-нибудь группы Би-2» — это исполнитель, а не название песни.
-        val artist = !playlist && has(s, "любую", "любой", "любу", "будь-яку", "якусь", "какую-нибудь", "что-нибудь", "щось", "any", "something",
+        val artist = !playlist && has(s0, "любую", "любой", "любу", "будь-яку", "якусь", "какую-нибудь", "что-нибудь", "щось", "any", "something",
             "групп", "гурт", "исполнител", "виконав", "band", "artist", "песни", "пісні", "songs", "треки")
+        // «включи любое видео с канала ределион» — видео этого канала.
+        val ch = CHANNEL.find(s0)
+        val channel = ch?.groupValues?.get(1)?.trim().orEmpty()
+        val s = if (ch != null) s0.replace(ch.value, " ") else s0
         var q = (if (app != null) MUSIC_APP.replace(s, " ") else s).trim()
         q = q.split(" ").filter { it.isNotBlank() && it !in PLAY_WORDS }.joinToString(" ")
-        val shuffle = has(s, "в случайном порядке", "случайн", "випадков", "перемешай", "перемішай", "вперемешку", "shuffle", "рандом")
-        val video = has(s, "видео", "відео", "клип", "кліп", "ролик", "video", "clip") ||
+        val shuffle = has(s0, "в случайном порядке", "случайн", "випадков", "перемешай", "перемішай", "вперемешку", "shuffle", "рандом")
+        val video = channel.isNotBlank() || has(s0, "видео", "відео", "клип", "кліп", "ролик", "video", "clip") ||
             (app != null && Regex("^(ютуб|ютюб|youtube)$").matches(app.trim()))
         q = q.split(" ").filter { it !in SHUFFLE_WORDS }.joinToString(" ")
-        return NoaIntent.Play(q, app, playlist, artist && q.isNotBlank(), shuffle, video)
+        return NoaIntent.Play(q, app, playlist, artist && q.isNotBlank(), shuffle, video, channel)
     }
+
+    /** «с канала X», «на канале X», «від каналу X», «from the X channel» — название канала до конца фразы. */
+    private val CHANNEL = Regex("(?:\\s)(?:с|со|из|от|на|від|з|із|from)?\\s*(?:канала|каналу|каналі|канале|канал|channel)\\s+(.+?)\\s*$")
 
     private val SHUFFLE_WORDS = setOf("в", "у", "случайном", "випадковому", "порядке", "порядку", "перемешай", "перемішай", "вперемешку", "shuffle",
         "рандом", "рандомно", "случайно", "випадково", "видео", "відео", "клип", "кліп", "ролик", "видос", "video", "clip", "найди", "найти", "знайди",
