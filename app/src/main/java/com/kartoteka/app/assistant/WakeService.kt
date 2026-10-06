@@ -104,7 +104,7 @@ class WakeService : Service() {
         if (model == null) { main.post { stopSelf() }; return }
         // Грамматика: только имя и пара «зовущих» фраз; всё остальное — «[unk]», поэтому случайная речь не будит.
         val name = words.joinToString(" ")
-        val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]")
+        val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]") + COMMANDS.keys.map { "$name $it" }
         val rec = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), JSONArray(phrases.distinct()).toString()) }.getOrNull()
         if (rec == null) { model.close(); main.post { stopSelf() }; return }
         rec.setWords(true)
@@ -115,59 +115,97 @@ class WakeService : Service() {
         var quiet = 0
         var fed = false
         var refractoryUntil = 0L
+        var lastKey: String? = null
+        var stable = 0
+        fun drop() {
+            record?.let { runCatching { it.stop(); it.release() } }; record = null
+            effects.forEach { runCatching { it.release() } }; effects.clear()
+        }
         try {
             while (running) {
                 if (isBusy()) {
                     // Говорят с ассистентом или он сам говорит — микрофон отдаём ему.
-                    record?.let { runCatching { it.stop(); it.release() } }; record = null
+                    drop()
                     if (fed) { rec.reset(); fed = false }
                     Thread.sleep(150); continue
                 }
-                if (record == null) {
-                    record = openRecord()
-                    if (record == null) { Thread.sleep(1500); continue }
-                }
-                val n = record.read(buf, 0, buf.size)
+                val ar = record ?: openRecord()?.also { record = it }
+                if (ar == null) { Thread.sleep(1500); continue }
+                val n = ar.read(buf, 0, buf.size)
                 if (n <= 0) { Thread.sleep(40); continue }
                 // Тишина не распознаётся — экономим заряд: решаем по громкости, держим «хвост» в 1.2 с.
                 var sum = 0.0
-                for (i in 0 until n) sum += buf[i].toDouble() * buf[i]
+                for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
                 val rms = Math.sqrt(sum / n)
                 if (rms < QUIET_RMS) quiet++ else quiet = 0
                 if (quiet > 12) { if (fed) { rec.reset(); fed = false }; continue }
                 fed = true
-                // Только законченные фразы: обрывки («ноа» внутри чужой речи) не считаются.
-                if (!rec.acceptWaveForm(buf, n)) continue
-                val obj = runCatching { JSONObject(rec.result) }.getOrNull() ?: continue
-                val text = obj.optString("text")
-                fed = false
-                if (text.isBlank()) continue
-                // Играет музыка/видео — в микрофон попадает чужая речь: просим более длинный зов («эй, Ноа»).
-                val strict = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
-                if (accepts(text, words, strict, confidence(obj)) && System.currentTimeMillis() > refractoryUntil) {
-                    refractoryUntil = System.currentTimeMillis() + 5_000
-                    rec.reset(); quiet = 0
-                    record.let { runCatching { it.stop(); it.release() } }; record = null
-                    wake(ping = text.contains("тут"))
+                // Законченная фраза — как раньше; при музыке пауз в речи нет, поэтому смотрим и на промежуточный
+                // результат, но принимаем его, только если он не меняется два чтения подряд.
+                val final = rec.acceptWaveForm(buf, n)
+                val obj = runCatching { JSONObject(if (final) rec.result else rec.partialResult) }.getOrNull() ?: continue
+                val text = if (final) obj.optString("text") else obj.optString("partial")
+                if (final) fed = false
+                val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
+                val d = if (text.isBlank()) null else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
+                if (!final) {
+                    val key = d?.toString()
+                    stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
+                    lastKey = key
+                }
+                val ready = d != null && (final || stable >= 2)
+                if (!ready) continue
+                val now = System.currentTimeMillis()
+                rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null
+                when (d) {
+                    is Decision.Command -> if (now > cmdRefractoryUntil) {
+                        cmdRefractoryUntil = now + 1_500
+                        main.post { NoaMedia.control(applicationContext, d.control); buzz() }
+                    }
+                    is Decision.Wake -> if (now > refractoryUntil) {
+                        refractoryUntil = now + 5_000
+                        drop()
+                        wake(ping = d.ping)
+                    }
+                    null -> Unit
                 }
             }
         } catch (_: InterruptedException) {
         } finally {
-            record?.let { runCatching { it.stop(); it.release() } }
+            drop()
             runCatching { rec.close() }; runCatching { model.close() }
         }
     }
 
+    private val effects = mutableListOf<android.media.audiofx.AudioEffect>()
+    private var cmdRefractoryUntil = 0L
+
+    /** Короткая вибрация: команда плеера принята (голосом отвечать нельзя — играет музыка). */
+    private fun buzz() = runCatching {
+        val v = getSystemService(android.os.Vibrator::class.java)
+        if (Build.VERSION.SDK_INT >= 26) v?.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        else @Suppress("DEPRECATION") v?.vibrate(40)
+    }
+
     private fun openRecord(): AudioRecord? {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return null
-        return runCatching {
-            val min = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-            AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
-                AudioFormat.ENCODING_PCM_16BIT, maxOf(min, SAMPLE_RATE / 2) * 2).also {
-                if (it.state != AudioRecord.STATE_INITIALIZED) { it.release(); return null }
-                it.startRecording()
+        val min = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        // Источник «голосовая связь» умеет вычитать из записи то, что играет динамик (музыка, видео) — так слышно голос поверх звука.
+        for (source in intArrayOf(MediaRecorder.AudioSource.VOICE_COMMUNICATION, MediaRecorder.AudioSource.VOICE_RECOGNITION)) {
+            val r = runCatching {
+                AudioRecord(source, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, SAMPLE_RATE / 2) * 2)
+            }.getOrNull() ?: continue
+            if (r.state != AudioRecord.STATE_INITIALIZED) { r.release(); continue }
+            runCatching {
+                if (android.media.audiofx.AcousticEchoCanceler.isAvailable())
+                    android.media.audiofx.AcousticEchoCanceler.create(r.audioSessionId)?.also { it.enabled = true; effects += it }
+                if (android.media.audiofx.NoiseSuppressor.isAvailable())
+                    android.media.audiofx.NoiseSuppressor.create(r.audioSessionId)?.also { it.enabled = true; effects += it }
             }
-        }.getOrNull()
+            if (runCatching { r.startRecording() }.isFailure) { r.release(); continue }
+            return r
+        }
+        return null
     }
 
     /** Проснуться: выводим на экран сферу — она поздоровается, выслушает команду и сама закроется. */
@@ -198,17 +236,45 @@ class WakeService : Service() {
             return words.isNotEmpty() && words.all { w -> w in t }
         }
 
+        sealed interface Decision {
+            data class Wake(val ping: Boolean) : Decision
+            data class Command(val control: NoaMedia.Control) : Decision
+        }
+
+        /** Команды плеера, которые можно сказать сразу после имени: «Санта, пауза». */
+        internal val COMMANDS: Map<String, NoaMedia.Control> = mapOf(
+            "пауза" to NoaMedia.Control.PAUSE, "паузу" to NoaMedia.Control.PAUSE, "стоп" to NoaMedia.Control.PAUSE,
+            "хватит" to NoaMedia.Control.PAUSE, "замолчи" to NoaMedia.Control.PAUSE, "останови" to NoaMedia.Control.PAUSE,
+            "дальше" to NoaMedia.Control.NEXT, "далее" to NoaMedia.Control.NEXT, "следующий" to NoaMedia.Control.NEXT,
+            "следующая" to NoaMedia.Control.NEXT, "переключи" to NoaMedia.Control.NEXT,
+            "назад" to NoaMedia.Control.PREV, "предыдущий" to NoaMedia.Control.PREV,
+            "громче" to NoaMedia.Control.LOUDER, "тише" to NoaMedia.Control.QUIETER,
+            "продолжи" to NoaMedia.Control.RESUME, "продолжай" to NoaMedia.Control.RESUME, "играй" to NoaMedia.Control.RESUME,
+        )
+
         /**
-         * Будить только на ровно зов: «Ноа», «Эй, Ноа», «Привет, Ноа», «Ноа, ты тут». Любая другая речь вокруг
-         * (в распознанном тексте появляется «[unk]») — не зов. Пока играет звук ([strict]) — только фразы подлиннее.
+         * Что значит услышанное: зов («Ноа», «Эй, Ноа», «Привет, Ноа», «Ноа, ты тут»), команда плеера («Ноа, пауза») или ничего.
+         * Тихо вокруг ([playing] = false): законченная фраза должна быть ровно зовом, любая посторонняя речь ([unk]) — отказ.
+         * Играет звук: вокруг всегда есть «[unk]» (чужая речь/музыка), поэтому его по краям срезаем, а внутри фразы — нет;
+         * одиночное имя при этом принимается только с высокой уверенностью.
          */
-        internal fun accepts(text: String, words: List<String>, strict: Boolean, confidence: Double = 1.0): Boolean {
-            if (words.isEmpty() || confidence < MIN_CONFIDENCE) return false
-            val t = text.lowercase().trim().replace(Regex("\\s+"), " ")
-            if ("[unk]" in t) return false
+        internal fun decide(text: String, words: List<String>, playing: Boolean, confidence: Double = 1.0, final: Boolean = true): Decision? {
+            if (words.isEmpty() || confidence < MIN_CONFIDENCE) return null
+            var t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val noisy = "[unk]" in t
+            if (noisy) {
+                if (!playing && final) return null
+                t = t.dropWhile { it == "[unk]" }.dropLastWhile { it == "[unk]" }
+                if ("[unk]" in t) return null
+            }
+            if (t.isEmpty()) return null
+            if (t.size == words.size + 1 && t.take(words.size) == words) COMMANDS[t.last()]?.let { return Decision.Command(it) }
             val name = words.joinToString(" ")
-            val phrases = setOf("эй $name", "привет $name", "$name ты тут") + if (strict) emptySet() else setOf(name)
-            return t in phrases
+            val phrase = t.joinToString(" ")
+            if (phrase in setOf("эй $name", "привет $name", "$name ты тут")) return Decision.Wake(ping = phrase.endsWith("тут"))
+            // Одно имя — только законченной фразой без постороннего звука (при музыке — ещё и с высокой уверенностью).
+            if (phrase == name && final && !noisy && (!playing || confidence >= 0.9)) return Decision.Wake(ping = false)
+            return null
         }
 
         private const val MIN_CONFIDENCE = 0.7
