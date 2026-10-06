@@ -206,6 +206,9 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
                         }
                         // Сфера по зову «Ноа» не грузит тяжёлую модель заранее: только когда правила не справились.
                         if (lazyBrain && !brainReady && (rules is NoaIntent.Unknown || doubtfulSteps) && app.settings.assistantBrain.value.value) {
+                            // Загрузка умной модели — десятки секунд: говорим об этом, а не молчим («зависла»).
+                            val wait = t("Секунду, включаю умный режим…")
+                            answer = wait; bubbles.add(Bubble(wait, mine = false))
                             prepareBrain(true)
                         }
                         val doubtful = brainReady && doubtfulSteps

@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.AlarmClock
 import android.widget.Toast
 import com.kartoteka.app.i18n.t
@@ -86,6 +88,22 @@ object PhoneActions {
 
     /** Блокнот телефона: Samsung Notes, Google Keep… — первый установленный. */
     fun notesApp(context: Context): App? = find(context, "блокнот")
+
+    /**
+     * Закрыть приложение: сворачиваем его (на главный экран) и останавливаем фоновые процессы.
+     * Android не даёт закрыть чужое приложение «насильно»: то, что в данный момент делает работу на переднем плане
+     * (например, навигацию с активным маршрутом), может продолжить работать — тогда оно просто свернётся.
+     */
+    fun close(context: Context, app: App): Boolean {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        if (context !is android.app.Activity) home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(home) }
+        val am = context.getSystemService(android.app.ActivityManager::class.java)
+        // Сразу и ещё раз, когда приложение уже ушло в фон.
+        runCatching { am.killBackgroundProcesses(app.pkg) }
+        Handler(Looper.getMainLooper()).postDelayed({ runCatching { am.killBackgroundProcesses(app.pkg) } }, 1500)
+        return true
+    }
 
     fun launch(context: Context, app: App): Boolean {
         val intent = context.packageManager.getLaunchIntentForPackage(app.pkg) ?: return false

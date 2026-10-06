@@ -111,6 +111,11 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Media -> media(intent.control)
             is NoaIntent.Reply -> replyTo(intent)
             is NoaIntent.ReadMessages -> readMessages(intent)
+            is NoaIntent.CloseApp -> {
+                val a = PhoneActions.find(app, intent.name)
+                if (a == null) Reply.Say(t("Не нашла на телефоне приложение «%1\$s».", intent.name))
+                else Reply.Do(t("Закрываю %1\$s.", a.label)) { ctx -> PhoneActions.close(ctx, a) }
+            }
             is NoaIntent.GoHome -> {
                 if (System.currentTimeMillis() - chatOpenedAt < 15_000) Reply.Say(t("Чат открыт — нажмите «Отправить», потом закрою по команде."))
                 else Reply.Do(t("Готово.")) { ctx ->

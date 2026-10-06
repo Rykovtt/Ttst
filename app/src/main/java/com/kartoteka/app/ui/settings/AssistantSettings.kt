@@ -352,4 +352,12 @@ private fun WakeRow() {
             com.kartoteka.app.assistant.WakeService.stop(context)
         }
     }
+    if (on) {
+        val locked by s.assistantWakeLocked.value.collectAsState()
+        ToggleRow(
+            Icons.Default.RecordVoiceOver, t("Сфера на заблокированном экране"),
+            t("Включено: на зов сфера появляется и над экраном блокировки — без PIN, ею сможет пользоваться любой, кто рядом. Выключено: при блокировке работают только «%1\$s, пауза / дальше / громче…», а на зов ассистент попросит разблокировать телефон.", name),
+            locked, s.assistantWakeLocked::set,
+        )
+    }
 }

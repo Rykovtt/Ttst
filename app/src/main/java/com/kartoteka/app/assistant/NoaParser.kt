@@ -55,6 +55,8 @@ sealed interface NoaIntent {
     data class ReadMessages(val personQuery: String, val wait: Boolean = false) : NoaIntent
     /** На главный экран («закрой приложение», «сверни»). */
     data object GoHome : NoaIntent
+    /** «Закрой вейз»: свернуть и остановить приложение телефона по названию. */
+    data class CloseApp(val name: String) : NoaIntent
     data class PhoneSettings(val what: String?) : NoaIntent
     data object Lock : NoaIntent
     data object Backup : NoaIntent
@@ -186,6 +188,11 @@ object NoaParser {
 
         // блокировка / копия — без человека
         if (has(s, "заблокируй", "заблокуй", "закрой сейф", "закрий сейф", "lock")) return NoaIntent.Lock
+        // «закрой вейз», «закрий ютуб» — закрыть конкретное приложение (а не «закрой приложение» = свернуть текущее)
+        Regex("^\\s*(?:закрой|закрий|close)\\s+(?:приложение\\s+|застосунок\\s+|додаток\\s+|app\\s+)?(.+?)\\s*$").find(s)?.groupValues?.get(1)?.let { rest ->
+            if (rest !in setOf("приложение", "застосунок", "додаток", "app", "его", "її", "його", "её", "это", "це", "окно", "вікно", "сейф", "сейф.", "приложения", "всё", "все"))
+                return NoaIntent.CloseApp(rest)
+        }
         if (has(s, "закрой приложение", "закрий застосунок", "закрий додаток", "закрой его", "закрий його", "сверни", "згорни", "на главный экран",
                 "на головний екран", "домой экран", "выйди", "вийди", "go home", "close app", "закрой вотсап", "закрой телеграм", "закрий") ||
             s.trim() == "закрой") return NoaIntent.GoHome

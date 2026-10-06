@@ -37,6 +37,8 @@ import org.vosk.Recognizer
 class WakeService : Service() {
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var running = false
+    /** Пока слушаем имя, процессор не должен засыпать при выключенном экране — иначе «не слышит» с заблокированным телефоном. */
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
     private var worker: Thread? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -54,6 +56,12 @@ class WakeService : Service() {
             return START_NOT_STICKY
         }
         if (!started) { stopSelf(); return START_NOT_STICKY }
+        if (wakeLock == null) {
+            wakeLock = runCatching {
+                getSystemService(android.os.PowerManager::class.java)
+                    .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "rvault:wake").apply { setReferenceCounted(false); acquire() }
+            }.getOrNull()
+        }
         if (!running) {
             running = true
             worker = Thread({
@@ -68,6 +76,7 @@ class WakeService : Service() {
 
     override fun onDestroy() {
         running = false
+        runCatching { wakeLock?.takeIf { it.isHeld }?.release() }; wakeLock = null
         instance = null
         worker?.interrupt()
         super.onDestroy()
@@ -210,6 +219,21 @@ class WakeService : Service() {
 
     /** Проснуться: выводим на экран сферу — она поздоровается, выслушает команду и сама закроется. */
     private fun wake(ping: Boolean) {
+        val app = application as KartotekaApp
+        val locked = getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
+        if (locked && !app.settings.assistantWakeLocked.value.value) {
+            // Заблокированный экран: сферу без PIN не показываем (так решает человек в настройках) — только подсказка.
+            hold(6_000)
+            main.post {
+                buzz()
+                if (app.settings.assistantVoice.value.value) {
+                    NoaVoice.init(applicationContext)
+                    NoaVoice.speak(applicationContext, t("Телефон заблокирован. Разблокируйте его.")) { release() }
+                } else release()
+                main.postDelayed({ release() }, 6_000)
+            }
+            return
+        }
         hold(WAKE_GUARD_MS)
         main.post {
             val i = Intent(this, NoaWake::class.java)

@@ -143,7 +143,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 bool("shuffle", false), bool("video", false), str("channel").orEmpty())
             "media", "player" -> control(str("control") ?: str("command"))?.let { NoaIntent.Media(it) }
             "pause", "resume", "next", "prev", "stop", "louder", "quieter" -> control(action)?.let { NoaIntent.Media(it) }
-            "go_home", "home", "close_app", "minimize" -> NoaIntent.GoHome
+            "close_app" -> str("app")?.let { NoaIntent.CloseApp(it) } ?: NoaIntent.GoHome
+            "go_home", "home", "minimize" -> NoaIntent.GoHome
             "open_screen" -> section(str("section"))?.let { NoaIntent.OpenScreen(it) }
             "lock" -> NoaIntent.Lock
             "backup" -> NoaIntent.Backup

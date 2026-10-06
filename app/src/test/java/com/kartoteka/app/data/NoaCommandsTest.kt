@@ -170,4 +170,15 @@ class NoaCommandsTest {
         // обычное «включи музыку» не затронуто
         assertEquals("", (p("включи музыку") as NoaIntent.Play).channel)
     }
+
+    @Test fun closeNamedAppVersusGoHome() {
+        assertEquals(NoaIntent.CloseApp("вейз"), p("закрой вейз"))
+        assertEquals(NoaIntent.CloseApp("waze"), p("закрой waze"))
+        assertEquals(NoaIntent.CloseApp("ютуб"), p("закрий ютуб"))
+        assertEquals(NoaIntent.GoHome, p("закрой приложение"))
+        assertEquals(NoaIntent.GoHome, p("закрой его"))
+        assertEquals(NoaIntent.Lock, p("закрой сейф"))
+        val seq = p("поставь на паузу и закрой вейз") as NoaIntent.Sequence
+        assertEquals(NoaIntent.CloseApp("вейз"), seq.steps.last())
+    }
 }

@@ -73,6 +73,11 @@ open class NoaLauncher : ComponentActivity() {
             openApp { putExtra(MainActivity.EXTRA_OPEN_NOA, true).putExtra(MainActivity.EXTRA_NOA_LISTEN, true) }
             return
         }
+        // Сфера по зову при заблокированном экране — только если человек разрешил это в настройках.
+        if (byWake && android.os.Build.VERSION.SDK_INT >= 27 && app.settings.assistantWakeLocked.value.value &&
+            getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true) {
+            setShowWhenLocked(true); setTurnScreenOn(true)
+        }
         enableEdgeToEdge()
         setContent {
             KartotekaTheme {

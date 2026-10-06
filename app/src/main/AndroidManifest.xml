@@ -16,6 +16,10 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Не даёт процессору уснуть при выключенном экране, пока ассистент слушает имя -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- «Закрой вейз»: остановить фоновые процессы приложения -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Сфера выходит поверх экрана по голосовому зову: Android разрешает такое из фона только с этим правом -->

@@ -62,6 +62,8 @@ class Settings(context: Context) {
     val assistantOverlay = BoolPref("assistant_overlay", true)
     /** Звать ассистента голосом: он спит и слышит только своё имя («Ноа, ты тут?»). */
     val assistantWake = BoolPref("assistant_wake", false)
+    /** Сфера показывается поверх экрана блокировки (без PIN). Выключено: при заблокированном экране работают только команды плеера. */
+    val assistantWakeLocked = BoolPref("assistant_wake_locked", false)
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 
