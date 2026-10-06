@@ -22,7 +22,7 @@ object NoaTrust {
         is NoaIntent.Select, is NoaIntent.Tool, is NoaIntent.Calc, is NoaIntent.Convert, is NoaIntent.Crm,
         is NoaIntent.ReadMessages -> false
         // Управление телефоном без последствий: плеер, фонарик, свернуть.
-        is NoaIntent.Media, is NoaIntent.Flashlight, is NoaIntent.GoHome -> false
+        is NoaIntent.Media, is NoaIntent.Volume, is NoaIntent.Flashlight, is NoaIntent.GoHome -> false
         // Служебные: ничего не исполняют.
         is NoaIntent.Wrong, is NoaIntent.Dismiss, is NoaIntent.Repeat, is NoaIntent.Unknown -> false
         // Всё остальное — пишет людям, меняет данные, звонит, уходит в сеть или в другие приложения.
@@ -30,7 +30,7 @@ object NoaTrust {
         is NoaIntent.Call, is NoaIntent.Message, is NoaIntent.Reply, is NoaIntent.AddNote, is NoaIntent.Remind,
         is NoaIntent.Alarm, is NoaIntent.Timer, is NoaIntent.Route, is NoaIntent.Play, is NoaIntent.WebSearch,
         is NoaIntent.ShareData, is NoaIntent.Favorite, is NoaIntent.LaunchApp, is NoaIntent.CloseApp,
-        is NoaIntent.OpenContact, is NoaIntent.PhoneSettings, is NoaIntent.Lock, is NoaIntent.Backup -> true
+        is NoaIntent.OpenContact, is NoaIntent.PhoneSettings, is NoaIntent.Lock, is NoaIntent.Backup, is NoaIntent.VoiceNote -> true
     }
 }
 
@@ -91,7 +91,6 @@ object NoaDescribe {
         NoaMedia.Control.SHUFFLE_OFF -> t("не перемешивать")
         NoaMedia.Control.REPEAT -> t("повтор")
         NoaMedia.Control.STOP -> t("стоп")
-        NoaMedia.Control.LOUDEST -> t("громкость на максимум")
         NoaMedia.Control.LOUDER -> t("громче")
         NoaMedia.Control.QUIETER -> t("тише")
         NoaMedia.Control.WHAT -> t("что сейчас играет")
@@ -107,6 +106,13 @@ object NoaDescribe {
     /** Описание одной команды или цепочки («…; затем …»). Каждая разновидность [NoaIntent] описана отдельно (when без else). */
     fun describe(i: NoaIntent): String = when (i) {
         is NoaIntent.Sequence -> i.steps.joinToString(t("; затем ")) { describe(it) }
+        is NoaIntent.Volume -> when (i.kind) {
+            NoaIntent.VolumeKind.MAX -> t("громкость на максимум"); NoaIntent.VolumeKind.MIN -> t("громкость на минимум")
+            NoaIntent.VolumeKind.SET -> t("громкость %1\$s%%", i.percent ?: 0)
+            NoaIntent.VolumeKind.UP -> t("прибавить громкость на %1\$s%%", i.percent ?: 0)
+            NoaIntent.VolumeKind.DOWN -> t("убавить громкость на %1\$s%%", i.percent ?: 0)
+        }
+        is NoaIntent.VoiceNote -> t("записать голосовую заметку о %1\$s", who(i.personQuery))
         is NoaIntent.CreateAppointment -> {
             val w = whenText(i.dateTime, i.dateTime != null, i.hadTime)
             val base = if (w.isBlank()) t("записать %1\$s", who(i.personQuery)) else t("записать %1\$s на %2\$s", who(i.personQuery), w)

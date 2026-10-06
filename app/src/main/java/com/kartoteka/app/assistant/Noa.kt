@@ -172,6 +172,8 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Timer -> Reply.Do(t("Запускаю таймер: %1\$s.", durationText(intent.seconds))) { PhoneActions.timer(it, intent.seconds) }
             is NoaIntent.Play -> play(intent)
             is NoaIntent.Media -> media(intent.control)
+            is NoaIntent.Volume -> volume(intent)
+            is NoaIntent.VoiceNote -> voiceNote(intent)
             is NoaIntent.Reply -> replyTo(intent)
             is NoaIntent.ReadMessages -> readMessages(intent)
             is NoaIntent.CloseApp -> {
@@ -745,11 +747,58 @@ class Noa(private val app: KartotekaApp) {
         return Reply.Do(text) { ctx -> NoaMedia.open(ctx, pkg, finalUrl, intent.query, intent.playlist, intent.artist, intent.shuffle) }
     }
 
+    /** Громкость музыки в процентах от шкалы телефона (на Samsung шагов 15, поэтому реальные проценты округляются до шага). */
+    private fun volume(i: NoaIntent.Volume): Reply {
+        val am = app.getSystemService(android.media.AudioManager::class.java)
+        val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+        fun pct(idx: Int) = Math.round(idx * 100f / max)
+        val p = i.percent ?: 0
+        val atMax = cur >= max; val atMin = cur <= 0
+        if ((i.kind == NoaIntent.VolumeKind.MAX || i.kind == NoaIntent.VolumeKind.UP) && atMax) return Reply.Say(t("Громкость уже на максимуме — громче не могу."))
+        if ((i.kind == NoaIntent.VolumeKind.MIN || i.kind == NoaIntent.VolumeKind.DOWN) && atMin) return Reply.Say(t("Громкость уже на минимуме — тише не могу."))
+        val want = when (i.kind) {
+            NoaIntent.VolumeKind.MAX -> 100; NoaIntent.VolumeKind.MIN -> 0; NoaIntent.VolumeKind.SET -> p
+            NoaIntent.VolumeKind.UP -> pct(cur) + p; NoaIntent.VolumeKind.DOWN -> pct(cur) - p
+        }
+        val idx = Math.round(want.coerceIn(0, 100) * max / 100f).coerceIn(0, max)
+        // Просили «на 20 процентов громче», а шаг шкалы не сдвинулся — двигаем минимум на один шаг.
+        val fixed = when {
+            i.kind == NoaIntent.VolumeKind.UP && idx <= cur -> (cur + 1).coerceAtMost(max)
+            i.kind == NoaIntent.VolumeKind.DOWN && idx >= cur -> (cur - 1).coerceAtLeast(0)
+            else -> idx
+        }
+        runCatching { am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, fixed, android.media.AudioManager.FLAG_SHOW_UI) }
+            .onFailure { return Reply.Say(t("Не получилось поменять громкость.")) }
+        val now = pct(fixed)
+        return Reply.Say(when {
+            fixed >= max && i.kind == NoaIntent.VolumeKind.UP && want > 100 -> t("Громкость 100% — это максимум, выше не могу.")
+            fixed >= max -> t("Громкость на максимуме.")
+            fixed <= 0 -> t("Звук на минимуме.")
+            else -> t("Громкость %1\$s%%.", now)
+        })
+    }
+
+    /** «Открой голосовые заметки об Илье и начни запись»: запись в карточку человека, стоп — «стоп запись» или кнопка в шторке. */
+    private suspend fun voiceNote(i: NoaIntent.VoiceNote): Reply = withPerson(i.personQuery) { pf ->
+        if (!com.kartoteka.app.voice.VoiceRecorder.hasPermission(app)) return@withPerson Reply.Say(t("Нет доступа к микрофону — разрешите его в настройках телефона."))
+        if (VoiceNoteService.active) return@withPerson Reply.Say(t("Запись уже идёт. Скажите «стоп запись»."))
+        Reply.Do(t("Записываю заметку о %1\$s. Чтобы закончить, скажите «стоп запись».", pf.person.displayName)) { ctx ->
+            VoiceNoteService.start(ctx, pf.person.id, pf.person.displayName)
+        }
+    }
+
     private fun media(c: NoaMedia.Control): Reply {
         if (c == NoaMedia.Control.WHAT) {
             val now = NoaMedia.nowPlaying(app)
                 ?: return Reply.Say(if (NoaNotifications.granted(app)) t("Сейчас ничего не играет.") else t("Чтобы я видела, что играет, включите мне доступ к уведомлениям в настройках ассистента."))
             return Reply.Say(t("Сейчас играет: %1\$s.", now))
+        }
+        if (c == NoaMedia.Control.LOUDER || c == NoaMedia.Control.QUIETER) {
+            val am = app.getSystemService(android.media.AudioManager::class.java)
+            val cur = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            if (c == NoaMedia.Control.LOUDER && cur >= am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC)) return Reply.Say(t("Громкость уже на максимуме — громче не могу."))
+            if (c == NoaMedia.Control.QUIETER && cur <= 0) return Reply.Say(t("Громкость уже на минимуме — тише не могу."))
         }
         val needsAccess = c == NoaMedia.Control.SHUFFLE_ON || c == NoaMedia.Control.SHUFFLE_OFF || c == NoaMedia.Control.REPEAT
         if (needsAccess && !NoaNotifications.granted(app))
@@ -759,7 +808,7 @@ class Noa(private val app: KartotekaApp) {
             NoaMedia.Control.NEXT -> t("Следующий."); NoaMedia.Control.PREV -> t("Предыдущий.")
             NoaMedia.Control.SHUFFLE_ON -> t("Перемешала."); NoaMedia.Control.SHUFFLE_OFF -> t("Играю по порядку.")
             NoaMedia.Control.REPEAT -> t("Повторяю."); NoaMedia.Control.STOP -> t("Остановила.")
-            NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише."); NoaMedia.Control.LOUDEST -> t("Громкость на максимум.")
+            NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише.")
             NoaMedia.Control.WHAT -> ""
         }
         // Короткий ответ без голоса — чтобы не перебивать музыку.

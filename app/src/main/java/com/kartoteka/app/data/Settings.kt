@@ -66,6 +66,8 @@ class Settings(context: Context) {
     val assistantLog = BoolPref("assistant_log", false)
     /** Сфера показывается поверх экрана блокировки (без PIN). Выключено: при заблокированном экране работают только команды плеера. */
     val assistantWakeLocked = BoolPref("assistant_wake_locked", false)
+    /** Слышимость имени при музыке и видео: strict — как раньше (двойная проверка), normal — без второй проверки, keen — ещё и быстрее. */
+    val assistantMusicWake = StringPref("assistant_music_wake", "normal")
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 

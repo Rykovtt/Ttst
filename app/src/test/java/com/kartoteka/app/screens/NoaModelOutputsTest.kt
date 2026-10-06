@@ -205,18 +205,18 @@ class NoaModelOutputsTest {
         NoaIntent.Media(NoaMedia.Control.PAUSE), NoaIntent.Reply("Олег", "буду в семь"), NoaIntent.ReadMessages(""), NoaIntent.GoHome,
         NoaIntent.Wrong, NoaIntent.CloseApp("waze"), NoaIntent.PhoneSettings(null), NoaIntent.Lock, NoaIntent.Backup,
         NoaIntent.Remind("позвонить маме", LocalDateTime.of(2026, 10, 5, 9, 0), true), NoaIntent.Tool(NoaIntent.ToolKind.TIME),
-        NoaIntent.Calc("2+2"), NoaIntent.Convert(20.0, "mi", "km"), NoaIntent.Crm(NoaIntent.CrmKind.NEXT), NoaIntent.Dismiss, NoaIntent.Repeat, NoaIntent.Unknown("бла"),
+        NoaIntent.Volume(NoaIntent.VolumeKind.SET, 40), NoaIntent.VoiceNote("Илья"), NoaIntent.Calc("2+2"), NoaIntent.Convert(20.0, "mi", "km"), NoaIntent.Crm(NoaIntent.CrmKind.NEXT), NoaIntent.Dismiss, NoaIntent.Repeat, NoaIntent.Unknown("бла"),
     )
 
     /** Независимая от кода таблица: нужно ли подтверждение (when без else — новый класс не скомпилируется, пока его не отнесли). */
     private fun expectConfirm(i: NoaIntent): Boolean = when (i) {
         is NoaIntent.Agenda, is NoaIntent.PersonInfo, is NoaIntent.Find, is NoaIntent.Open, is NoaIntent.OpenScreen, is NoaIntent.Select, is NoaIntent.Tool,
-        is NoaIntent.Calc, is NoaIntent.Convert, is NoaIntent.Crm, is NoaIntent.Media, is NoaIntent.Flashlight, is NoaIntent.GoHome, is NoaIntent.ReadMessages,
+        is NoaIntent.Calc, is NoaIntent.Convert, is NoaIntent.Crm, is NoaIntent.Media, is NoaIntent.Volume, is NoaIntent.Flashlight, is NoaIntent.GoHome, is NoaIntent.ReadMessages,
         is NoaIntent.Wrong, is NoaIntent.Dismiss, is NoaIntent.Repeat, is NoaIntent.Unknown -> false
         is NoaIntent.Message, is NoaIntent.Reply, is NoaIntent.Call, is NoaIntent.CreateAppointment, is NoaIntent.MoveAppointment, is NoaIntent.CancelAppointment,
         is NoaIntent.AddNote, is NoaIntent.Remind, is NoaIntent.Alarm, is NoaIntent.Timer, is NoaIntent.Route, is NoaIntent.Play, is NoaIntent.WebSearch,
         is NoaIntent.ShareData, is NoaIntent.Favorite, is NoaIntent.LaunchApp, is NoaIntent.CloseApp, is NoaIntent.OpenContact, is NoaIntent.PhoneSettings,
-        is NoaIntent.Lock, is NoaIntent.Backup -> true
+        is NoaIntent.Lock, is NoaIntent.Backup, is NoaIntent.VoiceNote -> true
         is NoaIntent.Sequence -> i.steps.any { expectConfirm(it) }
     }
 

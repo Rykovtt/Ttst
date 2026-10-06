@@ -163,17 +163,21 @@ class WakeService : Service() {
                 if (final) fed = false
                 val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
                 val d = if (text.isBlank()) null else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
+                val mode = (application as KartotekaApp).settings.assistantMusicWake.value.value
+                if (text.isNotBlank() && (playing || d != null)) WakeDiag.add(playing, final, text, d?.toString() ?: "нет")
                 if (!final) {
                     val key = d?.toString()
                     stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
                     lastKey = key
                 }
-                val ready = d != null && (final || stable >= (if (playing) 3 else 2))
+                val ready = d != null && (final || stable >= (if (playing && mode != "keen") 3 else 2))
                 if (!ready) continue
                 val now = System.currentTimeMillis()
                 // Вторая проверка: настоящая речь с именем, а не похожий звук из видео/рилсов, которые «подпали» под узкую грамматику.
                 val snapshot = ShortArray(ringFilled) { ring[(ringPos - ringFilled + it + ring.size) % ring.size] }
-                val genuine = verify(model, snapshot, words, d is Decision.Command)
+                // При музыке свободное распознавание тонет в звуке и «не пускает» настоящий зов — по умолчанию его не требуем (режим «строго» требует).
+                val genuine = if (playing && mode != "strict") true else verify(model, snapshot, words, d is Decision.Command)
+                WakeDiag.add(playing, final, text, if (genuine) "ПРИНЯТО $d" else "отклонено проверкой")
                 rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null
                 if (!genuine) continue
                 when (d) {
@@ -370,7 +374,7 @@ class WakeService : Service() {
         @Volatile private var busyUntil = 0L
         @Volatile private var cooldownUntil = 0L
 
-        private fun isBusy(): Boolean = System.currentTimeMillis().let { it < busyUntil || it < cooldownUntil }
+        private fun isBusy(): Boolean = VoiceNoteService.active || System.currentTimeMillis().let { it < busyUntil || it < cooldownUntil }
         private fun hold(ms: Long) { busyUntil = System.currentTimeMillis() + ms }
         private fun release() { busyUntil = 0L; cooldownUntil = System.currentTimeMillis() + 1_200L }
 

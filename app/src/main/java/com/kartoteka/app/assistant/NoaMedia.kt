@@ -28,7 +28,7 @@ object NoaMedia {
     /** Что именно включить: готовая ссылка (видео/плейлист) или запрос для плеера. */
     data class Target(val pkg: String?, val label: String, val url: String? = null, val title: String? = null)
 
-    enum class Control { PAUSE, RESUME, NEXT, PREV, SHUFFLE_ON, SHUFFLE_OFF, REPEAT, STOP, LOUDER, QUIETER, LOUDEST, WHAT }
+    enum class Control { PAUSE, RESUME, NEXT, PREV, SHUFFLE_ON, SHUFFLE_OFF, REPEAT, STOP, LOUDER, QUIETER, WHAT }
 
     // ---------- поиск на YouTube (только по команде человека; в запросе — только то, что он сказал) ----------
 
@@ -117,12 +117,6 @@ object NoaMedia {
         }
     }
 
-    /** Громкость музыки на максимум («на максимальной громкости»). */
-    fun maxVolume(context: Context) {
-        val am = context.getSystemService(AudioManager::class.java)
-        am.setStreamVolume(AudioManager.STREAM_MUSIC, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), AudioManager.FLAG_SHOW_UI)
-    }
-
     /** Метка в запросе: «плейлист Понравившиеся» (в YouTube Music — LM, в YouTube — LL), а не слова для поиска. */
     const val LIKED_QUERY = "понравившиеся"
 
@@ -188,7 +182,6 @@ object NoaMedia {
                     Control.REPEAT -> shuffleCompat(context, mc, null)
                     Control.LOUDER -> mc.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI).also { mc.adjustVolume(AudioManager.ADJUST_RAISE, 0) }
                     Control.QUIETER -> mc.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI).also { mc.adjustVolume(AudioManager.ADJUST_LOWER, 0) }
-                    Control.LOUDEST -> maxVolume(context)
                     Control.WHAT -> Unit
                 }
             }.isSuccess
@@ -203,7 +196,6 @@ object NoaMedia {
             Control.STOP -> { key(KeyEvent.KEYCODE_MEDIA_STOP); true }
             Control.LOUDER -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, if (it == 0) AudioManager.FLAG_SHOW_UI else 0) }; true }
             Control.QUIETER -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, if (it == 0) AudioManager.FLAG_SHOW_UI else 0) }; true }
-            Control.LOUDEST -> { maxVolume(context); true }
             else -> false
         }
     }

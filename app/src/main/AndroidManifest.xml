@@ -134,6 +134,11 @@
             android:theme="@style/Theme.Kartoteka.Overlay" />
 
         <service
+            android:name=".assistant.VoiceNoteService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <service
             android:name=".assistant.WakeService"
             android:exported="false"
             android:foregroundServiceType="microphone" />

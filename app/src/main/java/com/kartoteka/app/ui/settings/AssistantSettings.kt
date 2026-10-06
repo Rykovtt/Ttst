@@ -361,6 +361,33 @@ private fun WakeRow() {
             t("Включено: на зов сфера появляется и над экраном блокировки — без PIN, ею сможет пользоваться любой, кто рядом. Выключено: при блокировке работают только «%1\$s, пауза / дальше / громче…», а на зов ассистент попросит разблокировать телефон.", name),
             locked, s.assistantWakeLocked::set,
         )
+        val mode by s.assistantMusicWake.value.collectAsState()
+        val modes = listOf("strict" to t("Строго"), "normal" to t("Обычно"), "keen" to t("Чутко"))
+        ActionRow(
+            Icons.Default.RecordVoiceOver, t("Слышимость при музыке и видео: %1\$s", modes.first { it.first == mode }.second),
+            t("«Строго» — меньше ложных пробуждений от рилсов, но при громкой музыке может не слышать. «Обычно» — слышит лучше. «Чутко» — ещё быстрее, ложные пробуждения возможны. Нажмите, чтобы переключить."),
+        ) {
+            val next = modes[(modes.indexOfFirst { it.first == mode } + 1) % modes.size].first
+            s.assistantMusicWake.set(next)
+            com.kartoteka.app.assistant.WakeService.restart(context)
+        }
+        var showDiag by remember { mutableStateOf(false) }
+        ActionRow(Icons.Default.RecordVoiceOver, t("Журнал слуха"), t("Что услышал распознаватель имени и что решил — пришлите, если не слышит.")) { showDiag = true }
+        if (showDiag) {
+            val text = com.kartoteka.app.assistant.WakeDiag.text().ifBlank { t("Пока пусто: включите музыку и позовите ассистента, затем откройте снова.") }
+            AlertDialog(
+                onDismissRequest = { showDiag = false },
+                title = { Text(t("Журнал слуха")) },
+                text = { androidx.compose.foundation.text.selection.SelectionContainer {
+                    Text(text.takeLast(3500), style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) } },
+                confirmButton = { TextButton(onClick = {
+                    context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("wake", text))
+                    showDiag = false
+                }) { Text(t("Скопировать")) } },
+                dismissButton = { TextButton(onClick = { com.kartoteka.app.assistant.WakeDiag.clear(); showDiag = false }) { Text(t("Очистить")) } },
+            )
+        }
     }
 }
 
