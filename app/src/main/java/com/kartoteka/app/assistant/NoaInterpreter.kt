@@ -120,7 +120,8 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         val out = process(steps, ctx, round)
         val acted = out is Out.Ready && out.intents.isNotEmpty()
         val cleanReply = if (acted && ctx.repaired) null else cleanReply(reply, ctx, acted)
-        val ask = askRaw?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) && saneText(it, ctx) }
+        val askAct = list.firstOrNull { nameOf(it) in setOf("ask", "clarify", "question") }?.let { m -> listOf("text", "question", "message").firstNotNullOfOrNull { k -> (m[k] as? String)?.trim()?.ifBlank { null } } }
+        val ask = (askRaw ?: askAct)?.let { NoaText.speakable(it, 200) }?.takeIf { it.isNotBlank() && !NoaText.isPlaceholder(it) && saneText(it, ctx) }
         return finish(out, cleanReply, ctx, ask, chat, raw0.isNotEmpty() || failedNamed)
     }
 
@@ -403,8 +404,11 @@ class NoaInterpreter(private val brain: LlmBrain?) {
     private val CLOSE_START = arrayOf("закр", "close", "kill", "заверш")
     private val OPEN_START = arrayOf("откр", "відкр", "open", "запуст", "launch", "start")
     private val REPLY_START = arrayOf("ответ", "відпов", "reply", "answer")
-    private val NOTE_START = arrayOf("замет", "нотат", "запиш", "запис", "добав", "додай", "додат", "note", "запомн", "запамʼят", "запам'ят", "отмет", "комментар", "хроник")
+    private val NOTE_START = arrayOf("замет", "нотат", "запиш", "запис", "добав", "додай", "додат", "note", "запомн", "запамʼят", "запам'ят", "отмет", "комментар", "хроник", "занес", "занос", "внес", "внос", "впиш", "помет", "зафикс", "зафіксу", "внеси")
     private val MOVE_START = arrayOf("перенес", "перенест", "перемест", "перемі", "переназнач", "reschedule", "postpone", "move")
+    private val PLAY_WORDS = arrayOf("послуша", "послуха", "послуш", "включ", "увімк", "запуст", "постав", "заиграй", "зіграй", "врубай", "play")
+    private val FLASH_WORDS = arrayOf("фонар", "ліхтар", "фонарик", "flash", "torch", "свет", "світл", "посвет", "посвіт", "засвіт", "засвет", "light", "включ", "выключ", "выруб", "погас", "вимкн", "увімк", "зажг", "запал", "turn", "switch", "on", "off")
+    private val SEND_WORDS = arrayOf("перешл", "переслат", "отправ", "скин", "передай", "надішл", "send", "forward")
     private val CARD_START = arrayOf("карточ", "картк", "card", "профил", "профіл", "profile", "контакт", "досье", "анкет")
     private val LOCK_START = arrayOf("сейф", "заблок", "блокир", "блокув", "lock", "замкн", "блокуй")
     private val SEARCH_START = arrayOf("загугл", "погугл", "гугл", "поищи", "пошукай", "google", "search")
@@ -544,7 +548,13 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                     else -> null
                 }
                 val plans = hasWord(w, arrayOf("план", "распис", "розклад", "agenda", "schedule")) || (w.take(3).containsAll(listOf("что", "у")) && "меня" in w)
+                val qw = NoaMatch.words(a["query"].orEmpty())
+                val echo = w.size >= 4 && qw.size >= w.size - 1 && w.count { it in qw } >= w.size - 1
                 when {
+                    echo && hasWord(w, arrayOf("замість", "вместо")) -> swap("move_appointment", mapOf("person" to personGuess(ctx)))
+                    echo && w.firstOrNull()?.let { f -> arrayOf("найд", "знайд", "покаж", "показ", "поищ", "пошук").none { f.startsWith(it) } } == true -> drop()
+                    hasWord(w, CARD_START) && w.firstOrNull()?.let { f -> (OPEN_START + arrayOf("покаж", "показ", "show")).any { f.startsWith(it) } } == true && personGuess(ctx).isNotBlank() && topic == null -> swap("open_person", mapOf("person" to personGuess(ctx)))
+                    hasWord(w, PLAY_WORDS) && topic == null -> swap("play_music", mapOf("query" to a["query"].orEmpty()))
                     plans && topic == null -> swap("agenda", emptyMap())
                     topic != null && hasWord(w, arrayOf("когда", "какой", "какая", "какие", "какое", "що", "коли", "який", "яка", "яке", "які", "what", "when", "скажи", "расскажи", "розкажи")) ->
                         swap("person_info", mapOf("person" to personGuess(ctx), "topic" to topic))
@@ -564,10 +574,14 @@ class NoaInterpreter(private val brain: LlmBrain?) {
                 val q = a["query"].orEmpty()
                 when {
                     LOCAL_Q.containsMatchIn((q + " " + ctx.phrase).lowercase()) -> drop()
+                    !startsWith(ctx, SEARCH_START) && hasWord(w, arrayOf("мой", "мій", "мои", "мої")) && hasWord(w, arrayOf("день", "дня", "план", "расписан", "розклад")) -> swap("agenda", emptyMap())
+                    !startsWith(ctx, SEARCH_START) && !ctx.phrase.contains(Regex("[A-Za-z]")) && Regex("[A-Za-z]{3,}").findAll(q).count() >= 2 -> drop()
                     !startsWith(ctx, SEARCH_START) && startsWith(ctx, CMD_START) && navOverlap(q, ctx.phrase) -> drop()
                     else -> keep()
                 }
             }
+            "flashlight" -> if (w.size < 2 || hasWord(w, FLASH_WORDS)) keep() else drop()
+            "read_messages" -> shareRescue(ctx)?.let { swap(it) } ?: if (hasWord(w, SEND_WORDS)) drop() else keep()
             "launch_app" -> if (startsWith(ctx, CLOSE_START)) swap("close_app", a) else keep()
             "go_home" -> if (hasWord(w, LOCK_START) || w.contains("блок")) swap("lock", emptyMap()) else keep()
             "phone_settings" -> {
