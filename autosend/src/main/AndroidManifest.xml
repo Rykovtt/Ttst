@@ -9,6 +9,15 @@
         android:description="@string/permission_control_description"
         android:protectionLevel="signature" />
 
+    <!-- Нужно самому приложению для экрана «Проверка»: он шлёт команду так же, как CRM. -->
+    <uses-permission android:name="com.rykov.autosend.permission.CONTROL" />
+
+    <!-- Android 11+: экран «Проверка» открывает чат WhatsApp. -->
+    <queries>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+    </queries>
+
     <!-- INTERNET намеренно не запрашивается: приложение физически не может ничего передать в сеть. -->
 
     <application

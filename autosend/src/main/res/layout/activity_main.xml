@@ -43,6 +43,59 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/test_title"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/test_hint"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/test_phone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/test_phone_hint"
+            android:importantForAutofill="no"
+            android:inputType="phone" />
+
+        <EditText
+            android:id="@+id/test_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/test_text_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine"
+            android:text="@string/test_text_default" />
+
+        <Button
+            android:id="@+id/test_whatsapp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/test_whatsapp" />
+
+        <Button
+            android:id="@+id/test_whatsapp_business"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/test_whatsapp_business" />
+
+        <TextView
+            android:id="@+id/test_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:alpha="0.75"
             android:lineSpacingMultiplier="1.15"
