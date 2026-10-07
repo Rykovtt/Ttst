@@ -7,14 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -177,7 +180,9 @@ fun ServiceEditor(
 
     fun result() = TemplateKind.entries.fold(s.copy(name = s.name.trim())) { acc, k -> acc.withTemplate(k, texts[k]?.text.orEmpty().trim()) }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    // decorFitsSystemWindows = false — отступы клавиатуры и системной навигации приходят в Compose,
+    // иначе на Android 15 кнопка «Сохранить» уходит под панель навигации.
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Scaffold(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(
@@ -191,13 +196,17 @@ fun ServiceEditor(
             bottomBar = {
                 androidx.compose.foundation.layout.Box(
                     Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
-                        .navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                        // навигация или клавиатура — что выше (сумма давала лишний зазор над клавиатурой)
+                        .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
                     com.kartoteka.app.ui.components.GradientButton(t("Сохранить"), icon = Icons.Default.Check, enabled = s.name.isNotBlank()) { onSave(result()) }
                 }
             },
         ) { padding ->
-            LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(bottom = 40.dp)) {
+            // Клавиатуру уже учитывает нижняя панель (отступ ime), а Scaffold передаёт её высоту в padding:
+            // второй imePadding здесь сжимал поля до пустого экрана.
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 40.dp)) {
                 item {
                     SectionCard(t("Услуга"), Icons.Default.DesignServices) {
                         Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

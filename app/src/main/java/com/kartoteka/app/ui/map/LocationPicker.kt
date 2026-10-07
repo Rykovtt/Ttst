@@ -72,7 +72,7 @@ fun LocationPickerDialog(
 
     LaunchedEffect(Unit) { if (point == null && initialAddress.isNotBlank()) search() }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Scaffold(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(t("Точка на карте"), compact = true, backgroundButton = false, onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"))
