@@ -35,6 +35,9 @@ class LlmBrain(context: Context) {
     private val extDir: File? get() = app.getExternalFilesDir("llm")?.apply { mkdirs() }
     private val importedFile = File(dir, "model.task")
     private val downloadedFile: File? get() = extDir?.let { File(it, "model.task") }
+    // Модели .litertlm (Gemma 4) обязаны называться «*.litertlm»: движок выбирает формат по расширению (под именем .task он ищет zip и падает).
+    private val importedLite = File(dir, "model.litertlm")
+    private val downloadedLite: File? get() = extDir?.let { File(it, "model.litertlm") }
     private val partFile: File? get() = extDir?.let { File(it, "model.part") }
     private val kindFile = File(dir, "model.kind")
     private val prefs = app.getSharedPreferences("llm", Context.MODE_PRIVATE)
@@ -143,7 +146,7 @@ class LlmBrain(context: Context) {
 
     /** Текущий файл модели (свой выбранный файл в приоритете). */
     val modelFile: File?
-        get() = importedFile.takeIf { it.big() } ?: downloadedFile?.takeIf { it.big() }
+        get() = importedFile.takeIf { it.big() } ?: importedLite.takeIf { it.big() } ?: downloadedFile?.takeIf { it.big() } ?: downloadedLite?.takeIf { it.big() }
 
     private fun File.big() = exists() && length() > 100L * 1024 * 1024
 
@@ -231,13 +234,16 @@ class LlmBrain(context: Context) {
         val (total, reason) = totalReason
         return when (status) {
             DownloadManager.STATUS_SUCCESSFUL -> {
-                val part = partFile; val target = downloadedFile
+                val part = partFile
+                val lite = prefs.getString(KEY_PENDING_KIND, "") == KIND_GEMMA4
+                val target = if (lite) downloadedLite else downloadedFile
                 val ok = part != null && target != null && part.big() &&
                     run { target.delete(); part.renameTo(target) }
                 prefs.edit().remove(KEY_ID).apply()
                 if (ok) {
                     close()
-                    importedFile.delete()
+                    importedFile.delete(); importedLite.delete()
+                    (if (lite) downloadedFile else downloadedLite)?.delete()
                     kindFile.writeText(prefs.getString(KEY_PENDING_KIND, KIND_QWEN) ?: KIND_QWEN)
                     clearCrash()
                     state = State.UNKNOWN; Download.Done
@@ -284,15 +290,18 @@ class LlmBrain(context: Context) {
 
     fun deleteModel() {
         close()
-        importedFile.delete(); downloadedFile?.delete(); kindFile.delete()
+        importedFile.delete(); importedLite.delete(); downloadedFile?.delete(); downloadedLite?.delete(); kindFile.delete()
         clearCrash()
         state = State.NEEDS_MODEL
     }
 
     /** Загрузить модель (в отдельном процессе). Долгая операция — вызывать в фоне. */
     suspend fun prepare(): State = withContext(Dispatchers.IO) {
-        val file = if (hasModel()) modelFile else null
-        if (file == null) { state = State.NEEDS_MODEL; return@withContext state }
+        val found = if (hasModel()) modelFile else null
+        if (found == null) { state = State.NEEDS_MODEL; return@withContext state }
+        // Gemma 4 скачана под старым именем «model.task» — переименовываем (мгновенно, в той же папке).
+        val file: File = if (currentKind() == KIND_GEMMA4 && found.extension != "litertlm")
+            File(found.parentFile, "model.litertlm").takeIf { found.renameTo(it) } ?: found else found
         if (isReady) { state = State.READY; return@withContext state }
         if (crashed) {
             detail = prefs.getString(KEY_CRASH_DETAIL, null) ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента или выберите быструю модель.")
