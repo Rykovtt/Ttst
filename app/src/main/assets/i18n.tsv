@@ -1348,3 +1348,7 @@ SMS одним сообщением	SMS одним повідомленням	SM
 перенести запись с %1$s на %2$s	перенести запис з %1$s на %2$s	move the appointment from %1$s to %2$s
 Записываю заметку о %1$s.	Записую нотатку про %1$s.	Recording a note about %1$s.
 Запись уже идёт.	Запис уже триває.	Already recording.
+Попробовать Gemma 4 E2B · новая и быстрая	Спробувати Gemma 4 E2B · нова й швидка	Try Gemma 4 E2B · new and fast
+~%1$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2$s ГБ памяти (нужно от %3$s). Нужен интернет для скачивания.	~%1$s ГБ. Новий рушій Google: відповідь за секунди замість 10–15 с. У телефоні %2$s ГБ пам'яті (потрібно від %3$s). Потрібен інтернет для завантаження.	~%1$s GB. Google's new engine: answers in seconds instead of 10–15 s. Your phone has %2$s GB of memory (needs %3$s+). Internet is needed to download.
+Скачать Gemma 4 E2B · новая и быстрая	Завантажити Gemma 4 E2B · нова й швидка	Download Gemma 4 E2B · new and fast
+~%1$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2$s ГБ памяти (нужно от %3$s).	~%1$s ГБ. Новий рушій Google: відповідь за секунди замість 10–15 с. У телефоні %2$s ГБ пам'яті (потрібно від %3$s).	~%1$s GB. Google's new engine: answers in seconds instead of 10–15 s. Your phone has %2$s GB of memory (needs %3$s+).

@@ -160,6 +160,12 @@ class LlmBrain(context: Context) {
             "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
             3_944_275_882L, KIND_PHI, 8,
         ),
+        /** Новая модель Google (формат .litertlm, движок LiteRT-LM): заявлено ~47 слов/с на процессоре флагмана против ~5 у Phi-4. */
+        GEMMA4(
+            "gemma4", "Gemma 4 E2B",
+            "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
+            2_588_147_712L, KIND_GEMMA4, 6,
+        ),
     }
 
     /** Какая модель установлена (по пометке рядом с файлом). */
@@ -299,7 +305,8 @@ class LlmBrain(context: Context) {
         val gpu = kind == KIND_GEMMA && !prefs.getBoolean(KEY_GPU_BAD + kind, false)
         val started = System.currentTimeMillis()
         val reply = request(BrainService.MSG_PREPARE, 0, android.os.Bundle().apply {
-            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 1280); putBoolean(BrainService.KEY_GPU, gpu)
+            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, if (kind == KIND_GEMMA4) 2048 else 1280); putBoolean(BrainService.KEY_GPU, gpu)
+            putBoolean(BrainService.KEY_LITERT, kind == KIND_GEMMA4)
         }, 240_000)
         // Процесс умер на видеокарте — запоминаем и сразу пробуем на процессоре.
         if (reply == null && gpu && lastDeath >= started) {
@@ -407,6 +414,7 @@ class LlmBrain(context: Context) {
         return when (kind) {
             KIND_GEMMA -> "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n"
             KIND_PHI -> "<|user|>\n$prompt<|end|>\n<|assistant|>\n"
+            KIND_GEMMA4 -> prompt   // шаблон диалога применяет сам движок LiteRT-LM
             else -> "<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n"
         }
     }
@@ -427,6 +435,7 @@ class LlmBrain(context: Context) {
         private const val KIND_QWEN = "qwen"
         private const val KIND_GEMMA = "gemma"
         private const val KIND_PHI = "phi4"
+        private const val KIND_GEMMA4 = "gemma4"
         private const val KEY_PENDING_KIND = "pending_kind"
         private const val KEY_CRASHED = "crashed_kind"
         private const val KEY_LOADING = "loading_kind"
@@ -436,6 +445,7 @@ class LlmBrain(context: Context) {
         private const val KEY_CRASH_RESET = "crash_reset_294"
 
         fun kindOf(fileName: String): String = when {
+            fileName.endsWith(".litertlm", true) -> KIND_GEMMA4
             fileName.contains("gemma", true) -> KIND_GEMMA
             fileName.contains("phi", true) -> KIND_PHI
             else -> KIND_QWEN

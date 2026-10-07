@@ -15,8 +15,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 70
-        versionName = "3.7.3"
+        versionCode = 71
+        versionName = "3.8.0"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -48,6 +48,8 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+        // LiteRT-LM собран более новым Kotlin (метаданные 2.4): наш компилятор читает их, пропуская проверку версии.
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
     buildFeatures {
         compose = true
@@ -91,6 +93,8 @@ dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
     // Офлайн-ИИ «мозг» Ноа: MediaPipe LLM + скачиваемая модель Gemma (открыт для любых приложений)
     implementation("com.google.mediapipe:tasks-genai:0.10.35")
+    // Gemma 4 E2B и другие модели .litertlm (новый движок Google; в разы быстрее Phi-4 на процессоре)
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     // Тихий снимок фронтальной камерой при неверном PIN-коде
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")

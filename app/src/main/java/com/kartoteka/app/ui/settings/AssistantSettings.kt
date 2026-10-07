@@ -221,6 +221,13 @@ private fun BrainModelRow() {
                 Icons.Default.AutoAwesome, t("Модель установлена: %1\$s", m?.title ?: t("своя")),
                 t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb()),
             ) {}
+            if (m != LlmBrain.Model.GEMMA4) {
+                ActionRow(
+                    Icons.Default.AutoAwesome, t("Попробовать Gemma 4 E2B · новая и быстрая"),
+                    t("~%1\$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2\$s ГБ памяти (нужно от %3\$s). Нужен интернет для скачивания.",
+                        sizeGb(LlmBrain.Model.GEMMA4), "%.0f".format(ram), LlmBrain.Model.GEMMA4.minRamGb),
+                ) { confirm = LlmBrain.Model.GEMMA4 }
+            }
             if (m == LlmBrain.Model.FAST) {
                 ActionRow(
                     Icons.Default.Download, t("Перейти на умную модель"),
@@ -256,6 +263,11 @@ private fun BrainModelRow() {
                 Icons.Default.Download, t("Скачать быструю модель") + if (!smartOk) " · " + t("рекомендуется") else "",
                 t("%1\$s, ~%2\$s ГБ. Легче и быстрее, для любого телефона.", LlmBrain.Model.FAST.title, sizeGb(LlmBrain.Model.FAST)),
             ) { confirm = LlmBrain.Model.FAST }
+            ActionRow(
+                Icons.Default.AutoAwesome, t("Скачать Gemma 4 E2B · новая и быстрая"),
+                t("~%1\$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2\$s ГБ памяти (нужно от %3\$s).",
+                    sizeGb(LlmBrain.Model.GEMMA4), "%.0f".format(ram), LlmBrain.Model.GEMMA4.minRamGb),
+            ) { confirm = LlmBrain.Model.GEMMA4 }
             ActionRow(Icons.Default.FileOpen, t("Свой файл модели"), t("Для опытных: файл .task с телефона")) {
                 pick.launch(arrayOf("*/*"))
             }

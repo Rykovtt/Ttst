@@ -10,6 +10,12 @@ import android.os.Message
 import android.os.Messenger
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.ConversationConfig
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
+import com.google.ai.edge.litertlm.SamplerConfig
 
 /**
  * Языковая модель в ОТДЕЛЬНОМ процессе («:brain»). Крупной модели может не хватить памяти —
@@ -18,6 +24,8 @@ import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
  */
 class BrainService : Service() {
     private var llm: LlmInference? = null
+    /** Модели .litertlm (Gemma 4) идут через новый движок LiteRT-LM; обычные .task — через MediaPipe. */
+    private var lite: Engine? = null
     private var loadedPath: String? = null
     private var backend = ""
     private var loadedMax = 1280
@@ -41,7 +49,17 @@ class BrainService : Service() {
                 val max = msg.data.getInt(KEY_MAX, 1280)
                 loadedMax = max
                 val gpu = msg.data.getBoolean(KEY_GPU, false)
-                val result = runCatching {
+                val litert = msg.data.getBoolean(KEY_LITERT, false)
+                val result = if (litert) runCatching {
+                    if (lite == null || loadedPath != path) {
+                        runCatching { llm?.close() }; llm = null
+                        runCatching { lite?.close() }; lite = null
+                        val e = Engine(EngineConfig(modelPath = path, backend = Backend.CPU(), maxNumTokens = max, cacheDir = cacheDir.absolutePath))
+                        e.initialize()
+                        lite = e; backend = "cpu"; loadedPath = path
+                    }
+                } else runCatching {
+                    if (lite != null) { runCatching { lite?.close() }; lite = null; loadedPath = null }
                     if (llm == null || loadedPath != path || (gpu && backend != "gpu")) {
                         runCatching { llm?.close() }
                         llm = null
@@ -68,7 +86,11 @@ class BrainService : Service() {
                 var err: String? = null
                 var tokens = -1
                 val model = llm
-                if (model == null) err = "no_model"
+                val engine = lite
+                if (engine != null) {
+                    // Gemma 4 сама применяет шаблон диалога; для разбора команд — без случайности (topK 1, температура 0.1).
+                    try { text = generateLite(engine, prompt) } catch (t: Throwable) { err = (t.message ?: t::class.java.simpleName).take(160) }
+                } else if (model == null) err = "no_model"
                 else {
                     tokens = runCatching { model.sizeInTokens(prompt) }.getOrDefault(-1)
                     // Запрос не влезает в окно модели (оно общее для запроса и ответа) — не гоним впустую, пусть сократят.
@@ -88,7 +110,7 @@ class BrainService : Service() {
                     putInt(KEY_ID, id); putString(KEY_TEXT, text); putString(KEY_ERR, err); putInt(KEY_TOKENS, tokens); putString(KEY_BACKEND, backend)
                 })
             }
-            MSG_CLOSE -> { runCatching { llm?.close() }; llm = null; loadedPath = null }
+            MSG_CLOSE -> { runCatching { llm?.close() }; llm = null; runCatching { lite?.close() }; lite = null; loadedPath = null }
         }
     }
 
@@ -111,6 +133,14 @@ class BrainService : Service() {
         }
     }
 
+    private fun generateLite(engine: Engine, prompt: String): String? {
+        val cfg = ConversationConfig(samplerConfig = SamplerConfig(1, 1.0, 0.1, 1))
+        engine.createConversation(cfg).use { c ->
+            val msg = c.sendMessage(prompt)
+            return msg.contents.contents.filterIsInstance<Content.Text>().joinToString("") { it.text }.trim().ifBlank { null }
+        }
+    }
+
     /** Пересоздать модель на процессоре (после сбоя видеокарты). */
     private fun reloadOnCpu(): Boolean {
         val path = loadedPath ?: return false
@@ -127,6 +157,7 @@ class BrainService : Service() {
     }
 
     override fun onDestroy() {
+        runCatching { lite?.close() }
         runCatching { llm?.close() }
         super.onDestroy()
     }
@@ -150,6 +181,7 @@ class BrainService : Service() {
         /** Сколько токенов окна оставляем под ответ модели. */
         const val OUT_RESERVE = 220
         const val KEY_GPU = "gpu"
+        const val KEY_LITERT = "litert"
         const val KEY_BACKEND = "backend"
     }
 }
