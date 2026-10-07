@@ -15,8 +15,8 @@ android {
         applicationId = "com.rykov.rvault"
         minSdk = 26
         targetSdk = 35
-        versionCode = 73
-        versionName = "3.8.2"
+        versionCode = 74
+        versionName = "3.9.0"
         // Только ARM — все реальные телефоны; x86 нужен лишь эмуляторам.
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -92,8 +92,7 @@ dependencies {
 
     implementation("androidx.biometric:biometric:1.1.0")
     // Офлайн-ИИ «мозг» Ноа: MediaPipe LLM + скачиваемая модель Gemma (открыт для любых приложений)
-    implementation("com.google.mediapipe:tasks-genai:0.10.35")
-    // Gemma 4 E2B и другие модели .litertlm (новый движок Google; в разы быстрее Phi-4 на процессоре)
+    // Gemma 4 E2B (.litertlm): единственная языковая модель ассистента (движок Google LiteRT-LM)
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     // Тихий снимок фронтальной камерой при неверном PIN-коде
     implementation("androidx.camera:camera-core:1.4.1")

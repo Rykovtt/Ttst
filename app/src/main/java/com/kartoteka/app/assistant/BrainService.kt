@@ -8,8 +8,6 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Message
 import android.os.Messenger
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.ConversationConfig
@@ -23,7 +21,6 @@ import com.google.ai.edge.litertlm.SamplerConfig
  * Протокол — сообщения: PREPARE(path, maxTokens) → STATE(ok, detail); ASK(id, prompt) → ANSWER(id, text?).
  */
 class BrainService : Service() {
-    private var llm: LlmInference? = null
     /** Модели .litertlm (Gemma 4) идут через новый движок LiteRT-LM; обычные .task — через MediaPipe. */
     private var lite: Engine? = null
     private var loadedPath: String? = null
@@ -48,28 +45,12 @@ class BrainService : Service() {
                 val path = msg.data.getString(KEY_PATH).orEmpty()
                 val max = msg.data.getInt(KEY_MAX, 1280)
                 loadedMax = max
-                val gpu = msg.data.getBoolean(KEY_GPU, false)
-                val litert = msg.data.getBoolean(KEY_LITERT, false)
-                val result = if (litert) runCatching {
+                val result = runCatching {
                     if (lite == null || loadedPath != path) {
-                        runCatching { llm?.close() }; llm = null
                         runCatching { lite?.close() }; lite = null
                         val e = Engine(EngineConfig(modelPath = path, backend = Backend.CPU(), maxNumTokens = max, cacheDir = cacheDir.absolutePath))
                         e.initialize()
                         lite = e; backend = "cpu"; loadedPath = path
-                    }
-                } else runCatching {
-                    if (lite != null) { runCatching { lite?.close() }; lite = null; loadedPath = null }
-                    if (llm == null || loadedPath != path || (gpu && backend != "gpu")) {
-                        runCatching { llm?.close() }
-                        llm = null
-                        fun create(b: LlmInference.Backend) = LlmInference.createFromOptions(applicationContext,
-                            LlmInference.LlmInferenceOptions.builder()
-                                .setModelPath(path).setMaxTokens(max).setMaxTopK(40).setPreferredBackend(b).build())
-                        // Видеокарта в разы быстрее; не поддерживает модель/телефон — процессор.
-                        llm = if (gpu) runCatching { create(LlmInference.Backend.GPU).also { backend = "gpu" } }.getOrNull() else null
-                        if (llm == null) { llm = create(LlmInference.Backend.CPU); backend = "cpu" }
-                        loadedPath = path
                     }
                 }
                 send(reply, MSG_STATE, Bundle().apply {
@@ -84,52 +65,14 @@ class BrainService : Service() {
                 val greedy = msg.data.getBoolean(KEY_GREEDY, true)
                 var text: String? = null
                 var err: String? = null
-                var tokens = -1
-                val model = llm
                 val engine = lite
-                if (engine != null) {
-                    // Gemma 4 сама применяет шаблон диалога; для разбора команд — без случайности (topK 1, температура 0.1).
-                    try { text = generateLite(engine, prompt) } catch (t: Throwable) { err = (t.message ?: t::class.java.simpleName).take(160) }
-                } else if (model == null) err = "no_model"
-                else {
-                    tokens = runCatching { model.sizeInTokens(prompt) }.getOrDefault(-1)
-                    // Запрос не влезает в окно модели (оно общее для запроса и ответа) — не гоним впустую, пусть сократят.
-                    if (tokens > 0 && tokens > loadedMax - OUT_RESERVE) err = "too_long:$tokens"
-                    else {
-                        try { text = generate(model, prompt, greedy) }
-                        catch (t: Throwable) {
-                            err = (t.message ?: t::class.java.simpleName).take(160)
-                            // Видеокарта не потянула этот запрос — переходим на процессор и пробуем ещё раз.
-                            if (backend == "gpu" && reloadOnCpu()) {
-                                try { text = llm?.let { generate(it, prompt, greedy) }; err = null } catch (t2: Throwable) { err = (t2.message ?: t2::class.java.simpleName).take(160) }
-                            }
-                        }
-                    }
-                }
+                if (engine == null) err = "no_model"
+                else try { text = generateLite(engine, prompt) } catch (t: Throwable) { err = (t.message ?: t::class.java.simpleName).take(160) }
                 send(reply, MSG_ANSWER, Bundle().apply {
-                    putInt(KEY_ID, id); putString(KEY_TEXT, text); putString(KEY_ERR, err); putInt(KEY_TOKENS, tokens); putString(KEY_BACKEND, backend)
+                    putInt(KEY_ID, id); putString(KEY_TEXT, text); putString(KEY_ERR, err); putInt(KEY_TOKENS, -1); putString(KEY_BACKEND, backend)
                 })
             }
-            MSG_CLOSE -> { runCatching { llm?.close() }; llm = null; runCatching { lite?.close() }; lite = null; loadedPath = null }
-        }
-    }
-
-    /**
-     * Ответ модели: «жадная» генерация (без случайности — для разбора команд нужен один и тот же ответ на одну фразу,
-     * а не шум вроде «вамneephone»). Генерацию не обрываем: отмена на лету с немедленным закрытием сессии аварийно
-     * закрывала движок (проверено на телефоне). Модель сама заканчивает ответ, когда JSON готов.
-     */
-    private fun generate(model: LlmInference, prompt: String, greedy: Boolean = true): String? {
-        // Запасной путь: если сессия валит движок на этом телефоне, приложение просит обычную генерацию.
-        if (!greedy) return model.generateResponse(prompt)
-        val options = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-            .setTopK(1).setTopP(1f).setTemperature(0.1f).setRandomSeed(1).build()
-        val session = LlmInferenceSession.createFromOptions(model, options)
-        try {
-            session.addQueryChunk(prompt)
-            return session.generateResponse()
-        } finally {
-            runCatching { session.close() }
+            MSG_CLOSE -> { runCatching { lite?.close() }; lite = null; loadedPath = null }
         }
     }
 
@@ -141,24 +84,12 @@ class BrainService : Service() {
         }
     }
 
-    /** Пересоздать модель на процессоре (после сбоя видеокарты). */
-    private fun reloadOnCpu(): Boolean {
-        val path = loadedPath ?: return false
-        return runCatching {
-            runCatching { llm?.close() }
-            llm = LlmInference.createFromOptions(applicationContext, LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(path).setMaxTokens(loadedMax).setMaxTopK(40).setPreferredBackend(LlmInference.Backend.CPU).build())
-            backend = "cpu"
-        }.isSuccess
-    }
-
     private fun send(to: Messenger, what: Int, data: Bundle) {
         runCatching { to.send(Message.obtain(null, what).apply { this.data = data }) }
     }
 
     override fun onDestroy() {
         runCatching { lite?.close() }
-        runCatching { llm?.close() }
         super.onDestroy()
     }
 

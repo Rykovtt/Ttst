@@ -128,7 +128,7 @@ object NoaBenchmark {
         if (!app.brain.selfTest()) {
             val why = app.brain.lastError?.let { explain(it) }.orEmpty()
             return Report(title, app.brain.backend.uppercase(), emptyList(),
-                t("Модель загрузилась, но не отвечает. Причина: %1\$s. Выберите быструю модель в настройках ассистента.", why))
+                t("Модель загрузилась, но не отвечает. Причина: %1\$s. Перезапустите приложение и попробуйте снова.", why))
         }
         val now = LocalDateTime.of(2026, 10, 4, 10, 0)
         val noa = Noa(app)

@@ -52,7 +52,7 @@ fun AssistantSettings() {
     if (on) {
         ToggleRow(
             Icons.Default.AutoAwesome, t("Умный режим (офлайн ИИ)"),
-            t("ИИ прямо на телефоне понимает свободную речь. Нужно один раз скачать модель (~1.6 ГБ)."),
+            t("ИИ прямо на телефоне понимает свободную речь. Нужно один раз скачать модель (~2.6 ГБ)."),
             brain,
         ) { s.assistantBrain.set(it) }
         if (brain) BrainModelRow()
@@ -221,25 +221,6 @@ private fun BrainModelRow() {
                 Icons.Default.AutoAwesome, t("Модель установлена: %1\$s", m?.title ?: t("своя")),
                 t("%1\$s МБ. Умный режим готов к работе.", brain.modelSizeMb()),
             ) {}
-            if (m != LlmBrain.Model.GEMMA4) {
-                ActionRow(
-                    Icons.Default.AutoAwesome, t("Попробовать Gemma 4 E2B · новая и быстрая"),
-                    t("~%1\$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2\$s ГБ памяти (нужно от %3\$s). Нужен интернет для скачивания.",
-                        sizeGb(LlmBrain.Model.GEMMA4), "%.0f".format(ram), LlmBrain.Model.GEMMA4.minRamGb),
-                ) { confirm = LlmBrain.Model.GEMMA4 }
-            }
-            if (m == LlmBrain.Model.FAST) {
-                ActionRow(
-                    Icons.Default.Download, t("Перейти на умную модель"),
-                    t("%1\$s — заметно умнее, ~%2\$s ГБ. В телефоне %3\$s ГБ памяти (нужно от %4\$s).",
-                        LlmBrain.Model.SMART.title, sizeGb(LlmBrain.Model.SMART), "%.0f".format(ram), LlmBrain.Model.SMART.minRamGb),
-                ) { confirm = LlmBrain.Model.SMART }
-            }
-            if (m == LlmBrain.Model.SMART) {
-                ActionRow(Icons.Default.Download, t("Перейти на быструю модель"), t("%1\$s — легче и быстрее, ~%2\$s ГБ.", LlmBrain.Model.FAST.title, sizeGb(LlmBrain.Model.FAST))) {
-                    confirm = LlmBrain.Model.FAST
-                }
-            }
             ActionRow(Icons.Default.Delete, t("Удалить модель"), t("Освободить место")) {
                 brain.deleteModel(); has = false
             }
@@ -253,22 +234,12 @@ private fun BrainModelRow() {
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
-            val smartOk = ram >= LlmBrain.Model.SMART.minRamGb - 0.6
             ActionRow(
-                Icons.Default.AutoAwesome, t("Скачать умную модель") + if (smartOk) " · " + t("рекомендуется") else "",
-                t("%1\$s, ~%2\$s ГБ. Лучше понимает речь и отвечает по вашим данным. В телефоне %3\$s ГБ памяти (нужно от %4\$s).",
-                    LlmBrain.Model.SMART.title, sizeGb(LlmBrain.Model.SMART), "%.0f".format(ram), LlmBrain.Model.SMART.minRamGb),
-            ) { confirm = LlmBrain.Model.SMART }
-            ActionRow(
-                Icons.Default.Download, t("Скачать быструю модель") + if (!smartOk) " · " + t("рекомендуется") else "",
-                t("%1\$s, ~%2\$s ГБ. Легче и быстрее, для любого телефона.", LlmBrain.Model.FAST.title, sizeGb(LlmBrain.Model.FAST)),
-            ) { confirm = LlmBrain.Model.FAST }
-            ActionRow(
-                Icons.Default.AutoAwesome, t("Скачать Gemma 4 E2B · новая и быстрая"),
-                t("~%1\$s ГБ. Новый движок Google: ответ за секунды вместо 10–15 с. В телефоне %2\$s ГБ памяти (нужно от %3\$s).",
-                    sizeGb(LlmBrain.Model.GEMMA4), "%.0f".format(ram), LlmBrain.Model.GEMMA4.minRamGb),
+                Icons.Default.AutoAwesome, t("Скачать модель") + " · " + t("рекомендуется"),
+                t("%1\$s, ~%2\$s ГБ. Работает офлайн, отвечает за пару секунд, понимает свободную речь. В телефоне %3\$s ГБ памяти (нужно от %4\$s).",
+                    LlmBrain.Model.GEMMA4.title, sizeGb(LlmBrain.Model.GEMMA4), "%.0f".format(ram), LlmBrain.Model.GEMMA4.minRamGb),
             ) { confirm = LlmBrain.Model.GEMMA4 }
-            ActionRow(Icons.Default.FileOpen, t("Свой файл модели"), t("Для опытных: файл .task с телефона")) {
+            ActionRow(Icons.Default.FileOpen, t("Свой файл модели"), t("Для опытных: файл .litertlm с телефона")) {
                 pick.launch(arrayOf("*/*"))
             }
         }

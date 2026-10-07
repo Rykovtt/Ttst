@@ -96,12 +96,12 @@ class LlmBrain(context: Context) {
 
     /** Что случилось при последнем сбое — для настроек. */
     val crashDetail: String get() = prefs.getString(KEY_CRASH_DETAIL, null)
-        ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента или выберите быструю модель.")
+        ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента.")
 
     /** Попробовать запустить модель ещё раз (после смены модели или по кнопке). */
     fun clearCrash() { prefs.edit().remove(KEY_CRASHED).remove(KEY_CRASH_DETAIL).apply() }
 
-    private fun currentKind() = runCatching { kindFile.readText().trim() }.getOrDefault(KIND_QWEN)
+    private fun currentKind() = KIND_GEMMA4
 
     @Volatile private var lastDeath = 0L
     /** На чём работает модель: «gpu» / «cpu». */
@@ -127,12 +127,12 @@ class LlmBrain(context: Context) {
             ?.firstOrNull { it.processName.endsWith(":brain") && it.timestamp >= since - 5_000 } ?: return null
         return when (info.reason) {
             android.app.ApplicationExitInfo.REASON_LOW_MEMORY ->
-                t("Телефону не хватило памяти для этой модели. Закройте тяжёлые приложения и попробуйте снова или выберите быструю модель.")
+                t("Телефону не хватило памяти для этой модели. Закройте тяжёлые приложения и попробуйте снова.")
             android.app.ApplicationExitInfo.REASON_CRASH_NATIVE, android.app.ApplicationExitInfo.REASON_CRASH ->
-                t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Выберите быструю модель.")
+                t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Перезапустите приложение и попробуйте снова.")
             android.app.ApplicationExitInfo.REASON_SIGNALED ->
                 if (info.status == 9) t("Система остановила модель, чтобы освободить память. Попробуйте снова, когда закроете другие приложения.")
-                else t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Выберите быструю модель.")
+                else t("Движок ИИ не смог открыть эту модель (сбой при загрузке, не память). Перезапустите приложение и попробуйте снова.")
             else -> null
         }
     }
@@ -146,24 +146,33 @@ class LlmBrain(context: Context) {
 
     /** Текущий файл модели (свой выбранный файл в приоритете). */
     val modelFile: File?
-        get() = importedFile.takeIf { it.big() } ?: importedLite.takeIf { it.big() } ?: downloadedFile?.takeIf { it.big() } ?: downloadedLite?.takeIf { it.big() }
+        get() = importedLite.takeIf { it.big() } ?: downloadedLite?.takeIf { it.big() }
 
     private fun File.big() = exists() && length() > 100L * 1024 * 1024
 
-    fun hasModel(): Boolean { syncDownload(); return modelFile != null }
+    fun hasModel(): Boolean { syncDownload(); dropLegacy(); return modelFile != null }
+
+    /**
+     * Прежние модели (Qwen, Phi-4, свой .task) больше не поддерживаются: файлы удаляем (это несколько ГБ), нужна Gemma 4.
+     * Файл Gemma 4, скачанный под старым именем «model.task», просто переименовываем.
+     */
+    private fun dropLegacy() {
+        val old = listOfNotNull(importedFile, downloadedFile).filter { it.exists() }
+        if (old.isEmpty()) return
+        val kind = runCatching { kindFile.readText().trim() }.getOrDefault("")
+        for (f in old) {
+            val target = File(f.parentFile, "model.litertlm")
+            if (kind == KIND_GEMMA4 && f.big() && !target.exists() && f.renameTo(target)) continue
+            f.delete()
+        }
+        if (kind != KIND_GEMMA4) kindFile.delete()
+    }
     fun modelSizeMb(): Long = (modelFile?.length() ?: 0) / (1024 * 1024)
 
     // ---- скачивание одной кнопкой ----
 
-    /** Модели на выбор: быстрая (лёгкая) и умная (крупнее, нужен телефон помощнее). */
+    /** Единственная поддерживаемая модель: Gemma 4 E2B на движке LiteRT-LM (быстрее и точнее прежних Phi-4 и Qwen). */
     enum class Model(val id: String, val title: String, val url: String, val bytes: Long, val kind: String, val minRamGb: Int) {
-        FAST("qwen", "Qwen2.5 1.5B", MODEL_URL, MODEL_BYTES, KIND_QWEN, 4),
-        SMART(
-            "phi4", "Phi-4 mini 3.8B",
-            "https://huggingface.co/litert-community/Phi-4-mini-instruct/resolve/main/Phi-4-mini-instruct_multi-prefill-seq_q8_ekv1280.task",
-            3_944_275_882L, KIND_PHI, 8,
-        ),
-        /** Новая модель Google (формат .litertlm, движок LiteRT-LM): заявлено ~47 слов/с на процессоре флагмана против ~5 у Phi-4. */
         GEMMA4(
             "gemma4", "Gemma 4 E2B",
             "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
@@ -174,8 +183,7 @@ class LlmBrain(context: Context) {
     /** Какая модель установлена (по пометке рядом с файлом). */
     fun installed(): Model? {
         if (!hasModel()) return null
-        val kind = runCatching { kindFile.readText().trim() }.getOrDefault(KIND_QWEN)
-        return Model.entries.firstOrNull { it.kind == kind }
+        return Model.GEMMA4
     }
 
     /** Оперативная память телефона, ГБ — чтобы подсказать, потянет ли умная модель. */
@@ -186,7 +194,7 @@ class LlmBrain(context: Context) {
     }.getOrDefault(0.0)
 
     /** Начать загрузку модели. false — если места мало или загрузчик недоступен. */
-    fun startDownload(model: Model = Model.FAST): Boolean = runCatching {
+    fun startDownload(model: Model = Model.GEMMA4): Boolean = runCatching {
         val dm = app.getSystemService(DownloadManager::class.java) ?: return false
         cancelDownload()
         val part = partFile ?: return false
@@ -204,7 +212,7 @@ class LlmBrain(context: Context) {
     }.getOrDefault(false)
 
     /** Хватает ли места под модель (с запасом). */
-    fun enoughSpace(model: Model = Model.FAST): Boolean = (extDir?.usableSpace ?: 0L) > model.bytes + 200L * 1024 * 1024
+    fun enoughSpace(model: Model = Model.GEMMA4): Boolean = (extDir?.usableSpace ?: 0L) > model.bytes + 200L * 1024 * 1024
 
     fun cancelDownload() {
         val id = prefs.getLong(KEY_ID, -1L)
@@ -244,7 +252,7 @@ class LlmBrain(context: Context) {
                     close()
                     importedFile.delete(); importedLite.delete()
                     (if (lite) downloadedFile else downloadedLite)?.delete()
-                    kindFile.writeText(prefs.getString(KEY_PENDING_KIND, KIND_QWEN) ?: KIND_QWEN)
+                    kindFile.writeText(KIND_GEMMA4)
                     clearCrash()
                     state = State.UNKNOWN; Download.Done
                 } else Download.Failed(-1)
@@ -254,7 +262,7 @@ class LlmBrain(context: Context) {
                 Download.Failed(reason)
             }
             else -> {
-                val t = if (total > 0) total else Model.entries.firstOrNull { it.kind == prefs.getString(KEY_PENDING_KIND, "") }?.bytes ?: MODEL_BYTES
+                val t = if (total > 0) total else Model.entries.firstOrNull { it.kind == prefs.getString(KEY_PENDING_KIND, "") }?.bytes ?: Model.GEMMA4.bytes
                 Download.Running(
                     ((done * 100) / t).toInt().coerceIn(0, 100), done / MB, t / MB,
                     waiting = status == DownloadManager.STATUS_PAUSED || status == DownloadManager.STATUS_PENDING,
@@ -281,10 +289,10 @@ class LlmBrain(context: Context) {
                     }
                 }
             }
-            if (!tmp.big()) { tmp.delete(); return@runCatching false }
+            if (!tmp.big() || !name.endsWith(".litertlm", true)) { tmp.delete(); return@runCatching false }
             close()
-            importedFile.delete()
-            tmp.renameTo(importedFile).also { if (it) kindFile.writeText(kindOf(name)); state = State.UNKNOWN }
+            importedLite.delete(); downloadedLite?.delete()
+            tmp.renameTo(importedLite).also { if (it) kindFile.writeText(KIND_GEMMA4); state = State.UNKNOWN }
         }.getOrDefault(false)
     }
 
@@ -304,18 +312,16 @@ class LlmBrain(context: Context) {
             File(found.parentFile, "model.litertlm").takeIf { found.renameTo(it) } ?: found else found
         if (isReady) { state = State.READY; return@withContext state }
         if (crashed) {
-            detail = prefs.getString(KEY_CRASH_DETAIL, null) ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента или выберите быструю модель.")
+            detail = prefs.getString(KEY_CRASH_DETAIL, null) ?: t("Модель не запустилась на этом телефоне. Нажмите «Попробовать снова» в настройках ассистента.")
             state = State.UNAVAILABLE; return@withContext state
         }
         state = State.PREPARING
         val kind = currentKind()
-        // Видеокарту пробуем только для «своей» модели (Gemma): сборки Phi-4 и Qwen в формате .task рассчитаны на процессор,
-        // на видеокарте движок на них аварийно закрывается при первом ответе.
-        val gpu = kind == KIND_GEMMA && !prefs.getBoolean(KEY_GPU_BAD + kind, false)
+        val gpu = false   // процессор: надёжно и достаточно быстро (видеокарту не используем)
         val started = System.currentTimeMillis()
         val reply = request(BrainService.MSG_PREPARE, 0, android.os.Bundle().apply {
-            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, if (kind == KIND_GEMMA4) 2048 else 1280); putBoolean(BrainService.KEY_GPU, gpu)
-            putBoolean(BrainService.KEY_LITERT, kind == KIND_GEMMA4)
+            putString(BrainService.KEY_PATH, file.absolutePath); putInt(BrainService.KEY_MAX, 2048); putBoolean(BrainService.KEY_GPU, gpu)
+            putBoolean(BrainService.KEY_LITERT, true)
         }, 240_000)
         // Процесс умер на видеокарте — запоминаем и сразу пробуем на процессоре.
         if (reply == null && gpu && lastDeath >= started) {
@@ -328,7 +334,7 @@ class LlmBrain(context: Context) {
                 // Процесс модели умер — узнаём у системы почему, и сами больше не пробуем (кнопка «Попробовать снова»).
                 kotlinx.coroutines.delay(1500)
                 detail = brainExitReason(started)
-                    ?: t("Процесс модели закрылся при загрузке. Попробуйте снова или выберите быструю модель.")
+                    ?: t("Процесс модели закрылся при загрузке. Попробуйте снова.")
                 prefs.edit().putString(KEY_CRASHED, currentKind()).putString(KEY_CRASH_DETAIL, detail).apply()
                 state = State.UNAVAILABLE
             }
@@ -369,7 +375,6 @@ class LlmBrain(context: Context) {
             when {
                 // Сначала подозреваем «жадную» сессию, затем (только для своей модели Gemma) видеокарту.
                 !prefs.getBoolean(KEY_NO_SESSION + kind, false) -> prefs.edit().putBoolean(KEY_NO_SESSION + kind, true).apply()
-                kind == KIND_GEMMA && !prefs.getBoolean(KEY_GPU_BAD + kind, false) -> prefs.edit().putBoolean(KEY_GPU_BAD + kind, true).apply()
                 else -> break
             }
             if (prepare() != State.READY) return null
@@ -378,7 +383,7 @@ class LlmBrain(context: Context) {
         if (lastError != "no_reply") return null
         // Падает при любых настройках — сами больше не пробуем, объясняем и предлагаем быструю модель.
         val kind = currentKind()
-        val why = com.kartoteka.app.i18n.t("Движок ИИ закрывается при ответе на этом телефоне. Выберите быструю модель в настройках ассистента.")
+        val why = com.kartoteka.app.i18n.t("Движок ИИ закрывается при ответе на этом телефоне. Перезапустите приложение и попробуйте снова.")
         prefs.edit().putString(KEY_CRASHED, kind).putString(KEY_CRASH_DETAIL, why).apply()
         detail = why; state = State.UNAVAILABLE
         lastError = "engine_crash"
@@ -415,18 +420,8 @@ class LlmBrain(context: Context) {
         r.getString(BrainService.KEY_TEXT)
     }
 
-    /** Оборачиваем запрос в формат диалога, который понимает конкретная модель. */
-    private fun wrap(prompt: String): String {
-        // Файл без пометки — модель, выбранная в прошлых версиях (там была только Gemma).
-        val kind = runCatching { kindFile.readText().trim() }
-            .getOrDefault(if (importedFile.big()) KIND_GEMMA else KIND_QWEN)
-        return when (kind) {
-            KIND_GEMMA -> "<start_of_turn>user\n$prompt<end_of_turn>\n<start_of_turn>model\n"
-            KIND_PHI -> "<|user|>\n$prompt<|end|>\n<|assistant|>\n"
-            KIND_GEMMA4 -> prompt   // шаблон диалога применяет сам движок LiteRT-LM
-            else -> "<|im_start|>user\n$prompt<|im_end|>\n<|im_start|>assistant\n"
-        }
-    }
+    /** Gemma 4 сама применяет шаблон диалога (движок LiteRT-LM) — запрос передаём как есть. */
+    private fun wrap(prompt: String): String = prompt
 
     fun close() {
         prepared = false; verified = false
@@ -434,16 +429,8 @@ class LlmBrain(context: Context) {
     }
 
     companion object {
-        /** Открытая (без регистрации) многоязычная модель, хорошо понимает русский и украинский. */
-        const val MODEL_NAME = "Qwen2.5 1.5B"
-        const val MODEL_URL =
-            "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task"
-        const val MODEL_BYTES = 1_597_913_616L
         private const val MB = 1024L * 1024
         private const val KEY_ID = "download_id"
-        private const val KIND_QWEN = "qwen"
-        private const val KIND_GEMMA = "gemma"
-        private const val KIND_PHI = "phi4"
         private const val KIND_GEMMA4 = "gemma4"
         private const val KEY_PENDING_KIND = "pending_kind"
         private const val KEY_CRASHED = "crashed_kind"
@@ -453,11 +440,6 @@ class LlmBrain(context: Context) {
         private const val KEY_NO_SESSION = "no_session_"
         private const val KEY_CRASH_RESET = "crash_reset_294"
 
-        fun kindOf(fileName: String): String = when {
-            fileName.endsWith(".litertlm", true) -> KIND_GEMMA4
-            fileName.contains("gemma", true) -> KIND_GEMMA
-            fileName.contains("phi", true) -> KIND_PHI
-            else -> KIND_QWEN
-        }
+        fun kindOf(fileName: String): String = KIND_GEMMA4
     }
 }
