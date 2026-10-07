@@ -148,7 +148,11 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.OpenScreen -> Reply.Navigate(t("Открываю %1\$s.", sectionName(intent.section)), intent.section)
             is NoaIntent.Call -> withPerson(intent.personQuery) {
                 val phone = it.phone ?: return@withPerson Reply.Say(t("У %1\$s нет номера телефона.", it.person.displayName))
-                Reply.Do(t("Звоню %1\$s.", it.person.displayName)) { ctx -> com.kartoteka.app.messaging.Messaging.dial(ctx, phone) }
+                // Разрешены звонки — звоним сразу; нет — звонилка с номером и подсказка, где включить.
+                val direct = com.kartoteka.app.messaging.Messaging.canCallDirect(app)
+                val text = if (direct) t("Звоню %1\$s.", it.person.displayName)
+                    else t("Набрала номер %1\$s — нажмите «Вызов». Чтобы я звонила сразу: Настройки → Авто-действия → «Звонить сразу».", it.person.displayName)
+                Reply.Do(text) { ctx -> com.kartoteka.app.messaging.Messaging.call(ctx, phone) }
             }
             is NoaIntent.Message -> message(intent)
             is NoaIntent.AddNote -> addNote(intent)

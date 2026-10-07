@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.FormatSize
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.EnhancedEncryption
 import androidx.compose.material.icons.filled.Fingerprint
@@ -107,6 +108,8 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
         settings.setBirthdayReminders(ok)
         if (ok) BirthdayWorker.schedule(context)
     }
+    // «Звонить сразу»: разрешение CALL_PHONE — после ответа перечитываем состояние
+    val callPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { resumeTick++ }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         if (uri != null) dialog = BackupDialog.Export(uri)
     }
@@ -208,8 +211,17 @@ fun SettingsScreen(onImportContacts: () -> Unit, onServices: () -> Unit = {}, on
             CalendarSettings(settings, onServices)
         })
 
-        add(SettingEntry(t("Авто-отправка в мессенджерах"), Icons.Default.AutoMode, if (autoOn) t("Включена") else t("Выключена"), "whatsapp telegram viber авто отправка") {
+        add(SettingEntry(t("Авто-действия"), Icons.Default.AutoMode, if (autoOn) t("Включена") else t("Выключена"), "whatsapp telegram viber авто отправка звонок позвонить вызов") {
             val on = remember(resumeTick) { com.kartoteka.app.messaging.AutoSend.isServiceEnabled(context) }
+            val callOn = remember(resumeTick) { com.kartoteka.app.messaging.Messaging.canCallDirect(context) }
+            ToggleRow(Icons.Default.Call, t("Звонить сразу"), t("Ноа начинает звонок сама, без нажатия «Вызов» в звонилке"), callOn) { v ->
+                if (v) callPermission.launch(Manifest.permission.CALL_PHONE)
+                // Отозвать разрешение можно только в настройках телефона
+                else runCatching {
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.fromParts("package", context.packageName, null)))
+                }
+            }
             val delay by settings.autoSendDelaySec.value.collectAsState()
             ActionRow(
                 Icons.Default.AutoMode,

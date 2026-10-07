@@ -129,7 +129,7 @@ class NoaController(private val app: KartotekaApp, private val context: Context,
             is Noa.Reply.Say2Open -> {
                 if (reply.personId != null || reply.appointmentId != null) leaving = true
                 say(reply.text)
-                NoaActions.pendingCall?.let { Messaging.dial(context, it); NoaActions.pendingCall = null }
+                NoaActions.pendingCall?.let { Messaging.call(context, it); NoaActions.pendingCall = null }
                 NoaActions.pendingMessage?.let { m ->
                     sendMessage(context, app.repository.getPerson(m.personId), m)
                     NoaActions.pendingMessage = null

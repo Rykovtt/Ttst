@@ -28,6 +28,25 @@ object Messaging {
     fun dial(context: Context, phone: String) =
         start(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone))))
 
+    /** Разрешено ли звонить сразу (CALL_PHONE). */
+    fun canCallDirect(context: Context): Boolean =
+        androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CALL_PHONE) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Звонок сразу, без нажатия «Вызов» в звонилке — если разрешено; иначе звонилка с набранным номером.
+     * true — звонок начат сам.
+     */
+    fun call(context: Context, phone: String): Boolean {
+        if (canCallDirect(context)) {
+            val intent = Intent(Intent.ACTION_CALL, Uri.parse("tel:" + Uri.encode(phone)))
+            if (context !is android.app.Activity) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { context.startActivity(intent) }.isSuccess) return true
+        }
+        dial(context, phone)
+        return false
+    }
+
     fun sms(context: Context, phones: List<String>, text: String = "") {
         // Большинство SMS-приложений понимают несколько номеров через «;», Samsung — через «,».
         val sep = if (Build.MANUFACTURER.equals("samsung", true)) "," else ";"

@@ -159,11 +159,16 @@ object PhoneActions {
     }
 
     /** Поиск в Google (приложение Google или браузер). */
+    /**
+     * Поиск в интернете сразу с результатами: страница выдачи Google в браузере, без поля ввода,
+     * где пришлось бы ещё нажимать «Найти». Нет браузера — системный поиск.
+     */
     fun webSearch(context: Context, query: String): Boolean {
-        val search = Intent(Intent.ACTION_WEB_SEARCH).putExtra(android.app.SearchManager.QUERY, query)
-        if (start(context, search, quiet = true)) return true
-        return start(context, Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(query))))
+        if (start(context, Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl(query))).addCategory(Intent.CATEGORY_BROWSABLE), quiet = true)) return true
+        return start(context, Intent(Intent.ACTION_WEB_SEARCH).putExtra(android.app.SearchManager.QUERY, query))
     }
+
+    fun searchUrl(query: String): String = "https://www.google.com/search?q=" + Uri.encode(query.trim())
 
     fun alarm(context: Context, hour: Int, minute: Int, label: String?): Boolean = start(context,
         Intent(AlarmClock.ACTION_SET_ALARM).putExtra(AlarmClock.EXTRA_HOUR, hour).putExtra(AlarmClock.EXTRA_MINUTES, minute)
