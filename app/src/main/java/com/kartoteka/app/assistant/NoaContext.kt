@@ -122,7 +122,7 @@ object NoaMatch {
 
     /** Единственный человек, названный во фразе (окна из 3, 2, 1 слов; первое однозначное совпадение). */
     fun fromPhrase(phrase: String, people: List<Ref>): Ref? {
-        val toks = words(phrase).filter { it.length >= 3 }
+        val toks = words(phrase).flatMap { listOf(it, translit(it)) }.distinct().filter { it.length >= 3 }
         for (n in 3 downTo 1) for (i in 0..(toks.size - n)) {
             val win = toks.subList(i, i + n)
             val r = if (n == 1) {
