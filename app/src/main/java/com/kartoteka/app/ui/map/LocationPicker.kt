@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,7 +71,7 @@ fun LocationPickerDialog(
 
     LaunchedEffect(Unit) { if (point == null && initialAddress.isNotBlank()) search() }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(t("Точка на карте"), compact = true, backgroundButton = false, onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"))
@@ -105,7 +104,7 @@ fun LocationPickerDialog(
                         }
                     }
                 }
-                Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp)) {
+                Row(Modifier.fillMaxWidth().padding(bottom = com.kartoteka.app.ui.components.dialogBottomInset()).padding(12.dp)) {
                     Spacer(Modifier.weight(1f))
                     Button(enabled = point != null, onClick = {
                         val p = point ?: return@Button

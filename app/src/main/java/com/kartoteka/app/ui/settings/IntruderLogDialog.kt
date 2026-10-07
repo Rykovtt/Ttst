@@ -69,7 +69,7 @@ fun IntruderLogDialog(onDismiss: () -> Unit) {
     var opened by remember { mutableStateOf<Pair<Bitmap, IntruderLog.Attempt>?>(null) }
     LaunchedEffect(Unit) { log.markSeen() }
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(
@@ -141,7 +141,7 @@ private fun AttemptRow(log: IntruderLog, a: IntruderLog.Attempt, onOpen: (Bitmap
 @Composable
 private fun IntruderPhotoViewer(bmp: Bitmap, time: Long, onDismiss: () -> Unit) {
     val fmt = remember { SimpleDateFormat("d MMMM yyyy, HH:mm:ss", com.kartoteka.app.i18n.I18n.locale) }
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             ZoomableImage(bmp)
             Row(

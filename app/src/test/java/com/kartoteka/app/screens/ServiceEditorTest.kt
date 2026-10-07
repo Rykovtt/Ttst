@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -38,6 +39,10 @@ class ServiceEditorTest {
         @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
         com.github.takahirom.roborazzi.captureScreenRoboImage("screenshots/40_service_editor.png")
         compose.onNodeWithText("Сохранить").performClick()
+        assertEquals("Тату-сеанс", saved?.name)
+        // «Сохранить» есть и в шапке — на случай, если нижнюю кнопку закрыла панель навигации
+        saved = null
+        compose.onNodeWithContentDescription("Сохранить").assertIsDisplayed().performClick()
         assertEquals("Тату-сеанс", saved?.name)
     }
 }

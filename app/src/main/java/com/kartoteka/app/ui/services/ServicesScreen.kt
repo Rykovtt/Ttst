@@ -7,11 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -180,15 +175,15 @@ fun ServiceEditor(
 
     fun result() = TemplateKind.entries.fold(s.copy(name = s.name.trim())) { acc, k -> acc.withTemplate(k, texts[k]?.text.orEmpty().trim()) }
 
-    // decorFitsSystemWindows = false — отступы клавиатуры и системной навигации приходят в Compose,
-    // иначе на Android 15 кнопка «Сохранить» уходит под панель навигации.
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Scaffold(
             topBar = {
                 com.kartoteka.app.ui.components.ScreenHero(
                     if (service.id == 0L) t("Новая услуга") else t("Услуга"), compact = true,
                     onBack = onDismiss, backIcon = Icons.Default.Close, backDescription = t("Закрыть"), backgroundButton = false,
                     actions = {
+                        // «Сохранить» и в шапке: она всегда на экране, что бы ни было с клавиатурой и панелью навигации
+                        com.kartoteka.app.ui.components.HeroButton(Icons.Default.Check, t("Сохранить"), { if (s.name.isNotBlank()) onSave(result()) }, active = s.name.isNotBlank())
                         if (onDelete != null) com.kartoteka.app.ui.components.HeroButton(Icons.Default.Delete, t("Удалить"), { confirmDelete = true })
                     },
                 )
@@ -197,7 +192,7 @@ fun ServiceEditor(
                 androidx.compose.foundation.layout.Box(
                     Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
                         // навигация или клавиатура — что выше (сумма давала лишний зазор над клавиатурой)
-                        .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+                        .padding(bottom = com.kartoteka.app.ui.components.dialogBottomInset())
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
                     com.kartoteka.app.ui.components.GradientButton(t("Сохранить"), icon = Icons.Default.Check, enabled = s.name.isNotBlank()) { onSave(result()) }
