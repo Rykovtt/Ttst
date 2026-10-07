@@ -1,5 +1,6 @@
 package com.kartoteka.app.ui
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import com.kartoteka.app.i18n.t
 
 import androidx.compose.animation.fadeIn
@@ -190,7 +191,9 @@ fun KartotekaRoot(
         // Содержимое заходит под скруглённые верхние углы панели: в углах видно сам экран (и затемнение меню),
         // а не пустой фон — без «треугольников» над навигацией.
         val navCorner = com.kartoteka.app.ui.theme.u(com.kartoteka.app.ui.theme.PeopleDims.NavRadius)
-        Box(Modifier.padding(bottom = (padding.calculateBottomPadding() - navCorner).coerceAtLeast(0.dp))) {
+        val barSpace = (padding.calculateBottomPadding() - navCorner).coerceAtLeast(0.dp)
+        // Отступ под нижнюю навигацию уже учтён: imePadding экранов (рассылка) вычтет его, без пустой плашки над клавиатурой.
+        Box(Modifier.padding(bottom = barSpace).consumeWindowInsets(androidx.compose.foundation.layout.PaddingValues(bottom = barSpace))) {
         androidx.compose.animation.SharedTransitionLayout {
         androidx.compose.runtime.CompositionLocalProvider(com.kartoteka.app.ui.components.LocalSharedScope provides this) {
         NavHost(

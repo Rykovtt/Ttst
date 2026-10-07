@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import com.kartoteka.app.ui.components.bottomBarInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -334,7 +334,7 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
             // Главное действие — внизу, под большим пальцем, всегда на виду.
             androidx.compose.foundation.layout.Box(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
-                    .navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                    .bottomBarInsets().padding(horizontal = 16.dp, vertical = 10.dp),
             ) {
                 com.kartoteka.app.ui.components.GradientButton(
                     if (vm.person == null) t("Выберите человека") else t("Сохранить"),
@@ -348,7 +348,8 @@ fun AppointmentEditScreen(id: Long, personId: Long, dateEpoch: Long, onBack: () 
         },
     ) { padding ->
         if (!vm.loaded) return@Scaffold
-        LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding(), contentPadding = PaddingValues(bottom = 40.dp)) {
+        // Клавиатуру учитывает нижняя панель (её высота — в padding); второй отступ давал пустую плашку.
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 40.dp)) {
             item(key = "who") {
                 SectionCard(t("Кто"), Icons.Default.Person) {
                     val pf = vm.person

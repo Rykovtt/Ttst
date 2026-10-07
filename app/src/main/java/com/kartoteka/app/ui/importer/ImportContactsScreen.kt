@@ -1,5 +1,6 @@
 package com.kartoteka.app.ui.importer
 
+import com.kartoteka.app.ui.components.bottomBarInsets
 import com.kartoteka.app.i18n.t
 
 import android.Manifest
@@ -115,7 +116,7 @@ fun ImportContactsScreen(onBack: () -> Unit) {
                                 importing = false
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().bottomBarInsets().padding(16.dp),
                     ) { Text(if (importing) t("Импортируем…") else t("Импортировать (%1\$s)", selected.size)) }
                 }
             }

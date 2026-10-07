@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
+import com.kartoteka.app.ui.components.bottomBarInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -236,7 +236,8 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
         },
         bottomBar = {
             // Главное действие — внизу, под большим пальцем.
-            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)) {
+            // Над навигацией, при вводе — над клавиатурой: кнопка не прячется за ней.
+            Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).then(Modifier.bottomBarInsets()).padding(horizontal = 16.dp, vertical = 10.dp)) {
                 Button(
                     onClick = { haptics.confirm(); vm.save(onSaved) },
                     enabled = !vm.saving && vm.birthdayError == null,
@@ -252,7 +253,8 @@ fun PersonEditScreen(personId: Long, onBack: () -> Unit, onSaved: (Long) -> Unit
     ) { padding ->
         if (!vm.loaded) return@Scaffold
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+            // Клавиатуру учитывает нижняя панель (её высота — в padding); второй отступ давал пустую плашку над клавиатурой.
+            modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(bottom = 48.dp),
         ) {
             item(key = "avatar") {
