@@ -12,10 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.exclude
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -164,9 +161,9 @@ fun NoaScreen(onBack: () -> Unit, onOpenPerson: (Long) -> Unit, onOpenAppointmen
     )
 
     // Текстовый чат: шапка с горами, история, поле ввода.
-    // Поле ввода внизу само отступает от навигации: снаружи — только часть клавиатуры выше неё (иначе зазор над клавиатурой).
-    Column(Modifier.fillMaxSize().background(com.kartoteka.app.ui.theme.RvColors.NoaBg)
-        .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.ime.exclude(androidx.compose.foundation.layout.WindowInsets.navigationBars))) {
+    // imePadding помечает клавиатуру учтённой: navigationBarsPadding поля ввода при открытой клавиатуре становится 0,
+    // поле стоит вплотную к ней. (ime.exclude(navigationBars) здесь прятал поле под клавиатуру на высоту навигации.)
+    Column(Modifier.fillMaxSize().background(com.kartoteka.app.ui.theme.RvColors.NoaBg).imePadding()) {
         com.kartoteka.app.ui.components.ScreenHero(backgroundKey = "noa", title = 
             t("Ассистент %1\$s", name), compact = true, onBack = onBack,
             subtitle = when (orbState) {
