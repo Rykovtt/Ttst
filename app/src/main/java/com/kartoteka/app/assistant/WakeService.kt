@@ -118,6 +118,11 @@ class WakeService : Service() {
         if (rec == null) { model.close(); main.post { stopSelf() }; return }
         rec.setWords(true)
         val audio = getSystemService(android.media.AudioManager::class.java)
+        val duck = MusicDuck(object : MusicDuck.VolumeIO {
+            override fun get() = runCatching { audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) }.getOrDefault(0)
+            override fun set(index: Int) { runCatching { audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, index, 0) } }
+        })
+        var nameStreak = 0
 
         var record: AudioRecord? = null
         val buf = ShortArray(SAMPLE_RATE / 10)           // 100 мс
@@ -137,11 +142,13 @@ class WakeService : Service() {
         try {
             while (running) {
                 if (isBusy()) {
-                    // Говорят с ассистентом или он сам говорит — микрофон отдаём ему.
+                    // Говорят с ассистентом или он сам говорит — микрофон отдаём ему; музыка остаётся тихой до конца разговора.
+                    duck.extend(1_500)
                     drop()
                     if (fed) { rec.reset(); fed = false }
                     Thread.sleep(150); continue
                 }
+                duck.restoreIfDue()
                 val ar = record ?: openRecord()?.also { record = it }
                 if (ar == null) { Thread.sleep(1500); continue }
                 val n = ar.read(buf, 0, buf.size)
@@ -164,6 +171,13 @@ class WakeService : Service() {
                 val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
                 val d = if (text.isBlank()) null else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
                 val mode = (application as KartotekaApp).settings.assistantMusicWake.value.value
+                // Имя прозвучало (два чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
+                if (playing && (application as KartotekaApp).settings.assistantMusicDuck.value.value) {
+                    nameStreak = if (namePresent(text, words)) nameStreak + 1 else 0
+                    if ((nameStreak >= 2 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck())
+                        WakeDiag.add(playing, final, text, "приглушила музыку")
+                    else if (nameStreak >= 1 && duck.active) duck.extend(MusicDuck.HOLD_MS)
+                } else nameStreak = 0
                 if (text.isNotBlank() && (playing || d != null)) WakeDiag.add(playing, final, text, d?.toString() ?: "нет")
                 if (!final) {
                     val key = d?.toString()
@@ -183,11 +197,20 @@ class WakeService : Service() {
                 when (d) {
                     is Decision.Command -> if (now > cmdRefractoryUntil) {
                         cmdRefractoryUntil = now + 1_500
-                        main.post { NoaMedia.control(applicationContext, d.control); buzz() }
+                        nameStreak = 0
+                        if (d.control == NoaMedia.Control.PAUSE || d.control == NoaMedia.Control.STOP) {
+                            // Сначала пауза, потом возвращаем громкость — без громкого «хвоста» перед остановкой.
+                            main.post { NoaMedia.control(applicationContext, d.control); buzz() }
+                            main.postDelayed({ duck.restore() }, 600)
+                        } else {
+                            // «Громче/тише» — от исходной громкости, а не от приглушённой.
+                            main.post { duck.restore(); NoaMedia.control(applicationContext, d.control); buzz() }
+                        }
                     }
                     is Decision.Volume -> if (now > cmdRefractoryUntil) {
                         cmdRefractoryUntil = now + 1_500
-                        main.post { NoaMedia.setVolumePercent(applicationContext, d.percent); buzz() }
+                        nameStreak = 0
+                        main.post { duck.forget(); NoaMedia.setVolumePercent(applicationContext, d.percent); buzz() }
                     }
                     is Decision.Wake -> if (now > refractoryUntil) {
                         refractoryUntil = now + 5_000
@@ -199,6 +222,7 @@ class WakeService : Service() {
             }
         } catch (_: InterruptedException) {
         } finally {
+            duck.restore()
             drop()
             runCatching { rec.close() }; runCatching { model.close() }
         }
@@ -299,6 +323,13 @@ class WakeService : Service() {
             data class Command(val control: NoaMedia.Control) : Decision
             /** «Санта, громкость на максимум / на пятьдесят процентов». */
             data class Volume(val percent: Int) : Decision
+        }
+
+        /** В услышанном (частичном) тексте есть имя целиком: «[unk] санта», «санта пау…». */
+        internal fun namePresent(text: String, words: List<String>): Boolean {
+            if (words.isEmpty() || text.isBlank()) return false
+            val t = text.lowercase().split(Regex("\\s+"))
+            return words.all { it in t }
         }
 
         /**

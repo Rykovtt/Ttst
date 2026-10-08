@@ -354,6 +354,12 @@ private fun WakeRow() {
             s.assistantMusicWake.set(next)
             com.kartoteka.app.assistant.WakeService.restart(context)
         }
+        val duck by s.assistantMusicDuck.value.collectAsState()
+        ToggleRow(
+            Icons.Default.RecordVoiceOver, t("Приглушать музыку, когда зовут"),
+            t("Услышав «%1\$s» при музыке, ассистент на пару секунд делает её тише — команду можно сказать обычным голосом, не перекрикивая. Потом громкость возвращается.", name),
+            duck, s.assistantMusicDuck::set,
+        )
         var showDiag by remember { mutableStateOf(false) }
         ActionRow(Icons.Default.RecordVoiceOver, t("Журнал слуха"), t("Что услышал распознаватель имени и что решил — пришлите, если не слышит.")) { showDiag = true }
         if (showDiag) {
