@@ -28,7 +28,10 @@ object NoaMedia {
     /** Что именно включить: готовая ссылка (видео/плейлист) или запрос для плеера. */
     data class Target(val pkg: String?, val label: String, val url: String? = null, val title: String? = null)
 
-    enum class Control { PAUSE, RESUME, NEXT, PREV, SHUFFLE_ON, SHUFFLE_OFF, REPEAT, STOP, LOUDER, QUIETER, WHAT }
+    /** RESTART — трек с начала; FORWARD/REWIND — перемотка на [SEEK_SEC] (или названное число секунд). */
+    enum class Control { PAUSE, RESUME, NEXT, PREV, SHUFFLE_ON, SHUFFLE_OFF, REPEAT, STOP, LOUDER, QUIETER, WHAT, RESTART, FORWARD, REWIND }
+
+    const val SEEK_SEC = 15
 
     // ---------- поиск на YouTube (только по команде человека; в запросе — только то, что он сказал) ----------
 
@@ -165,7 +168,7 @@ object NoaMedia {
     // ---------- управление ----------
 
     /** Пауза/дальше/перемешать… Возвращает false, если нужное действие недоступно без доступа к уведомлениям. */
-    fun control(context: Context, c: Control, pkg: String? = null): Boolean {
+    fun control(context: Context, c: Control, pkg: String? = null, seconds: Int = SEEK_SEC): Boolean {
         val mc = NoaNotifications.player(context, pkg) ?: NoaNotifications.player(context)
         val am = context.getSystemService(AudioManager::class.java)
         if (mc != null) {
@@ -183,6 +186,9 @@ object NoaMedia {
                     Control.LOUDER -> mc.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI).also { mc.adjustVolume(AudioManager.ADJUST_RAISE, 0) }
                     Control.QUIETER -> mc.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI).also { mc.adjustVolume(AudioManager.ADJUST_LOWER, 0) }
                     Control.WHAT -> Unit
+                    Control.RESTART -> tc.seekTo(0)
+                    Control.FORWARD -> tc.seekTo(position(mc) + seconds * 1000L)
+                    Control.REWIND -> tc.seekTo((position(mc) - seconds * 1000L).coerceAtLeast(0))
                 }
             }.isSuccess
         }
@@ -194,11 +200,31 @@ object NoaMedia {
             Control.NEXT -> { key(KeyEvent.KEYCODE_MEDIA_NEXT); true }
             Control.PREV -> { key(KeyEvent.KEYCODE_MEDIA_PREVIOUS); true }
             Control.STOP -> { key(KeyEvent.KEYCODE_MEDIA_STOP); true }
+            Control.RESTART -> { key(KeyEvent.KEYCODE_MEDIA_PREVIOUS); true }
+            Control.FORWARD -> { key(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD); true }
+            Control.REWIND -> { key(KeyEvent.KEYCODE_MEDIA_REWIND); true }
             Control.LOUDER -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, if (it == 0) AudioManager.FLAG_SHOW_UI else 0) }; true }
             Control.QUIETER -> { repeat(2) { am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, if (it == 0) AudioManager.FLAG_SHOW_UI else 0) }; true }
             else -> false
         }
     }
+
+    /** Текущая позиция трека с учётом времени, прошедшего с последнего обновления состояния плеера. */
+    private fun position(mc: android.media.session.MediaController): Long {
+        val st = mc.playbackState ?: return 0
+        val base = st.position.coerceAtLeast(0)
+        if (st.state != android.media.session.PlaybackState.STATE_PLAYING) return base
+        val dt = android.os.SystemClock.elapsedRealtime() - st.lastPositionUpdateTime
+        return base + (dt * st.playbackSpeed).toLong().coerceAtLeast(0)
+    }
+
+    /** Громкость музыки на [percent] % (0..100), с системным ползунком на экране. */
+    fun setVolumePercent(context: Context, percent: Int): Boolean = runCatching {
+        val am = context.getSystemService(AudioManager::class.java)
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val idx = Math.round(percent.coerceIn(0, 100) * max / 100f).coerceIn(if (percent > 0) 1 else 0, max)
+        am.setStreamVolume(AudioManager.STREAM_MUSIC, idx, AudioManager.FLAG_SHOW_UI)
+    }.isSuccess
 
     /** Перемешивание/повтор через MediaControllerCompat (его понимают YouTube Music, Spotify и др.). */
     private fun shuffleCompat(context: Context, mc: android.media.session.MediaController, shuffle: Boolean?) {

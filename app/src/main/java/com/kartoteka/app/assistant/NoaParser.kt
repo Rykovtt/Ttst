@@ -60,7 +60,8 @@ sealed interface NoaIntent {
     /** «Открой голосовые заметки об Илье и начни запись»: диктовка в зашифрованную заметку человека; стоп — голосом. */
     data class VoiceNote(val personQuery: String) : NoaIntent
     /** Пауза, дальше, перемешать, громче… в плеере, который сейчас играет. */
-    data class Media(val control: NoaMedia.Control) : NoaIntent
+    /** [seconds] — для перемотки («перемотай на 30 секунд»); 0 — шаг по умолчанию. */
+    data class Media(val control: NoaMedia.Control, val seconds: Int = 0) : NoaIntent
     /** Ответить человеку в мессенджере (кнопка «Ответить» уведомления), без открытия приложения. */
     data class Reply(val personQuery: String, val text: String) : NoaIntent
     /** Прочитать новые сообщения (от человека или все). [wait] — ждать ответа и прочитать, когда придёт. */
@@ -862,6 +863,20 @@ object NoaParser {
         val music = has(s, "музык", "музик", "трек", "песн", "пісн", "плеер", "плеєр", "видео", "відео", "воспроизвед", "відтворен", "music", "song", "track")
         val c = when {
             has(s, "сними с паузы", "зніми з паузи", "сними паузу", "зніми паузу") -> NoaMedia.Control.RESUME
+            // перемотка: «перемотай вперёд», «отмотай назад на 30 секунд», «перемотай на минуту»
+            has(s, "перемот", "отмот", "промот", "відмот", "прокрути вперед", "прокрути вперёд", "fast forward", "rewind") ->
+                if (has(s, "назад", "back", "rewind") || has(s, "отмот", "відмот")) NoaMedia.Control.REWIND else NoaMedia.Control.FORWARD
+            // трек с начала: «заново», «сначала», «включи песню заново»
+            (has(s, "заново", "сначала", "с начала", "спочатку", "з початку", "наново", "from the start", "restart") && (words <= 4 || music)) &&
+                !has(s, "запиш", "запис", "напиш", "заметк", "нотатк") -> NoaMedia.Control.RESTART
+            // «повтори эту песню / трек» — повтор трека (голое «повтори» — повторить ответ, это диалог)
+            has(s, "повтори", "повторюй", "повторяй") && music && !has(s, "что", "що") -> NoaMedia.Control.REPEAT
+            // короткое «плей», «воспроизведи», «играй», «включи обратно / звук» — продолжить
+            // целым словом: «плей» — не «плейлист»
+            words <= 2 && s.trim().split(" ").any { it in RESUME_WORDS } -> NoaMedia.Control.RESUME
+            has(s, "воспроизвед", "відтворен") && words <= 4 -> NoaMedia.Control.RESUME
+            words <= 3 && has(s, "включи обратно", "включи снова", "включи опять", "увімкни знову", "увімкни назад", "включи звук", "увімкни звук", "верни звук", "поверни звук") -> NoaMedia.Control.RESUME
+            words <= 3 && has(s, "выключи звук", "отключи звук", "вимкни звук", "без звука", "без звуку", "убери звук", "прибери звук", "mute") -> NoaMedia.Control.PAUSE
             has(s, "что играет", "что сейчас играет", "що грає", "що зараз грає", "что за песня", "що за пісня", "what's playing", "what is playing", "какая песня", "яка пісня") -> NoaMedia.Control.WHAT
             has(s, "пауз", "pause", "останови", "зупини", "призупини", "стоп музык", "выключи музык", "вимкни музик", "stop music", "замолчи") && !has(s, "будильник", "таймер") -> NoaMedia.Control.PAUSE
             words <= 2 && has(s, "стоп", "stop", "хватит", "досить") -> NoaMedia.Control.PAUSE
@@ -884,7 +899,41 @@ object NoaParser {
         // «Включи музыку / Rammstein в случайном порядке» — тоже включение (с перемешиванием), а не просто управление.
         if (c == NoaMedia.Control.SHUFFLE_ON && has(s, "включи", "увімкни", "ввімкни", "поставь", "постав", "запусти", "play") &&
             (has(s, "музык", "музик", "песн", "пісн", "трек", "альбом", "радио", "радіо", "music", "song") || playIntent(s, null).query.isNotBlank())) return null
+        if (c == NoaMedia.Control.FORWARD || c == NoaMedia.Control.REWIND) return NoaIntent.Media(c, seekSeconds(s))
         return NoaIntent.Media(c)
+    }
+
+    private val RESUME_WORDS = setOf("плей", "play", "играй", "грай", "воспроизведи", "воспроизвести", "відтвори", "відтворити")
+
+    /** «на 30 секунд», «на тридцать секунд», «на минуту», «на 2 минуты» → секунды; не названо — 0 (шаг по умолчанию). */
+    private fun seekSeconds(s: String): Int {
+        val t = numbersInWords(s)
+        Regex("(\\d{1,3})\\s*(?:сек|с\\b|sec)").find(t)?.let { return it.groupValues[1].toInt().coerceIn(1, 600) }
+        Regex("(\\d{1,2})\\s*(?:мин|хв|min)").find(t)?.let { return (it.groupValues[1].toInt() * 60).coerceIn(1, 3600) }
+        if (has(t, "минуту", "хвилину", "a minute", "one minute")) return 60
+        if (has(t, "полминуты", "пів хвилини", "півхвилини")) return 30
+        return 0
+    }
+
+    /** Числа словами → цифрами для громкости и перемотки: «пятьдесят», «двадцать пять», «сто», «п'ятдесят». */
+    internal fun numbersInWords(s: String): String {
+        val tens = mapOf("десять" to 10, "двадцать" to 20, "двадцять" to 20, "тридцать" to 30, "тридцять" to 30, "сорок" to 40,
+            "пятьдесят" to 50, "пятдесят" to 50, "п'ятдесят" to 50, "шестьдесят" to 60, "шістдесят" to 60, "семьдесят" to 70, "сімдесят" to 70,
+            "восемьдесят" to 80, "вісімдесят" to 80, "девяносто" to 90, "дев'яносто" to 90, "сто" to 100,
+            "пятнадцать" to 15, "п'ятнадцять" to 15, "пятнадцять" to 15, "двенадцать" to 12, "одинадцять" to 11)
+        val ones = mapOf("один" to 1, "одну" to 1, "одна" to 1, "два" to 2, "две" to 2, "дві" to 2, "три" to 3, "четыре" to 4, "чотири" to 4,
+            "пять" to 5, "п'ять" to 5, "шесть" to 6, "шість" to 6, "семь" to 7, "сім" to 7, "восемь" to 8, "вісім" to 8, "девять" to 9, "дев'ять" to 9)
+        val out = ArrayList<String>()
+        val w = s.trim().split(" ")
+        var i = 0
+        while (i < w.size) {
+            val t = tens[w[i]]
+            if (t != null) {
+                val o = if (t >= 20 && t % 10 == 0 && t < 100) w.getOrNull(i + 1)?.let { ones[it] } else null
+                out += (t + (o ?: 0)).toString(); i += if (o != null) 2 else 1
+            } else { out += w[i]; i++ }
+        }
+        return " " + out.joinToString(" ").trim() + " "
     }
 
     /** «Прочитай сообщения», «что пишет Илья», «ответь Илье: буду в пять», «дождись ответа и прочитай». */
@@ -1320,8 +1369,11 @@ object NoaParser {
      * Громкость в процентах: «громкость на 40», «сделай громче на 20 процентов», «убавь на 10 %», «громкость на максимум / минимум».
      * Без числа («погромче») — обычные шаги плеера, см. [media].
      */
-    private fun volume(s: String): NoaIntent.Volume? {
-        if (s.trim().split(" ").size > 10) return null
+    private fun volume(sRaw: String): NoaIntent.Volume? {
+        if (sRaw.trim().split(" ").size > 10) return null
+        val s = numbersInWords(sRaw)
+        // «на полную», «на максимум» коротко — громкость, даже без слова «громкость»
+        if (s.trim().split(" ").size <= 3 && has(s, "на полную", "на повну", "на максимум", "на всю")) return NoaIntent.Volume(NoaIntent.VolumeKind.MAX)
         val mention = has(s, "громк", "гучн", "звук", "volume")
         val up = has(s, *VOL_UP); val down = has(s, *VOL_DOWN)
         if (!mention && !up && !down) return null
@@ -1339,6 +1391,9 @@ object NoaParser {
             pct != null && down && !up -> NoaIntent.Volume(NoaIntent.VolumeKind.DOWN, pct)
             pct != null && mention -> NoaIntent.Volume(NoaIntent.VolumeKind.SET, pct)
             half && mention -> NoaIntent.Volume(NoaIntent.VolumeKind.SET, 50)
+            // «увеличь громкость», «громкость больше», «звук меньше» — на шаг (10 %)
+            mention && (up || has(s, "больше", "більше", "выше", "вище", "up")) && !down -> NoaIntent.Volume(NoaIntent.VolumeKind.UP, 10)
+            mention && (down || has(s, "меньше", "менше", "ниже", "нижче", "down")) && !up -> NoaIntent.Volume(NoaIntent.VolumeKind.DOWN, 10)
             else -> null
         }
     }

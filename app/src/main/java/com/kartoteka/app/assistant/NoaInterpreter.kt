@@ -934,6 +934,9 @@ class NoaInterpreter(private val brain: LlmBrain?) {
         "louder", "volume_up" -> NoaMedia.Control.LOUDER
         "quieter", "volume_down" -> NoaMedia.Control.QUIETER
         "what", "now_playing" -> NoaMedia.Control.WHAT
+        "restart", "from_start", "replay" -> NoaMedia.Control.RESTART
+        "forward", "fast_forward", "seek_forward" -> NoaMedia.Control.FORWARD
+        "rewind", "seek_back", "backward" -> NoaMedia.Control.REWIND
         else -> null
     }
 

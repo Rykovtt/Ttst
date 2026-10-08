@@ -175,7 +175,7 @@ class Noa(private val app: KartotekaApp) {
             }
             is NoaIntent.Timer -> Reply.Do(t("Запускаю таймер: %1\$s.", durationText(intent.seconds))) { PhoneActions.timer(it, intent.seconds) }
             is NoaIntent.Play -> play(intent)
-            is NoaIntent.Media -> media(intent.control)
+            is NoaIntent.Media -> media(intent.control, intent.seconds)
             is NoaIntent.Volume -> volume(intent)
             is NoaIntent.VoiceNote -> voiceNote(intent)
             is NoaIntent.Reply -> replyTo(intent)
@@ -838,7 +838,8 @@ class Noa(private val app: KartotekaApp) {
         }
     }
 
-    private fun media(c: NoaMedia.Control): Reply {
+    private fun media(c: NoaMedia.Control, seconds: Int = 0): Reply {
+        val sec = if (seconds > 0) seconds else NoaMedia.SEEK_SEC
         if (c == NoaMedia.Control.WHAT) {
             val now = NoaMedia.nowPlaying(app)
                 ?: return Reply.Say(if (NoaNotifications.granted(app)) t("Сейчас ничего не играет.") else t("Чтобы я видела, что играет, включите мне доступ к уведомлениям в настройках ассистента."))
@@ -860,9 +861,12 @@ class Noa(private val app: KartotekaApp) {
             NoaMedia.Control.REPEAT -> t("Повторяю."); NoaMedia.Control.STOP -> t("Остановила.")
             NoaMedia.Control.LOUDER -> t("Громче."); NoaMedia.Control.QUIETER -> t("Тише.")
             NoaMedia.Control.WHAT -> ""
+            NoaMedia.Control.RESTART -> t("Сначала.")
+            NoaMedia.Control.FORWARD -> t("Вперёд на %1\$s с.", sec)
+            NoaMedia.Control.REWIND -> t("Назад на %1\$s с.", sec)
         }
         // Короткий ответ без голоса — чтобы не перебивать музыку.
-        return Reply.Do(text, quiet = true) { ctx -> NoaMedia.control(ctx, c) }
+        return Reply.Do(text, quiet = true) { ctx -> NoaMedia.control(ctx, c, seconds = sec) }
     }
 
     // ---------- сообщения ----------

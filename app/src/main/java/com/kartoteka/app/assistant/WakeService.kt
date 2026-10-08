@@ -113,7 +113,7 @@ class WakeService : Service() {
         if (model == null) { main.post { stopSelf() }; return }
         // Грамматика: только имя и пара «зовущих» фраз; всё остальное — «[unk]», поэтому случайная речь не будит.
         val name = words.joinToString(" ")
-        val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]") + COMMANDS.keys.map { "$name $it" }
+        val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]") + (COMMANDS.keys + VOLUME.keys).map { "$name $it" }
         val rec = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), JSONArray(phrases.distinct()).toString()) }.getOrNull()
         if (rec == null) { model.close(); main.post { stopSelf() }; return }
         rec.setWords(true)
@@ -176,7 +176,7 @@ class WakeService : Service() {
                 // Вторая проверка: настоящая речь с именем, а не похожий звук из видео/рилсов, которые «подпали» под узкую грамматику.
                 val snapshot = ShortArray(ringFilled) { ring[(ringPos - ringFilled + it + ring.size) % ring.size] }
                 // При музыке свободное распознавание тонет в звуке и «не пускает» настоящий зов — по умолчанию его не требуем (режим «строго» требует).
-                val genuine = if (playing && mode != "strict") true else verify(model, snapshot, words, d is Decision.Command)
+                val genuine = if (playing && mode != "strict") true else verify(model, snapshot, words, d !is Decision.Wake)
                 WakeDiag.add(playing, final, text, if (genuine) "ПРИНЯТО $d" else "отклонено проверкой")
                 rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null
                 if (!genuine) continue
@@ -184,6 +184,10 @@ class WakeService : Service() {
                     is Decision.Command -> if (now > cmdRefractoryUntil) {
                         cmdRefractoryUntil = now + 1_500
                         main.post { NoaMedia.control(applicationContext, d.control); buzz() }
+                    }
+                    is Decision.Volume -> if (now > cmdRefractoryUntil) {
+                        cmdRefractoryUntil = now + 1_500
+                        main.post { NoaMedia.setVolumePercent(applicationContext, d.percent); buzz() }
                     }
                     is Decision.Wake -> if (now > refractoryUntil) {
                         refractoryUntil = now + 5_000
@@ -293,18 +297,57 @@ class WakeService : Service() {
         sealed interface Decision {
             data class Wake(val ping: Boolean) : Decision
             data class Command(val control: NoaMedia.Control) : Decision
+            /** «Санта, громкость на максимум / на пятьдесят процентов». */
+            data class Volume(val percent: Int) : Decision
         }
 
-        /** Команды плеера, которые можно сказать сразу после имени: «Санта, пауза». */
-        internal val COMMANDS: Map<String, NoaMedia.Control> = mapOf(
-            "пауза" to NoaMedia.Control.PAUSE, "паузу" to NoaMedia.Control.PAUSE, "стоп" to NoaMedia.Control.PAUSE,
-            "хватит" to NoaMedia.Control.PAUSE, "замолчи" to NoaMedia.Control.PAUSE, "останови" to NoaMedia.Control.PAUSE,
-            "дальше" to NoaMedia.Control.NEXT, "далее" to NoaMedia.Control.NEXT, "следующий" to NoaMedia.Control.NEXT,
-            "следующая" to NoaMedia.Control.NEXT, "переключи" to NoaMedia.Control.NEXT,
-            "назад" to NoaMedia.Control.PREV, "предыдущий" to NoaMedia.Control.PREV,
-            "громче" to NoaMedia.Control.LOUDER, "тише" to NoaMedia.Control.QUIETER,
-            "продолжи" to NoaMedia.Control.RESUME, "продолжай" to NoaMedia.Control.RESUME, "играй" to NoaMedia.Control.RESUME,
-        )
+        /**
+         * Команды плеера, которые можно сказать сразу после имени: «Санта, пауза», «Санта, сделай громче».
+         * Грамматика Vosk пропускает любые сочетания своих слов, поэтому:
+         *  - все слова есть в словаре vosk-model-small-ru-0.22 (вне словаря — молча выбрасываются: «play», «возобнови»,
+         *    «вперед», «еще», украинские);
+         *  - нет коротких слов «на», «с», «в»: с ними «санта назад» распознавалось как «санта на». Сказанное «на»
+         *    модель просто проглатывает: «громкость на максимум» → «громкость максимум», «на паузу» → «паузу»;
+         *  - голого «включи» нет: «Санта, включи Rammstein» — просьба ассистенту, а не «продолжить».
+         * Проверено синтезированной речью (espeak-ng) через ту же модель и грамматику.
+         */
+        internal val COMMANDS: Map<String, NoaMedia.Control> = buildMap {
+            fun put(c: NoaMedia.Control, vararg p: String) = p.forEach { put(it, c) }
+            put(NoaMedia.Control.PAUSE, "пауза", "паузу", "стоп", "хватит", "замолчи", "останови", "останови музыку",
+                "выключи", "выключи музыку", "выключи звук")
+            put(NoaMedia.Control.RESUME, "продолжи", "продолжай", "продолжить", "продолжи музыку", "играй", "играй дальше", "плей",
+                "воспроизведи", "воспроизвести", "воспроизведение", "включи музыку", "включи обратно", "включи снова", "поехали", "старт")
+            put(NoaMedia.Control.NEXT, "дальше", "далее", "следующий", "следующая", "следующую", "следующий трек", "следующая песня",
+                "следующую песню", "переключи", "другую", "другую песню", "пропусти")
+            put(NoaMedia.Control.PREV, "назад", "предыдущий", "предыдущая", "предыдущую", "предыдущий трек", "предыдущая песня",
+                "предыдущую песню", "прошлую", "прошлую песню", "верни", "верни назад")
+            put(NoaMedia.Control.RESTART, "заново", "трек заново", "песню заново")
+            put(NoaMedia.Control.FORWARD, "перемотай", "перемотай вперёд", "вперёд")
+            put(NoaMedia.Control.REWIND, "перемотай назад")
+            put(NoaMedia.Control.LOUDER, "громче", "погромче", "ещё громче", "сделай громче", "сделай погромче",
+                "прибавь", "прибавь звук", "прибавь громкость", "громкость больше", "звук громче", "увеличь громкость", "громче звук")
+            put(NoaMedia.Control.QUIETER, "тише", "потише", "ещё тише", "сделай тише", "сделай потише",
+                "убавь", "убавь звук", "убавь громкость", "громкость меньше", "звук тише", "уменьши громкость", "тише звук")
+            put(NoaMedia.Control.SHUFFLE_ON, "перемешай")
+        }
+
+        /** Громкость сразу на нужный уровень: «Санта, громкость на максимум / на пятьдесят процентов / на полную». */
+        internal val VOLUME: Map<String, Int> = buildMap {
+            for (w in listOf("громкость", "звук")) {
+                put("$w максимум", 100); put("$w минимум", 10); put("$w половину", 50)
+            }
+            put("максимум", 100); put("полную", 100); put("полная громкость", 100); put("максимальная громкость", 100)
+            put("минимальная громкость", 10)
+            val tens = listOf("десять" to 10, "двадцать" to 20, "тридцать" to 30, "сорок" to 40, "пятьдесят" to 50,
+                "шестьдесят" to 60, "семьдесят" to 70, "восемьдесят" to 80, "девяносто" to 90, "сто" to 100)
+            for ((w, p) in tens) {
+                put("громкость $w", p); put("громкость $w процентов", p); put("звук $w", p); put("звук $w процентов", p)
+            }
+        }
+
+        /** Слова команд — для повторной проверки свободным распознаванием («на», «звук» и т.п. ничего не доказывают). */
+        private val COMMAND_WORDS: Set<String> = (COMMANDS.keys + VOLUME.keys).flatMap { it.split(' ') }.toSet() -
+            setOf("звук", "сделай", "ещё", "музыку", "песню", "трек", "громкость", "процентов", "снова", "обратно")
 
         /**
          * Что значит услышанное: зов («Ноа», «Эй, Ноа», «Привет, Ноа», «Ноа, ты тут»), команда плеера («Ноа, пауза») или ничего.
@@ -322,7 +365,11 @@ class WakeService : Service() {
                 if ("[unk]" in t) return null
             }
             if (t.isEmpty()) return null
-            if (t.size == words.size + 1 && t.take(words.size) == words) COMMANDS[t.last()]?.let { return Decision.Command(it) }
+            if (t.size > words.size && t.take(words.size) == words) {
+                val cmd = t.drop(words.size).joinToString(" ")
+                COMMANDS[cmd]?.let { return Decision.Command(it) }
+                VOLUME[cmd]?.let { return Decision.Volume(it) }
+            }
             val name = words.joinToString(" ")
             val phrase = t.joinToString(" ")
             if (phrase in setOf("эй $name", "привет $name", "$name ты тут")) return Decision.Wake(ping = phrase.endsWith("тут"))
@@ -344,7 +391,7 @@ class WakeService : Service() {
                 t == w || (w.length >= 4 && editDistance(t, w) <= 1) || (w.length <= 3 && editDistance(t, w) <= 1 && t.firstOrNull() == w.firstOrNull() && t.length <= 3)
             }
             if (!words.all { nameOk(it) }) return false
-            return !command || tokens.any { it in COMMANDS }
+            return !command || tokens.any { it in COMMAND_WORDS }
         }
 
         internal fun editDistance(a: String, b: String): Int {

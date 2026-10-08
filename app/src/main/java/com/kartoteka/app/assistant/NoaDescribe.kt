@@ -95,6 +95,9 @@ object NoaDescribe {
         NoaMedia.Control.LOUDER -> t("громче")
         NoaMedia.Control.QUIETER -> t("тише")
         NoaMedia.Control.WHAT -> t("что сейчас играет")
+        NoaMedia.Control.RESTART -> t("трек сначала")
+        NoaMedia.Control.FORWARD -> t("перемотать вперёд")
+        NoaMedia.Control.REWIND -> t("перемотать назад")
     }
 
     private fun duration(sec: Int): String {
