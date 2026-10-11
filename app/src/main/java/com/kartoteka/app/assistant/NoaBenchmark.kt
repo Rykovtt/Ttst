@@ -24,7 +24,7 @@ object NoaBenchmark {
     internal fun firstStep(sig: String) = sig.removePrefix("Seq(").substringBefore(',').removeSuffix(")")
 
     /** Эти команды модель выразить не может (их нет среди её действий) — их разбирают только правила. */
-    private val RULES_ONLY = setOf("Tool", "Calc", "Convert", "Crm", "Dismiss", "Repeat", "Wrong", "Unknown")
+    private val RULES_ONLY = setOf("Tool", "Calc", "Convert", "Crm", "Dismiss", "Repeat", "Ping", "Wrong", "Unknown")
 
     data class Item(val phrase: String, val expected: String, val group: String)
 

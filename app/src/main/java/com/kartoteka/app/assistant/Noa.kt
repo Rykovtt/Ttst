@@ -134,6 +134,7 @@ class Noa(private val app: KartotekaApp) {
             is NoaIntent.Crm -> crm(intent, now)
             is NoaIntent.Dismiss -> { pendingBooking = null; awaitingConfirm = null; Reply.Say(t("Хорошо, отменила.")) }
             is NoaIntent.Repeat -> lastReply ?: Reply.Say(t("Мне пока нечего повторять."))
+            is NoaIntent.Ping -> Reply.Say(t("Да, я тут. Чем помочь?"))
             is NoaIntent.Lock -> Reply.Confirm(t("Заблокировать приложение?")) {
                 app.settings.setLockEnabled(true); Reply.Say(t("Готово, заблокировала."))
             }

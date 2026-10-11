@@ -51,5 +51,7 @@ internal class MusicDuck(private val io: VolumeIO, private val clock: () -> Long
         /** До какой доли текущей громкости приглушать. */
         const val LEVEL = 0.3f
         const val HOLD_MS = 4_000L
+        /** Сколько ждать начала команды после имени: не пошла — имя послышалось в песне, громкость возвращаем. */
+        const val CONFIRM_MS = 1_500L
     }
 }

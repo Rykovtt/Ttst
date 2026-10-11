@@ -84,4 +84,29 @@ class MusicCommandsTest {
         assertTrue(parse("запиши Аню на завтра в 10") is NoaIntent.CreateAppointment)
         assertTrue(parse("поставь будильник на 7") is NoaIntent.Alarm)
     }
+
+    /** Дослушанная фраза: самая длинная команда после имени, хвост из музыки не мешает. */
+    @Test fun settledPhrase() {
+        assertEquals(Decision.Volume(70), WakeService.decideSettled("санта громкость семьдесят процентов", santa))
+        assertEquals(Decision.Volume(70), WakeService.decideSettled("[unk] санта громкость семьдесят река", santa))
+        assertEquals(Decision.Command(NoaMedia.Control.NEXT), WakeService.decideSettled("санта следующий трек", santa))
+        assertNull(WakeService.decideSettled("санта река стоп", santa))
+        assertNull(WakeService.decideSettled("сам там стоп", santa))
+    }
+
+    @Test fun commandStartedAfterName() {
+        assertTrue(WakeService.commandStarted("[unk] санта громкость", santa))
+        assertTrue(WakeService.commandStarted("санта пауза", santa))
+        assertTrue(!WakeService.commandStarted("санта клаус", santa) && !WakeService.commandStarted("санта", santa))
+    }
+
+    /** Приманки не пересекаются с именем, его созвучиями на одну букву и словами команд. */
+    @Test fun decoysDoNotStealCommands() {
+        val d = WakeService.decoys(santa)
+        assertTrue(d.size > 150)
+        val cmdWords = (WakeService.COMMANDS.keys + WakeService.VOLUME.keys).flatMap { it.split(' ') }.toSet()
+        assertTrue(d.none { it in cmdWords || it == "санта" || it.length <= 2 })
+        assertTrue("сам" in d && "сантехник" in d)
+        assertTrue("саня" !in WakeService.decoys(listOf("саня")))
+    }
 }

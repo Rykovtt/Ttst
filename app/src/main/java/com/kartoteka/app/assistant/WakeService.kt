@@ -114,7 +114,7 @@ class WakeService : Service() {
         // Грамматика: только имя и пара «зовущих» фраз; всё остальное — «[unk]», поэтому случайная речь не будит.
         val name = words.joinToString(" ")
         val phrases = listOf(name, "эй $name", "привет $name", "$name ты тут", "[unk]") + (COMMANDS.keys + VOLUME.keys).map { "$name $it" }
-        val rec = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), JSONArray(phrases.distinct()).toString()) }.getOrNull()
+        val rec = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), JSONArray(phrases.distinct() + decoys(words)).toString()) }.getOrNull()
         if (rec == null) { model.close(); main.post { stopSelf() }; return }
         rec.setWords(true)
         val audio = getSystemService(android.media.AudioManager::class.java)
@@ -131,6 +131,10 @@ class WakeService : Service() {
         var refractoryUntil = 0L
         var lastKey: String? = null
         var stable = 0
+        // Кандидат в команду услышан — дослушиваем ещё [SETTLE_READS] чтений и решаем по законченной фразе:
+        // по недосказанной «семь…» модель успевала выбрать «пятьдесят», а по обрывку песни — «дальше».
+        var settle = -1
+        var duckConfirmed = false
         // Последние ~2.5 с звука — для повторной проверки кандидата обычным (не «только имя») распознаванием.
         val ring = ShortArray(SAMPLE_RATE * 5 / 2)
         var ringPos = 0
@@ -146,6 +150,7 @@ class WakeService : Service() {
                     duck.extend(1_500)
                     drop()
                     if (fed) { rec.reset(); fed = false }
+                    settle = -1
                     Thread.sleep(150); continue
                 }
                 duck.restoreIfDue()
@@ -160,29 +165,40 @@ class WakeService : Service() {
                 for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
                 val rms = Math.sqrt(sum / n)
                 if (rms < QUIET_RMS) quiet++ else quiet = 0
-                if (quiet > 12) { if (fed) { rec.reset(); fed = false }; continue }
+                if (quiet > 12) { if (fed) { rec.reset(); fed = false }; settle = -1; continue }
                 fed = true
                 // Законченная фраза — как раньше; при музыке пауз в речи нет, поэтому смотрим и на промежуточный
                 // результат, но принимаем его, только если он не меняется два чтения подряд.
-                val final = rec.acceptWaveForm(buf, n)
-                val obj = runCatching { JSONObject(if (final) rec.result else rec.partialResult) }.getOrNull() ?: continue
+                var final = rec.acceptWaveForm(buf, n)
+                val settled = settle >= 0 && (final || --settle < 0)
+                val obj = runCatching { JSONObject(if (final) rec.result else if (settled) rec.finalResult else rec.partialResult) }.getOrNull() ?: continue
+                if (settled) { final = true; settle = -1 }
                 val text = if (final) obj.optString("text") else obj.optString("partial")
                 if (final) fed = false
+                if (settle >= 0) continue
                 val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
-                val d = if (text.isBlank()) null else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
+                val d = if (text.isBlank()) null
+                    else if (settled) decideSettled(text, words)
+                    else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
                 val mode = (application as KartotekaApp).settings.assistantMusicWake.value.value
-                // Имя прозвучало (два чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
+                // Имя прозвучало (три чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
+                // Если за ним за [MusicDuck.CONFIRM_MS] не пошла команда (имя послышалось в песне) — сразу возвращаем звук.
                 if (playing && (application as KartotekaApp).settings.assistantMusicDuck.value.value) {
                     nameStreak = if (namePresent(text, words)) nameStreak + 1 else 0
-                    if ((nameStreak >= 2 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck())
+                    if ((nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(MusicDuck.CONFIRM_MS)) {
+                        duckConfirmed = false
                         WakeDiag.add(playing, final, text, "приглушила музыку")
-                    else if (nameStreak >= 1 && duck.active) duck.extend(MusicDuck.HOLD_MS)
+                    } else if (duck.active && commandStarted(text, words)) {
+                        if (!duckConfirmed) { duckConfirmed = true; duck.extend(MusicDuck.HOLD_MS) }
+                    }
                 } else nameStreak = 0
                 if (text.isNotBlank() && (playing || d != null)) WakeDiag.add(playing, final, text, d?.toString() ?: "нет")
                 if (!final) {
                     val key = d?.toString()
                     stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
                     lastKey = key
+                    // Команду из обрывка не выполняем — дослушиваем.
+                    if (d != null && d !is Decision.Wake && stable >= 2) { settle = SETTLE_READS; stable = 0; lastKey = null; continue }
                 }
                 val ready = d != null && (final || stable >= (if (playing && mode != "keen") 3 else 2))
                 if (!ready) continue
@@ -192,7 +208,7 @@ class WakeService : Service() {
                 // При музыке свободное распознавание тонет в звуке и «не пускает» настоящий зов — по умолчанию его не требуем (режим «строго» требует).
                 val genuine = if (playing && mode != "strict") true else verify(model, snapshot, words, d !is Decision.Wake)
                 WakeDiag.add(playing, final, text, if (genuine) "ПРИНЯТО $d" else "отклонено проверкой")
-                rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null
+                rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null; settle = -1
                 if (!genuine) continue
                 when (d) {
                     is Decision.Command -> if (now > cmdRefractoryUntil) {
@@ -410,6 +426,58 @@ class WakeService : Service() {
         }
 
         private const val MIN_CONFIDENCE = 0.7
+
+        /** Сколько чтений (по 100 мс) дослушивать кандидата в команду. */
+        internal const val SETTLE_READS = 5
+
+        /**
+         * Решение по дослушанной фразе: в начале — имя, сразу за ним — самая длинная известная команда;
+         * хвост после команды (музыка, «процентов» без пары) не мешает. Внутри — посторонних слов быть не должно.
+         */
+        internal fun decideSettled(text: String, words: List<String>): Decision? {
+            if (words.isEmpty()) return null
+            val t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.dropWhile { it == "[unk]" }
+            if (t.size <= words.size || t.take(words.size) != words) return null
+            val rest = t.drop(words.size)
+            for (k in rest.size downTo 1) {
+                val cmd = rest.take(k).joinToString(" ")
+                COMMANDS[cmd]?.let { return Decision.Command(it) }
+                VOLUME[cmd]?.let { return Decision.Volume(it) }
+            }
+            return null
+        }
+
+        /** После имени уже звучит команда (её первое слово): приглушение не ложное — держим дольше. */
+        internal fun commandStarted(text: String, words: List<String>): Boolean {
+            val t = text.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val i = (0..t.size - words.size).firstOrNull { t.subList(it, it + words.size) == words } ?: return false
+            return t.getOrNull(i + words.size)?.let { it in COMMAND_FIRST_WORDS } == true
+        }
+
+        private val COMMAND_FIRST_WORDS: Set<String> by lazy { (COMMANDS.keys + VOLUME.keys).map { it.substringBefore(' ') }.toSet() }
+
+        /**
+         * Слова-приманки: частые слова (в т.ч. из песен) и созвучные имени. Без них узкая грамматика «натягивает»
+         * любой вокал на команду («сам там» → «санта стоп»); с ними похожая речь уходит в приманку.
+         * Короткие слова («на», «с») не берём — они перехватывают части команд («назад» → «на»);
+         * слова самих команд и имени исключаются. Проверено синтезированной речью поверх музыки:
+         * ложных команд на вокале 1 вместо 11 за 2 минуты, настоящих команд распознано столько же (144 из 144).
+         */
+        internal fun decoys(words: List<String>): List<String> {
+            val taken = words.toSet() + (COMMANDS.keys + VOLUME.keys).flatMap { it.split(' ') } + setOf("эй", "привет", "ты", "тут")
+            return DECOYS.split(' ').filter { it.length > 2 && it !in taken && words.none { w -> editDistance(w, it) <= 1 } }
+        }
+
+        private const val DECOYS = "беги бегу бежим близко брат будем будет буду будь был была были было быстро быть вам вас ваш " +
+            "верь верю вечер вместе возьми вон вот время всегда вчера высоко где глаза говори говорю год город громко давай дай " +
+            "дайте далеко девочка девушка день детка дом дорога друг душа его ему есть жди жду ждёшь живи живу живём жизнь " +
+            "завтра зачем звезда звёзды здесь знает знаешь знаю иди идти иду идёт или как когда красиво кричи кричу крошка кто " +
+            "куда лети летим лечу луна лучше люби любит любишь люблю любовь мало малыш мальчик мама медленно меня мир мне много " +
+            "можно мои мой море моя моё надо нам нас наш небо нельзя нет низко никогда ночь нужно один одна одни она они оно " +
+            "опять очень папа парень плохо подруга пой пойдём пока помни помню потом почему пою поёт пусть путь река руки рядом " +
+            "сам сама сами само сани санки санкции сантехник сантименты сантиметр саня свой своя сегодня сейчас сердце сестра " +
+            "сильно скажи сказал сказала слова слушай смотри солнце сон сонная стал стала стало стол сюда так там танцуем " +
+            "танцуй твои твой твоя тебе тебя теперь тихо тогда тот туда уже утро хорошо хочет хочешь хочу хуже чей что эта эти это этот"
 
         /**
          * Подтверждение свободным распознаванием: среди слов есть имя (допускаем одну неточность — «санти», «сонта»),

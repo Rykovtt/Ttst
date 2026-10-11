@@ -90,6 +90,8 @@ sealed interface NoaIntent {
     data object Dismiss : NoaIntent
     /** «Повтори», «ещё раз», «что ты сказала» — повторить последний ответ или действие. */
     data object Repeat : NoaIntent
+    /** «Ты тут?», «ты меня слышишь» — просто откликнуться. */
+    data object Ping : NoaIntent
     data class Unknown(val heard: String) : NoaIntent
 
     enum class Channel { WHATSAPP, SMS, TELEGRAM, VIBER }
@@ -252,6 +254,7 @@ object NoaParser {
         "постав", "find", "play", "open", "и", "та", "і", "на", "в", "у", "с", "со", "ютуб", "ютубе", "ютюб", "ютюбе", "youtube", "пожалуйста", "будь", "ласка")
     private val QUESTION_START = Regex("^(?:какой|какая|какое|какие|сколько|где|когда|кто|что такое|почему|зачем|как|який|яка|яке|які|скільки|де|коли|хто|чому|навіщо|що таке)\\s")
     private val WORLD_Q = Regex("курс|валют|доллар|долар|евро|євро|биткоин|біткоїн|bitcoin|погод|новост|новин|цена|цены|ціна|ціни|стоит|коштує|столиц|столиця|температур|что такое|що таке|кто такой|хто такий|рецепт|население|населення|сколько лет|скільки років|результат матч|счёт матч")
+    private val OPEN_HOURS_Q = Regex("^ (?:а )?(?:работает ли|открыт ли|открыта ли|открыто ли|працює|чи працює|відкритий|до скольки|до скільки|во сколько (?:открывается|закрывается)|о котрій (?:відкривається|закривається))\\s|(?:часы|режим|графік|график) роботи?|(?:часы|режим|график) работы")
     private val PERSONAL_Q = Regex("у меня|у мене|в мене|мой|моя|моё|мои|мій|моя|мої|клиент|клієнт|запис|контакт|человек|людин|друг|жена|муж|мама|мам[іу]|папа|брат|сестр|день рожд|день народ|номер|телефон|адрес|заметк|нотатк|встреч|зустріч|карточк|картк")
 
     /** Фразы, которые основной разбор не осилил или осилил криво: «найди на ютубе X и включи», «плейлист понравившихся на максимум», вопрос в интернет. */
@@ -287,6 +290,9 @@ object NoaParser {
             val q = s.trim().split(" ").filter { it.isNotBlank() && it !in RESCUE_STOP && it !in FILLER_WORDS && it !in IT_WORDS }.joinToString(" ")
             if (q.isNotBlank()) return NoaIntent.Play(q, "youtube", false, false, false, true, "")
         }
+        // «Работает ли сейчас Макдональдс на Воздухофлотском», «до скольки работает АТБ» — в поиск
+        if (r is NoaIntent.Unknown && OPEN_HOURS_Q.containsMatchIn(s) && !PERSONAL_Q.containsMatchIn(s) && s.trim().split(" ").size >= 3)
+            return NoaIntent.WebSearch(original.trim())
         // Вопрос о мире («какой курс доллара в Украине») — в поиск, а не «не поняла»
         if (r is NoaIntent.Unknown && QUESTION_START.containsMatchIn(s.trim() + " ") && !PERSONAL_Q.containsMatchIn(s) && WORLD_Q.containsMatchIn(s) && s.trim().split(" ").size >= 3)
             return NoaIntent.WebSearch(original.trim())
@@ -389,6 +395,8 @@ object NoaParser {
     fun normalize(input: String): String = input
         // Распознаватель часто слышит «отправив» вместо «отправь»
         .replace(Regex("(?<=^|\\s)([Оо])тправив(?=\\s|$)"), "$1тправь")
+        // …и «ключи / ключі» вместо «включи / ввімкни» в начале фразы
+        .replace(Regex("^[Кк]лючи(?=\\s)"), "включи").replace(Regex("^[Кк]лючі(?=\\s)"), "ввімкни")
         .replace(Regex("(?<=\\d),(?=\\d)"), "\u0001")   // «2,5» и «15,30» — запятая внутри числа остаётся
         .replace(Regex("[,!?;…]+"), " ")
         .replace(Regex("\\.(?!\\d)|(?<!\\d)\\."), " ")
@@ -560,6 +568,11 @@ object NoaParser {
         if (has(s, "открой", "відкрий", "open")) {
             val rest = stripWords(s, OPEN_WORDS)
             if (PhoneActions.isAppName(rest)) return NoaIntent.LaunchApp(rest)
+        }
+        // «карточку Ильи Рыкова» — без глагола, просто название карточки и имя
+        if (Regex("^(?:карточк[уа]|картк[уа]|профиль|профіль|контакт)\\s").containsMatchIn(s.trim())) {
+            val who = extractPerson(s)
+            if (who.isNotBlank()) return NoaIntent.Open(who)
         }
         // открыть карточку
         if (has(s, "открой", "покажи карточку", "покажи контакт", "відкрий", "open", "зайди", "перейди", "покажи профил", "покажи профіл", "покажи картку")) {
@@ -1031,6 +1044,7 @@ object NoaParser {
         "ну еще раз", "давай еще раз", "давай ще раз", "а ну повтори", "повтори-ка", "повтори ка", "скажи это еще раз", "скажи ще раз це")
     private val REPEAT_RE = Regex("(?:скажи|повтори|повторите)(?: (?:мне|еще|ще|раз|это|то|же|последнее|последнюю|команду|ответ|останнє|останню|відповідь|будь|ласка))+" +
         "|(?:повтори(?:те)? )?(?:что|що) (?:ты|ти)(?: (?:сейчас|зараз))? (?:сказал[аи]?|казал[аи]?)")
+    private val PING_RE = Regex("(?:а |эй |алло )?(?:ты|ти|вы) (?:тут|здесь|там|ещё тут|еще тут|ще тут|на связи|меня слышишь|мене чуєш|слышишь меня|чуєш мене|слышишь|чуєш)|(?:алло|ау|ку-ку|ку ку)")
     private val NEGATIVE_RE = Regex("^(?:не (?:надо|нужно|треба|потрібно|звони|пиши|записывай|записуй|делай|роби|ищи|открывай|відкривай|включай|вмикай|отправляй|надсилай|телефонуй|дзвони)|давай не будем|давай не будемо|не будем|не будемо|не буду)(?: |$)")
 
     private fun dialogue(s: String): NoaIntent? {
@@ -1039,6 +1053,7 @@ object NoaParser {
         // «не надо записывать», «не звони», «давай не будем» — запрет: ничего не делаем
         if (NEGATIVE_RE.containsMatchIn(t)) return NoaIntent.Dismiss
         if (t in REPEAT || REPEAT_RE.matches(t)) return NoaIntent.Repeat
+        if (PING_RE.matches(t)) return NoaIntent.Ping
         return null
     }
 
@@ -1382,7 +1397,7 @@ object NoaParser {
             ?: Regex("(?:громк\\S*|гучн\\S*|звук\\S*|volume)\\s+(?:на\\s+|до\\s+|в\\s+|at\\s+|to\\s+)?(\\d{1,3})(?!\\d|:)").find(s)?.groupValues?.get(1)?.toIntOrNull()?.coerceIn(0, 100)
         val max = has(s, "на максимум", "максимальн", "до максимум", "на полную", "на повну", "на всю громк", "до упора", "на сто процент", "at max", "to max", "full volume")
         val min = has(s, "на минимум", "минимальн", "мінімальн", "на мінімум", "до минимум", "на ноль", "на нуль", "at minimum", "to minimum")
-        val half = has(s, "наполовину", "на половину", "на пол ", "наполовину")
+        val half = has(s, "наполовину", "на половину", "на пол ", "наполовину", "средн", "середн")
         return when {
             max && !down -> NoaIntent.Volume(NoaIntent.VolumeKind.MAX)
             min && !up -> NoaIntent.Volume(NoaIntent.VolumeKind.MIN)
@@ -1398,7 +1413,7 @@ object NoaParser {
         }
     }
 
-    private val VOLUME_TAIL = Regex("\\s+(?:и\\s+|та\\s+|і\\s+)?(?:на|в|до)\\s+(?:максимальн\\S*|максимум\\S*|минимальн\\S*|мінімальн\\S*|полн\\S*|повн\\S*|\\d{1,3}\\s*(?:%|процент\\S*))(?:\\s+(?:громк\\S*|гучн\\S*))?\\s*$", RegexOption.IGNORE_CASE)
+    private val VOLUME_TAIL = Regex("\\s+(?:и\\s+|та\\s+|і\\s+)?(?:на|в|до)\\s+(?:максимальн\\S*|максимум\\S*|минимальн\\S*|мінімальн\\S*|полн\\S*|повн\\S*|средн\\S*|середн\\S*|\\d{1,3}\\s*(?:%|процент\\S*))(?:\\s+(?:громк\\S*|гучн\\S*))?\\s*$", RegexOption.IGNORE_CASE)
 
     private fun note(original: String, s: String): NoaIntent.AddNote {
         quoted(original)?.let { text ->

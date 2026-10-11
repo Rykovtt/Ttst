@@ -24,7 +24,7 @@ object NoaTrust {
         // Управление телефоном без последствий: плеер, фонарик, свернуть.
         is NoaIntent.Media, is NoaIntent.Volume, is NoaIntent.Flashlight, is NoaIntent.GoHome -> false
         // Служебные: ничего не исполняют.
-        is NoaIntent.Wrong, is NoaIntent.Dismiss, is NoaIntent.Repeat, is NoaIntent.Unknown -> false
+        is NoaIntent.Wrong, is NoaIntent.Dismiss, is NoaIntent.Repeat, is NoaIntent.Ping, is NoaIntent.Unknown -> false
         // Всё остальное — пишет людям, меняет данные, звонит, уходит в сеть или в другие приложения.
         is NoaIntent.CreateAppointment, is NoaIntent.CancelAppointment, is NoaIntent.MoveAppointment,
         is NoaIntent.Call, is NoaIntent.Message, is NoaIntent.Reply, is NoaIntent.AddNote, is NoaIntent.Remind,
@@ -198,6 +198,7 @@ object NoaDescribe {
         is NoaIntent.Crm -> t("ответить на вопрос по картотеке")
         is NoaIntent.Dismiss -> t("отменить")
         is NoaIntent.Repeat -> t("повторить")
+        is NoaIntent.Ping -> t("откликнуться")
         is NoaIntent.Unknown -> t("ничего не делать")
     }
 
