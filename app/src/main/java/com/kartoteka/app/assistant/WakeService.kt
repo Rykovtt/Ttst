@@ -585,5 +585,5 @@ class WakeService : Service() {
         fun running(): Boolean = instance != null
     }
 
-    override fun onCreate() { super.onCreate(); instance = this }
+    override fun onCreate() { super.onCreate(); instance = this; WakeDiag.init(this) }
 }

@@ -361,14 +361,16 @@ private fun WakeRow() {
             duck, s.assistantMusicDuck::set,
         )
         var showDiag by remember { mutableStateOf(false) }
-        ActionRow(Icons.Default.RecordVoiceOver, t("Журнал слуха"), t("Что услышал распознаватель имени и что решил — пришлите, если не слышит.")) { showDiag = true }
+        ActionRow(Icons.Default.RecordVoiceOver, t("Журнал слуха"), t("Что услышал распознаватель имени и что решил (последние 2000 строк, сохраняются) — пришлите, если не слышит.")) { showDiag = true }
         if (showDiag) {
+            com.kartoteka.app.assistant.WakeDiag.init(context)
             val text = com.kartoteka.app.assistant.WakeDiag.text().ifBlank { t("Пока пусто: включите музыку и позовите ассистента, затем откройте снова.") }
             AlertDialog(
                 onDismissRequest = { showDiag = false },
                 title = { Text(t("Журнал слуха")) },
                 text = { androidx.compose.foundation.text.selection.SelectionContainer {
-                    Text(text.takeLast(3500), style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    // На экране — последние строки (весь журнал тяжело рисовать), «Скопировать» берёт его целиком.
+                    Text(text.takeLast(30_000), style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
                         modifier = Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) } },
                 confirmButton = { TextButton(onClick = {
                     context.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("wake", text))
