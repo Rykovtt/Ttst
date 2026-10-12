@@ -134,6 +134,7 @@ class WakeService : Service() {
         // Кандидат в команду услышан — дослушиваем ещё [SETTLE_READS] чтений и решаем по законченной фразе:
         // по недосказанной «семь…» модель успевала выбрать «пятьдесят», а по обрывку песни — «дальше».
         var settle = -1
+        var sinceFinal = 0
         var duckConfirmed = false
         // Последние ~2.5 с звука — для повторной проверки кандидата обычным (не «только имя») распознаванием.
         val ring = ShortArray(SAMPLE_RATE * 5 / 2)
@@ -177,9 +178,18 @@ class WakeService : Service() {
                 if (final) fed = false
                 if (settle >= 0) continue
                 val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
-                val d = if (text.isBlank()) null
-                    else if (settled) decideSettled(text, words)
-                    else decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
+                // Законченная фраза при музыке: средняя уверенность тонет в словах песни — судим по уверенности в имени.
+                val d = when {
+                    text.isBlank() -> null
+                    settled -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
+                    final && playing -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
+                        ?: decide(text, words, playing, confidence(obj), final)?.takeIf { it is Decision.Wake }
+                    else -> decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
+                }
+                // Музыка без пауз — фраза не заканчивается, и распознавание часами тянет одну «фразу», хуже слыша новое.
+                // Каждые ~10 с без имени начинаем заново.
+                sinceFinal = if (final) 0 else sinceFinal + 1
+                if (!final && sinceFinal > LONG_UTTERANCE_READS && !namePresent(text, words)) { rec.reset(); fed = false; sinceFinal = 0; stable = 0; lastKey = null; continue }
                 val mode = (application as KartotekaApp).settings.assistantMusicWake.value.value
                 // Имя прозвучало (три чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
                 // Если за ним за [MusicDuck.CONFIRM_MS] не пошла команда (имя послышалось в песне) — сразу возвращаем звук.
@@ -383,7 +393,8 @@ class WakeService : Service() {
             for (w in listOf("громкость", "звук")) {
                 put("$w максимум", 100); put("$w минимум", 10); put("$w половину", 50)
             }
-            put("максимум", 100); put("полную", 100); put("полная громкость", 100); put("максимальная громкость", 100)
+            // Голых «максимум» / «полную» нет: в песнях они звучат часто, а ошибка — музыка на 100 %.
+            put("полная громкость", 100); put("максимальная громкость", 100)
             put("минимальная громкость", 10)
             val tens = listOf("десять" to 10, "двадцать" to 20, "тридцать" to 30, "сорок" to 40, "пятьдесят" to 50,
                 "шестьдесят" to 60, "семьдесят" to 70, "восемьдесят" to 80, "девяносто" to 90, "сто" to 100)
@@ -405,6 +416,9 @@ class WakeService : Service() {
         internal fun decide(text: String, words: List<String>, playing: Boolean, confidence: Double = 1.0, final: Boolean = true): Decision? {
             if (words.isEmpty() || confidence < MIN_CONFIDENCE) return null
             var t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            // При музыке вокруг имени — слова песни (они уходят в приманки, а не в «[unk]»): «нет санта дальше небо».
+            // Команду ищем сразу после имени, где бы оно ни стояло.
+            if (playing) findCommand(t, words)?.let { return it }
             val noisy = "[unk]" in t
             if (noisy) {
                 if (!playing && final) return null
@@ -429,23 +443,44 @@ class WakeService : Service() {
 
         /** Сколько чтений (по 100 мс) дослушивать кандидата в команду. */
         internal const val SETTLE_READS = 5
+        private const val LONG_UTTERANCE_READS = 100
 
         /**
          * Решение по дослушанной фразе: в начале — имя, сразу за ним — самая длинная известная команда;
          * хвост после команды (музыка, «процентов» без пары) не мешает. Внутри — посторонних слов быть не должно.
          */
-        internal fun decideSettled(text: String, words: List<String>): Decision? {
+        internal fun decideSettled(text: String, words: List<String>): Decision? =
+            findCommand(text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }, words)
+
+        /** Последнее вхождение имени, за которым сразу идёт команда (самая длинная из подходящих). */
+        internal fun findCommand(t: List<String>, words: List<String>): Decision? {
             if (words.isEmpty()) return null
-            val t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.dropWhile { it == "[unk]" }
-            if (t.size <= words.size || t.take(words.size) != words) return null
-            val rest = t.drop(words.size)
-            for (k in rest.size downTo 1) {
-                val cmd = rest.take(k).joinToString(" ")
-                COMMANDS[cmd]?.let { return Decision.Command(it) }
-                VOLUME[cmd]?.let { return Decision.Volume(it) }
+            for (i in t.size - words.size downTo 0) {
+                if (t.subList(i, i + words.size) != words) continue
+                val rest = t.drop(i + words.size)
+                for (k in rest.size downTo 1) {
+                    val cmd = rest.take(k).joinToString(" ")
+                    COMMANDS[cmd]?.let { return Decision.Command(it) }
+                    VOLUME[cmd]?.let { return Decision.Volume(it) }
+                }
             }
             return null
         }
+
+        /** Уверенность модели в самом имени (по законченной фразе); нет данных — 1.0. */
+        internal fun nameConfidence(obj: JSONObject, words: List<String>): Double {
+            val arr = obj.optJSONArray("result") ?: return 1.0
+            var best = 0.0
+            var found = false
+            for (i in 0 until arr.length()) {
+                val w = arr.optJSONObject(i) ?: continue
+                if (w.optString("word") in words) { found = true; best = maxOf(best, w.optDouble("conf", 1.0)) }
+            }
+            return if (found) best else 1.0
+        }
+
+        /** Ниже — имя «послышалось» в песне: такие команды на вокале оказывались ложными, настоящие — от 0.9. */
+        internal const val SETTLED_NAME_CONF = 0.9
 
         /** После имени уже звучит команда (её первое слово): приглушение не ложное — держим дольше. */
         internal fun commandStarted(text: String, words: List<String>): Boolean {

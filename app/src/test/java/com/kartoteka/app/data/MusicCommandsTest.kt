@@ -35,7 +35,7 @@ class MusicCommandsTest {
 
     @Test fun quickVolumeLevels() {
         assertEquals(Decision.Volume(100), wake("санта громкость максимум"))
-        assertEquals(Decision.Volume(100), wake("санта полную"))
+        assertNull(wake("санта полную"))       // голое «полную» — частое слово в песнях, не команда
         assertEquals(Decision.Volume(50), wake("санта громкость пятьдесят процентов"))
         assertEquals(Decision.Volume(30), wake("санта громкость тридцать"))
         assertEquals(Decision.Volume(10), wake("санта звук минимум"))
@@ -108,5 +108,14 @@ class MusicCommandsTest {
         assertTrue(d.none { it in cmdWords || it == "санта" || it.length <= 2 })
         assertTrue("сам" in d && "сантехник" in d)
         assertTrue("саня" !in WakeService.decoys(listOf("саня")))
+    }
+
+    /** При музыке вокруг имени — слова песни: команда всё равно находится сразу после имени. */
+    @Test fun commandAmongSongWords() {
+        assertEquals(Decision.Command(NoaMedia.Control.NEXT), wake("нет санта дальше небо"))
+        assertEquals(Decision.Volume(70), wake("сама санта громкость семьдесят санта"))
+        assertEquals(Decision.Command(NoaMedia.Control.PAUSE), WakeService.decideSettled("небо там санта пауза река", santa))
+        assertNull(wake("санта небо пауза"))
+        assertNull(WakeService.decide("нет санта дальше", santa, playing = false))
     }
 }
