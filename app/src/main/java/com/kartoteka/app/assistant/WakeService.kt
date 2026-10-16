@@ -136,6 +136,11 @@ class WakeService : Service() {
         var settle = -1
         var sinceFinal = 0
         var duckConfirmed = false
+        // Окно команды: имя услышано — следующие [CMD_WINDOW_MS] команду можно сказать и без имени
+        // (люди говорят «Санта…», ждут, пока стихнет музыка, и только потом — «пауза»).
+        var windowUntil = 0L
+        // Голое имя при музыке: сферу открываем, только если за окно команда так и не прозвучала.
+        var pendingWakeAt = 0L
         // Последние ~2.5 с звука — для повторной проверки кандидата обычным (не «только имя») распознаванием.
         val ring = ShortArray(SAMPLE_RATE * 5 / 2)
         var ringPos = 0
@@ -155,6 +160,12 @@ class WakeService : Service() {
                     Thread.sleep(150); continue
                 }
                 duck.restoreIfDue()
+                if (pendingWakeAt > 0 && System.currentTimeMillis() >= pendingWakeAt && System.currentTimeMillis() > refractoryUntil) {
+                    pendingWakeAt = 0; windowUntil = 0
+                    refractoryUntil = System.currentTimeMillis() + 5_000
+                    WakeDiag.add(true, true, "", "команды не было — открываю ассистента")
+                    duck.restore(); drop(); wake(ping = false); continue
+                }
                 val ar = record ?: openRecord()?.also { record = it }
                 if (ar == null) { Thread.sleep(1500); continue }
                 val n = ar.read(buf, 0, buf.size)
@@ -178,9 +189,14 @@ class WakeService : Service() {
                 if (final) fed = false
                 if (settle >= 0) continue
                 val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
+                val inWindow = playing && System.currentTimeMillis() < windowUntil
                 // Законченная фраза при музыке: средняя уверенность тонет в словах песни — судим по уверенности в имени.
-                val d = when {
+                // В окне команды имя уже прозвучало: команда может идти без него, уверенность в имени не нужна.
+                var d = when {
                     text.isBlank() -> null
+                    inWindow && final -> decideFollowUp(text, words)?.takeIf { commandConfidence(obj, text, words) >= FOLLOW_UP_CONF }
+                        ?: if (!settled) decide(text, words, playing, confidence(obj), final)?.takeIf { it is Decision.Wake } else null
+                    inWindow -> decideFollowUp(text, words)
                     settled -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
                     final && playing -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
                         ?: decide(text, words, playing, confidence(obj), final)?.takeIf { it is Decision.Wake }
@@ -192,23 +208,39 @@ class WakeService : Service() {
                 if (!final && sinceFinal > LONG_UTTERANCE_READS && !namePresent(text, words)) { rec.reset(); fed = false; sinceFinal = 0; stable = 0; lastKey = null; continue }
                 val mode = (application as KartotekaApp).settings.assistantMusicWake.value.value
                 // Имя прозвучало (три чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
-                // Если за ним за [MusicDuck.CONFIRM_MS] не пошла команда (имя послышалось в песне) — сразу возвращаем звук.
-                if (playing && (application as KartotekaApp).settings.assistantMusicDuck.value.value) {
+                // Тихо держим [CMD_WINDOW_MS]: не пошла команда (имя послышалось в песне) — громкость возвращается.
+                val duckOn = (application as KartotekaApp).settings.assistantMusicDuck.value.value
+                if (playing) {
                     nameStreak = if (namePresent(text, words)) nameStreak + 1 else 0
-                    if ((nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(MusicDuck.CONFIRM_MS)) {
+                    // Приглушаем сразу (3 чтения); окно «команда без имени» — только при уверенном имени
+                    // (5 чтений подряд или законченная фраза с уверенностью ≥ 0.9) и не в режиме «Строго».
+                    if (duckOn && (nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(DUCK_SHORT_MS)) {
                         duckConfirmed = false
                         WakeDiag.add(playing, final, text, "приглушила музыку")
-                    } else if (duck.active && commandStarted(text, words)) {
+                    }
+                    if (mode != "strict" && (nameStreak >= 5 || (final && namePresent(text, words) && nameConfidence(obj, words) >= SETTLED_NAME_CONF))) {
+                        if (System.currentTimeMillis() >= windowUntil) WakeDiag.add(playing, final, text, "жду команду")
+                        windowUntil = System.currentTimeMillis() + CMD_WINDOW_MS
+                        if (duck.active) duck.extend(CMD_WINDOW_MS)
+                    }
+                    if (duck.active && (commandStarted(text, words) || (inWindow && decideFollowUp(text, words) != null))) {
                         if (!duckConfirmed) { duckConfirmed = true; duck.extend(MusicDuck.HOLD_MS) }
                     }
                 } else nameStreak = 0
+                // Голое имя при музыке — не открываем сферу сразу: ждём, не скажут ли команду.
+                if (playing && mode != "strict" && d is Decision.Wake && !d.ping && text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() && it != "[unk]" } == words) {
+                    if (pendingWakeAt == 0L) WakeDiag.add(playing, final, text, "имя — жду команду, иначе открою ассистента")
+                    windowUntil = maxOf(windowUntil, System.currentTimeMillis() + CMD_WINDOW_MS)
+                    pendingWakeAt = windowUntil
+                    d = null
+                }
                 if (text.isNotBlank() && (playing || d != null)) WakeDiag.add(playing, final, text, d?.toString() ?: "нет")
                 if (!final) {
                     val key = d?.toString()
                     stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
                     lastKey = key
                     // Команду из обрывка не выполняем — дослушиваем.
-                    if (d != null && d !is Decision.Wake && stable >= 2) { settle = SETTLE_READS; stable = 0; lastKey = null; continue }
+                    if (d != null && d !is Decision.Wake && stable >= 2) { if (inWindow) windowUntil = maxOf(windowUntil, System.currentTimeMillis() + 1_000); settle = SETTLE_READS; stable = 0; lastKey = null; continue }
                 }
                 val ready = d != null && (final || stable >= (if (playing && mode != "keen") 3 else 2))
                 if (!ready) continue
@@ -220,6 +252,7 @@ class WakeService : Service() {
                 WakeDiag.add(playing, final, text, if (genuine) "ПРИНЯТО $d" else "отклонено проверкой")
                 rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null; settle = -1
                 if (!genuine) continue
+                if (d !is Decision.Wake) { pendingWakeAt = 0; windowUntil = 0 } else pendingWakeAt = 0
                 when (d) {
                     is Decision.Command -> if (now > cmdRefractoryUntil) {
                         cmdRefractoryUntil = now + 1_500
@@ -443,6 +476,10 @@ class WakeService : Service() {
 
         /** Сколько чтений (по 100 мс) дослушивать кандидата в команду. */
         internal const val SETTLE_READS = 5
+        /** Сколько после имени ждать команду (и держать музыку тихой). */
+        internal const val CMD_WINDOW_MS = 4_000L
+        /** Приглушение до подтверждения имени: не подтвердилось — громкость возвращается быстро. */
+        private const val DUCK_SHORT_MS = 1_500L
         private const val LONG_UTTERANCE_READS = 100
 
         /**
@@ -452,20 +489,48 @@ class WakeService : Service() {
         internal fun decideSettled(text: String, words: List<String>): Decision? =
             findCommand(text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }, words)
 
+        /**
+         * В окне команды (имя только что прозвучало): команда сразу после имени или в самом начале новой фразы —
+         * «пауза», «включи обратно», «громкость семьдесят». Слова песни перед командой — уже чужая фраза, не берём.
+         */
+        internal fun decideFollowUp(text: String, words: List<String>): Decision? {
+            val t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.dropWhile { it == "[unk]" }
+            return findCommand(words + t, words)
+        }
+
         /** Последнее вхождение имени, за которым сразу идёт команда (самая длинная из подходящих). */
-        internal fun findCommand(t: List<String>, words: List<String>): Decision? {
+        internal fun findCommand(t: List<String>, words: List<String>): Decision? = findPhrase(t, words)?.let { toDecision(it) }
+
+        private fun toDecision(cmd: String): Decision? = COMMANDS[cmd]?.let { Decision.Command(it) } ?: VOLUME[cmd]?.let { Decision.Volume(it) }
+
+        internal fun findPhrase(t: List<String>, words: List<String>): String? {
             if (words.isEmpty()) return null
             for (i in t.size - words.size downTo 0) {
                 if (t.subList(i, i + words.size) != words) continue
                 val rest = t.drop(i + words.size)
                 for (k in rest.size downTo 1) {
                     val cmd = rest.take(k).joinToString(" ")
-                    COMMANDS[cmd]?.let { return Decision.Command(it) }
-                    VOLUME[cmd]?.let { return Decision.Volume(it) }
+                    if (toDecision(cmd) != null) return cmd
                 }
             }
             return null
         }
+
+        /** Уверенность модели в словах команды (минимальная), по законченной фразе; нет данных — 1.0. */
+        internal fun commandConfidence(obj: JSONObject, text: String, words: List<String>): Double {
+            val t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.dropWhile { it == "[unk]" }
+            val phrase = findPhrase(words + t, words)?.split(' ')?.toSet() ?: return 0.0
+            val arr = obj.optJSONArray("result") ?: return 1.0
+            var min = 1.0
+            for (i in 0 until arr.length()) {
+                val w = arr.optJSONObject(i) ?: continue
+                if (w.optString("word") in phrase) min = minOf(min, w.optDouble("conf", 1.0))
+            }
+            return min
+        }
+
+        /** Ниже — слово команды в окне «послышалось» в песне. */
+        internal const val FOLLOW_UP_CONF = 0.6
 
         /** Уверенность модели в самом имени (по законченной фразе); нет данных — 1.0. */
         internal fun nameConfidence(obj: JSONObject, words: List<String>): Double {

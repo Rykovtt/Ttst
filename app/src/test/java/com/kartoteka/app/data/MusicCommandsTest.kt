@@ -118,4 +118,14 @@ class MusicCommandsTest {
         assertNull(wake("санта небо пауза"))
         assertNull(WakeService.decide("нет санта дальше", santa, playing = false))
     }
+
+    /** Окно команды после имени: «Санта… (пауза в речи) …включи обратно». */
+    @Test fun followUpWithoutName() {
+        assertEquals(Decision.Command(NoaMedia.Control.RESUME), WakeService.decideFollowUp("включи обратно", santa))
+        assertEquals(Decision.Command(NoaMedia.Control.PAUSE), WakeService.decideFollowUp("[unk] замолчи небо", santa))
+        assertEquals(Decision.Volume(70), WakeService.decideFollowUp("громкость семьдесят", santa))
+        assertEquals(Decision.Command(NoaMedia.Control.NEXT), WakeService.decideFollowUp("небо санта дальше", santa))
+        assertNull(WakeService.decideFollowUp("давай назад", santa))       // слова песни перед командой — не команда
+        assertNull(WakeService.decideFollowUp("сейчас", santa))
+    }
 }
