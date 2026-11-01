@@ -89,7 +89,8 @@ object Messaging {
 
     /** Ссылка на чат Viber по номеру; draft — черновик сообщения. */
     fun viberUrl(phone: String, text: String = ""): String {
-        val p = ArchiveLogic.normalizePhone(phone)
+        // Viber открывает чат только по международному номеру с «+»; WhatsApp «+» не нужен, поэтому в книжке его часто нет.
+        val p = ArchiveLogic.normalizePhone(phone).let { if (!it.startsWith("+") && it.length >= 11) "+$it" else it }
         return "viber://chat?number=" + Uri.encode(p) + if (text.isNotEmpty()) "&draft=" + Uri.encode(text) else ""
     }
 

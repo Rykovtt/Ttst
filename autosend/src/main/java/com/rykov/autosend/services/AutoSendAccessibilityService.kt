@@ -95,7 +95,7 @@ class AutoSendAccessibilityService : AccessibilityService() {
             // В фокусе другое окно (клавиатура, диалог, другое приложение) — ждём следующего события.
             if (root.packageName?.toString() != packageName) return
             val app = TargetApps.forPackage(packageName) ?: return
-            val button = SendButtonFinder.find(root, app)
+            val button = SendButtonFinder.find(root, app, session.expectedText(packageName))
             if (button == null) {
                 // Кнопки ещё нет: чат грузится или поле пустое (мессенджер не подставил текст по ссылке).
                 // Один раз вписываем текст CRM; кнопка появится, и сработает следующее событие окна.

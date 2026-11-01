@@ -5,6 +5,11 @@ data class TargetApp(
     val packageName: String,
     /** Основной сценарий: идентификаторы ресурса кнопки отправки. */
     val sendViewIds: List<String>,
+    /**
+     * Кнопка без id и подписи (Viber): если в поле ввода уже стоит наш текст, нажимаем крайнюю правую
+     * кликабельную кнопку в строке поля — с текстом там только «Отправить» (без текста — микрофон, его не трогаем).
+     */
+    val rightOfInputFallback: Boolean = false,
 )
 
 object TargetApps {
@@ -15,8 +20,15 @@ object TargetApps {
         TargetApp("org.telegram.messenger", emptyList()),
         TargetApp("org.telegram.messenger.web", emptyList()),
         TargetApp("org.thunderdog.challegram", emptyList()),
-        // Viber: известные id кнопки отправки; при их смене сработает поиск по описанию «Send»/«Отправить».
-        TargetApp("com.viber.voip", listOf("com.viber.voip:id/send_text", "com.viber.voip:id/btn_send")),
+        // Viber: id кнопки менялись от версии к версии; не нашли ни по id, ни по подписи — кнопка справа от поля с текстом.
+        TargetApp(
+            "com.viber.voip",
+            listOf(
+                "com.viber.voip:id/btn_send", "com.viber.voip:id/send_button", "com.viber.voip:id/send_text",
+                "com.viber.voip:id/send", "com.viber.voip:id/btn_send_message", "com.viber.voip:id/send_icon",
+            ),
+            rightOfInputFallback = true,
+        ),
     )
 
     /** Должен совпадать с android:packageNames в accessibility_service_config.xml. */
@@ -30,7 +42,8 @@ object SendLabels {
     /** Строки для findAccessibilityNodeInfosByText — система ищет вхождение без учёта регистра. */
     val queries: List<String> = listOf("Отправить", "Send", "Надіслати")
 
-    private val exact: Set<String> = setOf("отправить", "send", "надіслати", "send message", "отправить сообщение", "надіслати повідомлення")
+    private val exact: Set<String> = setOf("отправить", "send", "надіслати", "send message", "отправить сообщение", "надіслати повідомлення",
+        "отправка", "отправить текст", "send text", "надіслати текст")
 
     /**
      * Точное совпадение подписи: findAccessibilityNodeInfosByText находит и сообщения

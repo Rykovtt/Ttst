@@ -17,7 +17,7 @@ internal object SendButtonFinder {
     private const val MAX_PARENT_DEPTH = 4
     private const val MAX_TREE_DEPTH = 40
 
-    fun find(root: AccessibilityNodeInfo, app: TargetApp): AccessibilityNodeInfo? {
+    fun find(root: AccessibilityNodeInfo, app: TargetApp, expectedText: String? = null): AccessibilityNodeInfo? {
         // Основной сценарий: по идентификатору ресурса.
         for (viewId in app.sendViewIds) {
             firstClickable(root.findAccessibilityNodeInfosByViewId(viewId)) { true }?.let { return it }
@@ -28,7 +28,56 @@ internal object SendButtonFinder {
                 SendLabels.matches(it.contentDescription) || SendLabels.matches(it.text)
             }?.let { return it }
         }
+        if (app.rightOfInputFallback) return findRightOfInput(root, expectedText)
         return null
+    }
+
+    /**
+     * Крайняя правая кликабельная кнопка в строке поля ввода — только если в поле уже стоит текст
+     * (и, когда он известен, это начало нашего сообщения). Пустое поле — там микрофон, ничего не нажимаем.
+     */
+    private fun findRightOfInput(root: AccessibilityNodeInfo, expectedText: String?): AccessibilityNodeInfo? {
+        val input = findInput(root) ?: return null
+        val row = android.graphics.Rect()
+        try {
+            val text = input.text?.toString()?.trim().orEmpty()
+            if (input.isShowingHintText || text.isEmpty()) return null
+            if (!expectedText.isNullOrBlank() && !sameStart(text, expectedText)) return null
+            input.getBoundsInScreen(row)
+        } finally {
+            input.recycleSafely()
+        }
+        if (row.isEmpty) return null
+        var best: AccessibilityNodeInfo? = null
+        var bestRight = Int.MIN_VALUE
+        val r = android.graphics.Rect()
+        fun walk(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > MAX_TREE_DEPTH) return
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                child.getBoundsInScreen(r)
+                val inRow = r.centerY() in row.top..row.bottom || row.centerY() in r.top..r.bottom
+                if (child.isClickable && child.isEnabled && child.isVisibleToUser && !child.isEditable &&
+                    inRow && r.left >= row.right - row.height() / 2 && r.right > bestRight
+                ) {
+                    best?.recycleSafely()
+                    best = child; bestRight = r.right
+                    continue        // кнопку не обходим вглубь и не освобождаем — она кандидат
+                }
+                walk(child, depth + 1)
+                child.recycleSafely()
+            }
+        }
+        walk(root, 0)
+        return best
+    }
+
+    /** Поле начинается с нашего текста (мессенджер мог обрезать пробелы и переносы). */
+    internal fun sameStart(field: String, expected: String): Boolean {
+        fun norm(s: String) = s.replace(Regex("\\s+"), " ").trim().lowercase()
+        val a = norm(field); val b = norm(expected)
+        val n = minOf(20, a.length, b.length)
+        return n > 0 && a.take(n) == b.take(n)
     }
 
     /** Поле ввода сообщения: сначала узел с фокусом ввода, затем первый видимый редактируемый. */

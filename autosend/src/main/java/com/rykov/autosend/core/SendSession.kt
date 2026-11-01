@@ -38,6 +38,9 @@ class SendSession<R>(private val clock: () -> Long) {
         return request.packageName == null || request.packageName == packageName
     }
 
+    /** Ожидаемый текст сообщения (не расходует его) — чтобы убедиться, что в поле именно он. */
+    fun expectedText(packageName: String?): String? = if (isArmedFor(packageName)) current?.text else null
+
     /** Текст для вставки в пустое поле — один раз за команду. */
     fun takeTextToInsert(packageName: String?): String? {
         if (textUsed || !isArmedFor(packageName)) return null
