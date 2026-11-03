@@ -128,4 +128,9 @@ class MusicCommandsTest {
         assertNull(WakeService.decideFollowUp("давай назад", santa))       // слова песни перед командой — не команда
         assertNull(WakeService.decideFollowUp("сейчас", santa))
     }
+
+    @Test fun letsGoNext() {
+        assertEquals(Decision.Command(NoaMedia.Control.NEXT), wake("санта давай дальше"))
+        assertEquals(Decision.Command(NoaMedia.Control.NEXT), WakeService.decideFollowUp("давай дальше", santa))
+    }
 }

@@ -141,6 +141,9 @@ class WakeService : Service() {
         var windowUntil = 0L
         // Голое имя при музыке: сферу открываем, только если за окно команда так и не прозвучала.
         var pendingWakeAt = 0L
+        // Устойчивый кандидат «Санта + команда» из промежуточного результата: если дослушанная фраза его
+        // «потеряла» (модель переписала словами песни — в журнале это частый случай), верим кандидату.
+        var candidate: Decision.Command? = null
         // Последние ~2.5 с звука — для повторной проверки кандидата обычным (не «только имя») распознаванием.
         val ring = ShortArray(SAMPLE_RATE * 5 / 2)
         var ringPos = 0
@@ -177,7 +180,10 @@ class WakeService : Service() {
                 for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
                 val rms = Math.sqrt(sum / n)
                 if (rms < QUIET_RMS) quiet++ else quiet = 0
-                if (quiet > 12) { if (fed) { rec.reset(); fed = false }; settle = -1; continue }
+                // Пока ждём команду (музыка приглушена), тихую речь не отбрасываем: после приглушения фон падает,
+                // и негромкая команда раньше считалась «тишиной».
+                val listening = duck.active || settle >= 0 || System.currentTimeMillis() < windowUntil
+                if (quiet > 12 && !listening) { if (fed) { rec.reset(); fed = false }; settle = -1; candidate = null; continue }
                 fed = true
                 // Законченная фраза — как раньше; при музыке пауз в речи нет, поэтому смотрим и на промежуточный
                 // результат, но принимаем его, только если он не меняется два чтения подряд.
@@ -194,14 +200,18 @@ class WakeService : Service() {
                 // В окне команды имя уже прозвучало: команда может идти без него, уверенность в имени не нужна.
                 var d = when {
                     text.isBlank() -> null
-                    inWindow && final -> decideFollowUp(text, words)?.takeIf { commandConfidence(obj, text, words) >= FOLLOW_UP_CONF }
+                    // В окне: «санта паузу» (имя прямо перед командой) — без проверки уверенности; команда без имени — с проверкой.
+                    inWindow && final -> decideSettled(text, words)
+                        ?: decideFollowUp(text, words)?.takeIf { commandConfidence(obj, text, words) >= FOLLOW_UP_CONF }
+                        ?: (if (settled) candidate else null)
                         ?: if (!settled) decide(text, words, playing, confidence(obj), final)?.takeIf { it is Decision.Wake } else null
                     inWindow -> decideFollowUp(text, words)
-                    settled -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
+                    settled -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF } ?: candidate
                     final && playing -> decideSettled(text, words)?.takeIf { nameConfidence(obj, words) >= SETTLED_NAME_CONF }
                         ?: decide(text, words, playing, confidence(obj), final)?.takeIf { it is Decision.Wake }
                     else -> decide(text, words, playing, if (final) confidence(obj) else 1.0, final)
                 }
+                if (settled) candidate = null
                 // Музыка без пауз — фраза не заканчивается, и распознавание часами тянет одну «фразу», хуже слыша новое.
                 // Каждые ~10 с без имени начинаем заново.
                 sinceFinal = if (final) 0 else sinceFinal + 1
@@ -240,7 +250,9 @@ class WakeService : Service() {
                     stable = if (key != null && key == lastKey) stable + 1 else if (key != null) 1 else 0
                     lastKey = key
                     // Команду из обрывка не выполняем — дослушиваем.
-                    if (d != null && d !is Decision.Wake && stable >= 2) { if (inWindow) windowUntil = maxOf(windowUntil, System.currentTimeMillis() + 1_000); settle = SETTLE_READS; stable = 0; lastKey = null; continue }
+                    if (d != null && d !is Decision.Wake && stable >= 2) {
+                        candidate = (d as? Decision.Command)?.takeIf { findCommand(text.lowercase().trim().split(Regex("\\s+")), words) == it }
+                        if (inWindow) windowUntil = maxOf(windowUntil, System.currentTimeMillis() + 1_000); settle = SETTLE_READS; stable = 0; lastKey = null; continue }
                 }
                 val ready = d != null && (final || stable >= (if (playing && mode != "keen") 3 else 2))
                 if (!ready) continue
@@ -248,7 +260,11 @@ class WakeService : Service() {
                 // Вторая проверка: настоящая речь с именем, а не похожий звук из видео/рилсов, которые «подпали» под узкую грамматику.
                 val snapshot = ShortArray(ringFilled) { ring[(ringPos - ringFilled + it + ring.size) % ring.size] }
                 // При музыке свободное распознавание тонет в звуке и «не пускает» настоящий зов — по умолчанию его не требуем (режим «строго» требует).
-                val genuine = if (playing && mode != "strict") true else verify(model, snapshot, words, d !is Decision.Wake)
+                // Команды плеера и многословный зов («эй/привет Санта», «Санта, ты тут») узкая грамматика сама по себе
+                // почти не путает — свободная проверка их часто «отклоняла» (журнал). Проверяем только голое имя, а в «Строго» — всё.
+                val bareName = d is Decision.Wake && !d.ping && text.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() && it != "[unk]" } == words
+                val genuine = if (mode == "strict") verify(model, snapshot, words, d !is Decision.Wake)
+                    else if (playing || !bareName) true else verify(model, snapshot, words, false)
                 WakeDiag.add(playing, final, text, if (genuine) "ПРИНЯТО $d" else "отклонено проверкой")
                 rec.reset(); fed = false; quiet = 0; stable = 0; lastKey = null; settle = -1
                 if (!genuine) continue
@@ -408,7 +424,8 @@ class WakeService : Service() {
             put(NoaMedia.Control.RESUME, "продолжи", "продолжай", "продолжить", "продолжи музыку", "играй", "играй дальше", "плей",
                 "воспроизведи", "воспроизвести", "воспроизведение", "включи музыку", "включи обратно", "включи снова", "поехали", "старт")
             put(NoaMedia.Control.NEXT, "дальше", "далее", "следующий", "следующая", "следующую", "следующий трек", "следующая песня",
-                "следующую песню", "переключи", "другую", "другую песню", "пропусти")
+                "следующую песню", "переключи", "другую", "другую песню", "пропусти",
+                "давай дальше", "давай следующую", "давай другую")
             put(NoaMedia.Control.PREV, "назад", "предыдущий", "предыдущая", "предыдущую", "предыдущий трек", "предыдущая песня",
                 "предыдущую песню", "прошлую", "прошлую песню", "верни", "верни назад")
             put(NoaMedia.Control.RESTART, "заново", "трек заново", "песню заново")
