@@ -360,6 +360,7 @@ private fun WakeRow() {
             t("Услышав «%1\$s» при музыке, ассистент на пару секунд делает её тише — команду можно сказать обычным голосом, не перекрикивая. Потом громкость возвращается.", name),
             duck, s.assistantMusicDuck::set,
         )
+        NeuralWakeRows(name)
         var showDiag by remember { mutableStateOf(false) }
         ActionRow(Icons.Default.RecordVoiceOver, t("Журнал слуха"), t("Что услышал распознаватель имени и что решил (последние 2000 строк, сохраняются) — пришлите, если не слышит.")) { showDiag = true }
         if (showDiag) {

@@ -108,6 +108,18 @@ class WakeService : Service() {
     }
 
     private fun loop() {
+        neuralModel()?.let { neuralLoop(it); return }
+        classicLoop()
+    }
+
+    /** Нейросеть на имя — если включена и есть для этого имени (сейчас обучена только «Санта»). */
+    private fun neuralModel(): KwsModel? {
+        val s = (application as KartotekaApp).settings
+        if (!s.assistantNeuralWake.value.value || wakeWords() != NEURAL_WORDS) return null
+        return runCatching { assets.open(NEURAL_ASSET).use { KwsModel.load(it) } }.getOrNull()
+    }
+
+    private fun classicLoop() {
         val words = wakeWords()
         val model = runCatching { Model(WakeModel.dir(this).absolutePath) }.getOrNull()
         if (model == null) { main.post { stopSelf() }; return }
@@ -270,23 +282,7 @@ class WakeService : Service() {
                 if (!genuine) continue
                 if (d !is Decision.Wake) { pendingWakeAt = 0; windowUntil = 0 } else pendingWakeAt = 0
                 when (d) {
-                    is Decision.Command -> if (now > cmdRefractoryUntil) {
-                        cmdRefractoryUntil = now + 1_500
-                        nameStreak = 0
-                        if (d.control == NoaMedia.Control.PAUSE || d.control == NoaMedia.Control.STOP) {
-                            // Сначала пауза, потом возвращаем громкость — без громкого «хвоста» перед остановкой.
-                            main.post { NoaMedia.control(applicationContext, d.control); buzz() }
-                            main.postDelayed({ duck.restore() }, 600)
-                        } else {
-                            // «Громче/тише» — от исходной громкости, а не от приглушённой.
-                            main.post { duck.restore(); NoaMedia.control(applicationContext, d.control); buzz() }
-                        }
-                    }
-                    is Decision.Volume -> if (now > cmdRefractoryUntil) {
-                        cmdRefractoryUntil = now + 1_500
-                        nameStreak = 0
-                        main.post { duck.forget(); NoaMedia.setVolumePercent(applicationContext, d.percent); buzz() }
-                    }
+                    is Decision.Command, is Decision.Volume -> { nameStreak = 0; perform(d, duck) }
                     is Decision.Wake -> if (now > refractoryUntil) {
                         refractoryUntil = now + 5_000
                         drop()
@@ -300,6 +296,193 @@ class WakeService : Service() {
             duck.restore()
             drop()
             runCatching { rec.close() }; runCatching { model.close() }
+        }
+    }
+
+    /**
+     * Новый слух. Имя ловит своя нейросеть ([KwsModel]) — она обучена только на «Санта» и не «слышит» слова песен.
+     * Услышала — музыка почти в ноль, и уже по чистому звуку команду распознаёт Vosk: сначала по списку команд
+     * (без имени), а если не подошла — свободной речью через разбор ассистента («сделай чуть потише»).
+     * Без команды: тихо вокруг — открывается ассистент с услышанной фразой; при музыке — ничего (это могла быть песня).
+     */
+    private fun neuralLoop(kws: KwsModel) {
+        val app = application as KartotekaApp
+        val words = wakeWords()
+        val model = runCatching { Model(WakeModel.dir(this).absolutePath) }.getOrNull()
+        if (model == null) { main.post { stopSelf() }; return }
+        val grammar = JSONArray((COMMANDS.keys + VOLUME.keys + listOf("ты тут", "[unk]")).distinct() + decoys(words)).toString()
+        val audio = getSystemService(android.media.AudioManager::class.java)
+        val duck = MusicDuck(object : MusicDuck.VolumeIO {
+            override fun get() = runCatching { audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) }.getOrDefault(0)
+            override fun set(index: Int) { runCatching { audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, index, 0) } }
+        })
+        val stream = KwsStream(kws)
+        var record: AudioRecord? = null
+        val buf = ShortArray(SAMPLE_RATE / 10)
+        val pre = ShortArray(SAMPLE_RATE * 3 / 10)          // последние 0.3 с: начало команды могло уже прозвучать
+        var prePos = 0
+        var hits = 0
+        var refractoryUntil = 0L
+        var cmd: Recognizer? = null
+        var windowUntil = 0L
+        var windowPlaying = false
+        val captured = java.io.ByteArrayOutputStream()
+        var stable = 0
+        var lastKey: String? = null
+        var settle = -1
+        var candidate: Decision.Command? = null
+        var commandSeen = false
+        var neuralQuiet = 0
+        fun drop() {
+            record?.let { runCatching { it.stop(); it.release() } }; record = null
+            effects.forEach { runCatching { it.release() } }; effects.clear()
+        }
+        fun capture(b: ShortArray, n: Int) {
+            for (k in 0 until n) { captured.write(b[k].toInt() and 0xff); captured.write((b[k].toInt() shr 8) and 0xff) }
+        }
+        fun closeWindow() {
+            runCatching { cmd?.close() }; cmd = null; windowUntil = 0
+            captured.reset(); stable = 0; lastKey = null; settle = -1; candidate = null
+            stream.reset(); hits = 0
+        }
+        /** Окно закончилось без команды из списка: свободная речь → разбор ассистента. */
+        fun finishWindow() {
+            val bytes = captured.toByteArray()
+            val playing = windowPlaying
+            closeWindow()
+            val text = freeText(model, bytes)
+            WakeDiag.add(playing, true, text, "нейросеть: после имени")
+            val intent = if (text.isBlank()) null else runCatching { NoaParser.parse(text) }.getOrNull()
+            val d = intent?.let { mediaDecision(it) }
+            when {
+                d != null -> { WakeDiag.add(playing, true, text, "ПРИНЯТО $d"); perform(d, duck) }
+                intent is NoaIntent.Media -> {
+                    WakeDiag.add(playing, true, text, "ПРИНЯТО ${intent.control}")
+                    main.post { duck.restore(); NoaMedia.control(applicationContext, intent.control, null, if (intent.seconds > 0) intent.seconds else NoaMedia.SEEK_SEC); buzz() }
+                }
+                // При музыке слова без команды — скорее песня: молчим. В тишине — ассистент, сразу с фразой,
+                // но только понятной ему (или тишина после имени: человек ждёт сферу). Непонятная речь — скорее телевизор.
+                playing && text.isNotBlank() -> duck.restore()
+                text.isNotBlank() && (intent == null || intent is NoaIntent.Unknown) -> duck.restore()
+                System.currentTimeMillis() > refractoryUntil -> {
+                    refractoryUntil = System.currentTimeMillis() + 5_000
+                    duck.restore(); drop(); wake(ping = false, text = text.ifBlank { null })
+                }
+            }
+        }
+        try {
+            while (running) {
+                if (isBusy()) {
+                    duck.extend(1_500)
+                    drop(); if (cmd != null) closeWindow(); stream.reset(); hits = 0
+                    Thread.sleep(150); continue
+                }
+                duck.restoreIfDue()
+                val ar = record ?: openRecord()?.also { record = it }
+                if (ar == null) { Thread.sleep(1500); continue }
+                val n = ar.read(buf, 0, buf.size)
+                if (n <= 0) { Thread.sleep(40); continue }
+                val now = System.currentTimeMillis()
+                val playing = runCatching { audio?.isMusicActive == true }.getOrDefault(false)
+                val rec = cmd
+                if (rec == null) {
+                    // Тишина больше 1.2 с — сеть не гоняем (батарея); с первым звуком начинаем заново.
+                    var sum = 0.0
+                    for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
+                    if (Math.sqrt(sum / n) < QUIET_RMS) neuralQuiet++ else neuralQuiet = 0
+                    if (neuralQuiet > 12) { if (neuralQuiet == 13) { stream.reset(); hits = 0 }; continue }
+                    var fired: KwsModel.Out? = null
+                    stream.push(buf, n) { out ->
+                        hits = if (out.prob >= TH_NEURAL) hits + 1 else 0
+                        if (hits >= NEURAL_HITS && fired == null) fired = out
+                    }
+                    for (k in 0 until n) { pre[prePos] = buf[k]; prePos = (prePos + 1) % pre.size }
+                    val f = fired ?: continue
+                    hits = 0
+                    if (now <= refractoryUntil) continue
+                    WakeDiag.add(playing, true, "санта", "нейросеть: имя ${"%.2f".format(f.prob)}")
+                    // Сначала тихо на 1.5 с; началась команда — держим всё окно. Не началась — имя послышалось в песне.
+                    if (playing && app.settings.assistantMusicDuck.value.value) duck.duck(DUCK_SHORT_MS, NEURAL_DUCK_LEVEL)
+                    commandSeen = false
+                    val r = runCatching { Recognizer(model, SAMPLE_RATE.toFloat(), grammar) }.getOrNull() ?: continue
+                    r.setWords(true)
+                    cmd = r; windowUntil = now + CMD_WINDOW_MS; windowPlaying = playing
+                    val pr = ShortArray(pre.size) { pre[(prePos + it) % pre.size] }
+                    r.acceptWaveForm(pr, pr.size); capture(pr, pr.size)
+                    continue
+                }
+                // Окно команды: имя уже прозвучало, слушаем только команду.
+                capture(buf, n)
+                var final = rec.acceptWaveForm(buf, n)
+                val settled = settle >= 0 && (final || --settle < 0)
+                val obj = runCatching { JSONObject(if (final) rec.result else if (settled) rec.finalResult else rec.partialResult) }.getOrNull()
+                if (settled) { final = true; settle = -1 }
+                val text = obj?.let { if (final) it.optString("text") else it.optString("partial") }.orEmpty()
+                if (settle >= 0) { if (now >= windowUntil + 1_000) finishWindow(); continue }
+                val t = text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.dropWhile { it == "[unk]" }
+                val ping = t.take(2) == listOf("ты", "тут")
+                var d: Decision? = if (ping) Decision.Wake(ping = true) else decideFollowUp(text, words)
+                if (final && d is Decision.Command && !settled && obj != null && commandConfidence(obj, text, words) < FOLLOW_UP_CONF) d = null
+                if (settled && d == null) d = candidate
+                if (text.isNotBlank()) WakeDiag.add(playing, final, text, d?.toString() ?: "нет")
+                if (!commandSeen && (d != null || commandStarted(words.joinToString(" ") + " " + text, words))) { commandSeen = true; duck.extend(CMD_WINDOW_MS) }
+                if (!final && d != null && d !is Decision.Wake) {
+                    val key = d.toString()
+                    stable = if (key == lastKey) stable + 1 else 1
+                    lastKey = key
+                    if (stable >= 2) { candidate = d as? Decision.Command; settle = SETTLE_READS; stable = 0; lastKey = null }
+                    continue
+                }
+                when {
+                    d is Decision.Wake && final -> {
+                        closeWindow(); duck.restore()
+                        if (now > refractoryUntil) { refractoryUntil = now + 5_000; drop(); wake(ping = true) }
+                    }
+                    d is Decision.Command || d is Decision.Volume -> if (final) {
+                        WakeDiag.add(playing, true, text, "ПРИНЯТО $d")
+                        closeWindow(); perform(d, duck)
+                    }
+                    // Тихо вокруг и фраза закончилась — дальше ждать нечего.
+                    final && !windowPlaying -> finishWindow()
+                    now >= windowUntil -> finishWindow()
+                }
+            }
+        } catch (_: InterruptedException) {
+        } finally {
+            duck.restore()
+            drop()
+            runCatching { cmd?.close() }; runCatching { model.close() }
+        }
+    }
+
+    /** Свободное распознавание (весь словарь) записанного куска. */
+    private fun freeText(model: Model, pcm: ByteArray): String {
+        if (pcm.size < SAMPLE_RATE / 5) return ""
+        var free: Recognizer? = null
+        return try {
+            free = Recognizer(model, SAMPLE_RATE.toFloat())
+            free.acceptWaveForm(pcm, pcm.size)
+            JSONObject(free.finalResult).optString("text").trim()
+        } catch (_: Throwable) { "" } finally { runCatching { free?.close() } }
+    }
+
+    /** Команда плеера или громкость (не чаще раза в 1.5 с). */
+    private fun perform(d: Decision, duck: MusicDuck) {
+        val now = System.currentTimeMillis()
+        if (now <= cmdRefractoryUntil) return
+        cmdRefractoryUntil = now + 1_500
+        when (d) {
+            is Decision.Command ->
+                if (d.control == NoaMedia.Control.PAUSE || d.control == NoaMedia.Control.STOP) {
+                    // Сначала пауза, потом возвращаем громкость — без громкого «хвоста» перед остановкой.
+                    main.post { NoaMedia.control(applicationContext, d.control); buzz() }
+                    main.postDelayed({ duck.restore() }, 600)
+                } else {
+                    // «Громче/тише» — от исходной громкости, а не от приглушённой.
+                    main.post { duck.restore(); NoaMedia.control(applicationContext, d.control); buzz() }
+                }
+            is Decision.Volume -> main.post { duck.forget(); NoaMedia.setVolumePercent(applicationContext, d.percent); buzz() }
+            is Decision.Wake -> Unit
         }
     }
 
@@ -351,7 +534,7 @@ class WakeService : Service() {
     }
 
     /** Проснуться: выводим на экран сферу — она поздоровается, выслушает команду и сама закроется. */
-    private fun wake(ping: Boolean) {
+    private fun wake(ping: Boolean, text: String? = null) {
         val app = application as KartotekaApp
         val locked = getSystemService(android.app.KeyguardManager::class.java)?.isKeyguardLocked == true
         if (locked && !app.settings.assistantWakeLocked.value.value) {
@@ -372,6 +555,7 @@ class WakeService : Service() {
             val i = Intent(this, NoaWake::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .putExtra(EXTRA_PING, ping)
+                .apply { if (!text.isNullOrBlank()) putExtra(EXTRA_TEXT, text) }
             // Без права «поверх других окон» Android не даёт открыть окно из фона — тогда просто снова слушаем.
             if (runCatching { startActivity(i) }.isFailure) release()
         }
@@ -380,6 +564,32 @@ class WakeService : Service() {
     companion object {
         const val ACTION_STOP = "com.kartoteka.app.WAKE_STOP"
         const val EXTRA_PING = "wake_ping"
+        /** Фраза, сказанная сразу после имени («Санта, запиши Илью на завтра») — ассистент выполнит её без переспроса. */
+        const val EXTRA_TEXT = "wake_text"
+        private val NEURAL_WORDS = listOf("санта")
+        /**
+         * Порог нейросети и сколько прогонов подряд (по 100 мс) он должен держаться. Подобраны на проверке
+         * (голоса и песни, которых не было в обучении): ложных «имя» на речи поверх музыки — втрое меньше прежнего,
+         * команд «Санта, …» поверх музыки выполнено 56% против 39%.
+         */
+        internal const val TH_NEURAL = 0.5f
+        internal const val NEURAL_HITS = 2
+        /** Музыка на время команды — почти в ноль: команда слышна по чистому звуку. */
+        private const val NEURAL_DUCK_LEVEL = 0.12f
+
+        /** Громкость/плеер из разбора ассистента — то, что слух выполняет сам, без сферы. */
+        internal fun mediaDecision(i: NoaIntent): Decision? = when (i) {
+            is NoaIntent.Volume -> when (i.kind) {
+                NoaIntent.VolumeKind.SET -> i.percent?.let { Decision.Volume(it.coerceIn(5, 100)) }
+                NoaIntent.VolumeKind.MAX -> Decision.Volume(100)
+                NoaIntent.VolumeKind.MIN -> Decision.Volume(10)
+                NoaIntent.VolumeKind.UP -> Decision.Command(NoaMedia.Control.LOUDER)
+                NoaIntent.VolumeKind.DOWN -> Decision.Command(NoaMedia.Control.QUIETER)
+            }
+            is NoaIntent.Media -> if (i.seconds == 0) Decision.Command(i.control) else null
+            else -> null
+        }
+        private const val NEURAL_ASSET = "kws/santa.bin"
         private const val CHANNEL = "wake"
         private const val NOTIF_ID = 4107
         private const val SAMPLE_RATE = 16_000

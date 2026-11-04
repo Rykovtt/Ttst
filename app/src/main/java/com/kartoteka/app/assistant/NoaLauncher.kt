@@ -98,7 +98,10 @@ open class NoaLauncher : ComponentActivity() {
                     if (app.settings.assistantVoice.value.value) NoaVoice.init(this@NoaLauncher)
                     launch { appear.animateTo(1f, tween(260)) }
                     kotlinx.coroutines.delay(150)
-                    if (byWake) ctl.greet(if (intent.getBooleanExtra(WakeService.EXTRA_PING, false)) t("Да, я здесь. Слушаю.") else t("Готова. Слушаю."))
+                    // Фразу сказали сразу после имени («Санта, запиши Илью на завтра») — выполняем её без «Слушаю».
+                    val said = if (byWake) intent.getStringExtra(WakeService.EXTRA_TEXT)?.takeIf { it.isNotBlank() } else null
+                    if (said != null) ctl.send(said, voice = true)
+                    else if (byWake) ctl.greet(if (intent.getBooleanExtra(WakeService.EXTRA_PING, false)) t("Да, я здесь. Слушаю.") else t("Готова. Слушаю."))
                     else ctl.startVoice()
                 }
                 LaunchedEffect(Unit) {

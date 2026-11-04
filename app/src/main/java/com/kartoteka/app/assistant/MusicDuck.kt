@@ -20,12 +20,12 @@ internal class MusicDuck(private val io: VolumeIO, private val clock: () -> Long
     val active: Boolean @Synchronized get() = saved >= 0
 
     /** Приглушить (или продлить уже начатое) на [holdMs]. false — нечего приглушать (и так почти тихо). */
-    @Synchronized fun duck(holdMs: Long = HOLD_MS): Boolean {
+    @Synchronized fun duck(holdMs: Long = HOLD_MS, level: Float = LEVEL): Boolean {
         if (saved >= 0) { until = maxOf(until, clock() + holdMs); return true }
         val cur = io.get()
         if (cur <= 1) return false
         saved = cur
-        ducked = Math.round(cur * LEVEL).coerceIn(1, cur - 1)
+        ducked = Math.round(cur * level).coerceIn(1, cur - 1)
         io.set(ducked)
         until = clock() + holdMs
         return true
