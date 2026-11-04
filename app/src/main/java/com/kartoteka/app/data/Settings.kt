@@ -70,8 +70,12 @@ class Settings(context: Context) {
     val assistantMusicWake = StringPref("assistant_music_wake", "normal")
     /** Услышав имя при музыке, приглушать её на время команды — не нужно перекрикивать. */
     val assistantMusicDuck = BoolPref("assistant_music_duck", true)
-    /** Новый слух: своя нейросеть на имя (пока — «Санта»); выключено — прежнее распознавание. */
-    val assistantNeuralWake = BoolPref("assistant_neural_wake", true)
+    /**
+     * Экспериментальный слух: своя нейросеть на имя (пока — «Санта»). По умолчанию выключен: на живом голосе
+     * и музыке (журнал 04.11) ложных срабатываний оказалось больше, чем у прежнего распознавания.
+     * Новый ключ — чтобы у всех, кому 4.0.0 включил его сам, снова был прежний слух.
+     */
+    val assistantNeuralWake = BoolPref("assistant_neural_wake_exp", false)
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 

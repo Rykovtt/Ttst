@@ -18,8 +18,8 @@ fun NeuralWakeRows(name: String) {
     val s = app().settings
     val on by s.assistantNeuralWake.value.collectAsState()
     ToggleRow(
-        Icons.Default.RecordVoiceOver, t("Новый слух (нейросеть)"),
-        t("Имя «%1\$s» ловит своя нейросеть на телефоне — она гораздо реже путает его со словами песен. После имени музыка почти стихает, и команду можно сказать своими словами: «пауза», «сделай чуть потише», «громкость на семьдесят». Без интернета. Выключено — прежнее распознавание.", name),
+        Icons.Default.RecordVoiceOver, t("Экспериментальный слух (нейросеть)"),
+        t("Пока хуже обычного: чаще срабатывает сама на песни и речь. Включайте только для проверки. Выключено — обычный слух."),
         on,
     ) { s.assistantNeuralWake.set(it); WakeService.restart(context) }
 }
