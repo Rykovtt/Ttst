@@ -144,6 +144,11 @@ class WakeService : Service() {
         val netProbs = ArrayDeque<Pair<Long, Float>>()      // последние ~1.5 с: время прогона → вероятность имени
         var netFed = false
         var nameConfirmedAt = 0L
+        // Голос поверх музыки: микрофон громче, чем объясняется тем, что играет сам телефон.
+        val playback = PlaybackLevel()
+        val voiceOver = VoiceOverMusic()
+        var lastVoiceLog = 0L
+        var lastRejected = ""
         fun netRecent(now: Long): Float = netProbs.filter { now - it.first <= CONFIRM_LOOKBACK_MS }.maxOfOrNull { it.second } ?: 0f
 
         var record: AudioRecord? = null
@@ -201,6 +206,8 @@ class WakeService : Service() {
                 var sum = 0.0
                 for (k in 0 until n) sum += buf[k].toDouble() * buf[k]
                 val rms = Math.sqrt(sum / n)
+                if (runCatching { audio?.isMusicActive == true }.getOrDefault(false)) voiceOver.add(System.currentTimeMillis(), rms, playback.db())
+                else voiceOver.reset()
                 if (rms < QUIET_RMS) quiet++ else quiet = 0
                 // Пока ждём команду (музыка приглушена), тихую речь не отбрасываем: после приглушения фон падает,
                 // и негромкая команда раньше считалась «тишиной».
@@ -251,11 +258,20 @@ class WakeService : Service() {
                 // Тихо держим [CMD_WINDOW_MS]: не пошла команда (имя послышалось в песне) — громкость возвращается.
                 val duckOn = (application as KartotekaApp).settings.assistantMusicDuck.value.value
                 val nowMs = System.currentTimeMillis()
-                if (playing && confirmStream != null && namePresent(text, words) && netRecent(nowMs) >= TH_CONFIRM) nameConfirmedAt = nowMs
-                val confirmed = !playing || confirmStream == null || nowMs - nameConfirmedAt <= CONFIRM_KEEP_MS
+                if (playing && namePresent(text, words)) {
+                    val netOk = confirmStream == null || netRecent(nowMs) >= TH_CONFIRM
+                    val voiceOk = voiceOver.voice(nowMs)
+                    if (nowMs - lastVoiceLog > 1_500) {
+                        lastVoiceLog = nowMs
+                        WakeDiag.add(true, final, text, "проверка имени: сеть %.2f, голос над музыкой %s".format(
+                            if (confirmStream == null) 1f else netRecent(nowMs),
+                            voiceOver.excess(nowMs)?.let { "%+.1f дБ (нужно %.0f)".format(it, VoiceOverMusic.THRESHOLD_DB) } ?: (if (playback.available) "нет данных" else "плеер недоступен")))
+                    }
+                    if (netOk && voiceOk) nameConfirmedAt = nowMs
+                }
+                val confirmed = !playing || nowMs - nameConfirmedAt <= CONFIRM_KEEP_MS
                 if (playing) {
                     nameStreak = if (namePresent(text, words)) nameStreak + 1 else 0
-                    if (!confirmed && nameStreak == 3) WakeDiag.add(playing, final, text, "имя не подтверждено нейросетью (%.2f) — песня".format(netRecent(nowMs)))
                     // Приглушаем сразу (3 чтения); окно «команда без имени» — только при уверенном имени
                     // (5 чтений подряд или законченная фраза с уверенностью ≥ 0.9) и не в режиме «Строго».
                     if (confirmed && duckOn && (nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(DUCK_SHORT_MS)) {
@@ -273,8 +289,9 @@ class WakeService : Service() {
                 } else nameStreak = 0
                 // «Санта, команда» при музыке — только если имя подтвердила нейросеть (в окне команды оно уже подтверждено).
                 if (d != null && !inWindow && !confirmed) {
-                    WakeDiag.add(playing, final, text, "$d — имя не подтверждено нейросетью")
+                    if (text != lastRejected) { lastRejected = text; WakeDiag.add(playing, final, text, "$d — не подтверждено (песня)") }
                     d = null
+                    continue
                 }
                 // Голое имя при музыке — не открываем сферу сразу: ждём, не скажут ли команду.
                 if (playing && mode != "strict" && d is Decision.Wake && !d.ping && text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() && it != "[unk]" } == words) {
@@ -322,6 +339,7 @@ class WakeService : Service() {
         } finally {
             duck.restore()
             drop()
+            playback.release()
             runCatching { rec.close() }; runCatching { model.close() }
         }
     }
