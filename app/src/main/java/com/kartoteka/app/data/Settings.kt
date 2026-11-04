@@ -76,6 +76,8 @@ class Settings(context: Context) {
      * Новый ключ — чтобы у всех, кому 4.0.0 включил его сам, снова был прежний слух.
      */
     val assistantNeuralWake = BoolPref("assistant_neural_wake_exp", false)
+    /** Обычный слух + проверка имени нейросетью при музыке (имя «Санта»): меньше ложных срабатываний на песнях. */
+    val assistantNeuralConfirm = BoolPref("assistant_neural_confirm", true)
     /** Умный режим: Gemini Nano на устройстве. */
     val assistantBrain = BoolPref("assistant_brain", true)
 

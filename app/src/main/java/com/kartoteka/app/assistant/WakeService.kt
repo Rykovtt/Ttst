@@ -135,6 +135,16 @@ class WakeService : Service() {
             override fun set(index: Int) { runCatching { audio.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, index, 0) } }
         })
         var nameStreak = 0
+        // Подтверждение имени нейросетью (только «Санта» и только при музыке): Vosk «слышит» имя в словах песен,
+        // сеть на них отвечает слабо. Имя засчитывается, лишь если и она его услышала — ложных срабатываний
+        // не больше прежнего (это часть прежних), на проверке — вдвое меньше; настоящие зовы почти не теряются.
+        val confirmNet = if (words == NEURAL_WORDS && (application as KartotekaApp).settings.assistantNeuralConfirm.value.value)
+            runCatching { assets.open(NEURAL_ASSET).use { KwsModel.load(it) } }.getOrNull() else null
+        val confirmStream = confirmNet?.let { KwsStream(it) }
+        val netProbs = ArrayDeque<Pair<Long, Float>>()      // последние ~1.5 с: время прогона → вероятность имени
+        var netFed = false
+        var nameConfirmedAt = 0L
+        fun netRecent(now: Long): Float = netProbs.filter { now - it.first <= CONFIRM_LOOKBACK_MS }.maxOfOrNull { it.second } ?: 0f
 
         var record: AudioRecord? = null
         val buf = ShortArray(SAMPLE_RATE / 10)           // 100 мс
@@ -197,6 +207,14 @@ class WakeService : Service() {
                 val listening = duck.active || settle >= 0 || System.currentTimeMillis() < windowUntil
                 if (quiet > 12 && !listening) { if (fed) { rec.reset(); fed = false }; settle = -1; candidate = null; continue }
                 fed = true
+                if (confirmStream != null) {
+                    if (runCatching { audio?.isMusicActive == true }.getOrDefault(false)) {
+                        val tNow = System.currentTimeMillis()
+                        confirmStream.push(buf, n) { netProbs.addLast(tNow to it.prob) }
+                        while (netProbs.isNotEmpty() && tNow - netProbs.first().first > 1_500) netProbs.removeFirst()
+                        netFed = true
+                    } else if (netFed) { confirmStream.reset(); netProbs.clear(); netFed = false }
+                }
                 // Законченная фраза — как раньше; при музыке пауз в речи нет, поэтому смотрим и на промежуточный
                 // результат, но принимаем его, только если он не меняется два чтения подряд.
                 var final = rec.acceptWaveForm(buf, n)
@@ -232,15 +250,19 @@ class WakeService : Service() {
                 // Имя прозвучало (три чтения подряд или законченной фразой) — приглушаем музыку, чтобы команду не кричать.
                 // Тихо держим [CMD_WINDOW_MS]: не пошла команда (имя послышалось в песне) — громкость возвращается.
                 val duckOn = (application as KartotekaApp).settings.assistantMusicDuck.value.value
+                val nowMs = System.currentTimeMillis()
+                if (playing && confirmStream != null && namePresent(text, words) && netRecent(nowMs) >= TH_CONFIRM) nameConfirmedAt = nowMs
+                val confirmed = !playing || confirmStream == null || nowMs - nameConfirmedAt <= CONFIRM_KEEP_MS
                 if (playing) {
                     nameStreak = if (namePresent(text, words)) nameStreak + 1 else 0
+                    if (!confirmed && nameStreak == 3) WakeDiag.add(playing, final, text, "имя не подтверждено нейросетью (%.2f) — песня".format(netRecent(nowMs)))
                     // Приглушаем сразу (3 чтения); окно «команда без имени» — только при уверенном имени
                     // (5 чтений подряд или законченная фраза с уверенностью ≥ 0.9) и не в режиме «Строго».
-                    if (duckOn && (nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(DUCK_SHORT_MS)) {
+                    if (confirmed && duckOn && (nameStreak >= 3 || (final && nameStreak >= 1 && confidence(obj) >= 0.6)) && !duck.active && duck.duck(DUCK_SHORT_MS)) {
                         duckConfirmed = false
                         WakeDiag.add(playing, final, text, "приглушила музыку")
                     }
-                    if (mode != "strict" && (nameStreak >= 5 || (final && namePresent(text, words) && nameConfidence(obj, words) >= SETTLED_NAME_CONF))) {
+                    if (confirmed && mode != "strict" && (nameStreak >= 5 || (final && namePresent(text, words) && nameConfidence(obj, words) >= SETTLED_NAME_CONF))) {
                         if (System.currentTimeMillis() >= windowUntil) WakeDiag.add(playing, final, text, "жду команду")
                         windowUntil = System.currentTimeMillis() + CMD_WINDOW_MS
                         if (duck.active) duck.extend(CMD_WINDOW_MS)
@@ -249,6 +271,11 @@ class WakeService : Service() {
                         if (!duckConfirmed) { duckConfirmed = true; duck.extend(MusicDuck.HOLD_MS) }
                     }
                 } else nameStreak = 0
+                // «Санта, команда» при музыке — только если имя подтвердила нейросеть (в окне команды оно уже подтверждено).
+                if (d != null && !inWindow && !confirmed) {
+                    WakeDiag.add(playing, final, text, "$d — имя не подтверждено нейросетью")
+                    d = null
+                }
                 // Голое имя при музыке — не открываем сферу сразу: ждём, не скажут ли команду.
                 if (playing && mode != "strict" && d is Decision.Wake && !d.ping && text.lowercase().trim().split(Regex("\\s+")).filter { it.isNotEmpty() && it != "[unk]" } == words) {
                     if (pendingWakeAt == 0L) WakeDiag.add(playing, final, text, "имя — жду команду, иначе открою ассистента")
@@ -573,6 +600,15 @@ class WakeService : Service() {
          * команд «Санта, …» поверх музыки выполнено 56% против 39%.
          */
         internal const val TH_NEURAL = 0.5f
+        /**
+         * Подтверждение имени при обычном слухе: сеть должна дать хотя бы столько в последние [CONFIRM_LOOKBACK_MS].
+         * Проверка (голоса и песни вне обучения): ложных «имя» на песнях 8.4 → 3.6 в час, на речи поверх музыки
+         * 456 → 240; найденных зовов поверх музыки — столько же, в тишине 99%.
+         */
+        internal const val TH_CONFIRM = 0.2f
+        private const val CONFIRM_LOOKBACK_MS = 1_200L
+        /** Сколько подтверждение держится: имя услышано — команда может прийти чуть позже. */
+        private const val CONFIRM_KEEP_MS = 2_500L
         internal const val NEURAL_HITS = 2
         /** Музыка на время команды — почти в ноль: команда слышна по чистому звуку. */
         private const val NEURAL_DUCK_LEVEL = 0.12f

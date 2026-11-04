@@ -16,6 +16,12 @@ fun NeuralWakeRows(name: String) {
     if (name.trim().lowercase() != "санта") return
     val context = LocalContext.current
     val s = app().settings
+    val confirm by s.assistantNeuralConfirm.value.collectAsState()
+    ToggleRow(
+        Icons.Default.RecordVoiceOver, t("Проверять имя нейросетью"),
+        t("При музыке имя засчитывается, только если его услышали и обычный слух, и нейросеть на телефоне. Песни реже глушат звук и переключают треки сами. Без интернета."),
+        confirm,
+    ) { s.assistantNeuralConfirm.set(it); WakeService.restart(context) }
     val on by s.assistantNeuralWake.value.collectAsState()
     ToggleRow(
         Icons.Default.RecordVoiceOver, t("Экспериментальный слух (нейросеть)"),
